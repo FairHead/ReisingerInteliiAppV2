@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "Windows Machine": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    },
+    "Android Device": {
+      "commandName": "Project",
+      "nativeDebugging": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "DOTNET_MODIFIABLE_ASSEMBLIES": "debug"
+      }
+    }
+  }
+}

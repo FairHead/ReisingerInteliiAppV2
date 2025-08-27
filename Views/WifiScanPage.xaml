@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ReisingerIntelliApp_V4.Views.WifiScanPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
+    xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters"
+    xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
+    BackgroundColor="#1E1E1E"
+    Shell.NavBarIsVisible="False">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:SavedDeviceOpacityConverter x:Key="SavedDeviceOpacityConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <ContentPage.BindingContext>
+        <!--  ViewModel will be set in code-behind  -->
+    </ContentPage.BindingContext>
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+        <!--  Header with Back Button and Title  -->
+        <Border Grid.Row="0" StrokeThickness="0">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0.0" Color="#2D2D2D" />
+                    <GradientStop Offset="1.0" Color="Transparent" />
+                </LinearGradientBrush>
+            </Border.Background>
+
+
+            <Grid ColumnDefinitions="Auto,*">
+                <!--  Back Button  -->
+                <Button
+                    x:Name="BackButton"
+                    Grid.Column="0"
+                    BackgroundColor="Transparent"
+                    BorderWidth="0"
+                    Command="{Binding BackCommand}"
+                    FontSize="24"
+                    HeightRequest="60"
+                    HorizontalOptions="Start"
+                    Text="&#8249;"
+                    TextColor="White"
+                    VerticalOptions="Center"
+                    WidthRequest="60" />
+
+                <!--  Title  -->
+                <Label
+                    Grid.Column="1"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="20"
+                    HorizontalOptions="Start"
+                    Text="{Binding Title}"
+                    TextColor="White"
+                    VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!--  Main Content  -->
+        <ScrollView Grid.Row="1" Padding="20">
+            <StackLayout Spacing="20">
+                <!--  Header with Scan Status  -->
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                    <Label
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        FontFamily="SpaceMonoBold"
+                        FontSize="18"
+                        Text="WiFi Networks"
+                        TextColor="White" />
+
+                    <Label
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Grid.ColumnSpan="2"
+                        Margin="0,5,0,0"
+                        FontSize="14"
+                        Text="{Binding ScanStatusText}"
+                        TextColor="#B0B0B0" />
+                </Grid>
+
+                <!--  Current Network  -->
+                <Border
+                    Padding="15"
+                    BackgroundColor="#2D4A2D"
+                    IsVisible="{Binding CurrentNetwork, Converter={StaticResource IsNotNullConverter}}"
+                    Stroke="#4CAF50"
+                    StrokeShape="RoundRectangle 8"
+                    StrokeThickness="1">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Label
+                            Grid.Column="0"
+                            FontSize="16"
+                            Text="📶"
+                            VerticalOptions="Center" />
+
+                        <StackLayout
+                            Grid.Column="1"
+                            Margin="10,0,0,0"
+                            Spacing="2">
+                            <Label
+                                FontFamily="SpaceMonoBold"
+                                FontSize="16"
+                                Text="{Binding CurrentNetwork.SsidName, StringFormat='Connected: {0}'}"
+                                TextColor="White" />
+                            <Label
+                                FontSize="12"
+                                Text="{Binding CurrentNetwork.SignalStrengthText, StringFormat='Signal: {0}'}"
+                                TextColor="#B0B0B0" />
+                        </StackLayout>
+
+                        <Label
+                            Grid.Column="2"
+                            FontSize="18"
+                            Text="✓"
+                            TextColor="#4CAF50"
+                            VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <!--  WiFi Networks List  -->
+                <CollectionView IsVisible="{Binding HasNetworks}" ItemsSource="{Binding WifiNetworks}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Border
+                                Margin="0,5"
+                                Padding="15"
+                                BackgroundColor="#2D2D2D"
+                                Opacity="{Binding IsAlreadySaved, Converter={StaticResource SavedDeviceOpacityConverter}}"
+                                Stroke="#404040"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="1">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:WifiScanViewModel}}, Path=NetworkSelectedCommand}" CommandParameter="{Binding}" />
+                                </Border.GestureRecognizers>
+
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <!--  WiFi Icon  -->
+                                    <Label
+                                        Grid.Column="0"
+                                        FontSize="16"
+                                        Text="📶"
+                                        VerticalOptions="Center" />
+
+                                    <!--  Network Info  -->
+                                    <StackLayout
+                                        Grid.Column="1"
+                                        Margin="10,0,10,0"
+                                        Spacing="2">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label
+                                                Grid.Column="0"
+                                                FontFamily="SpaceMonoBold"
+                                                FontSize="16"
+                                                Text="{Binding SsidName}"
+                                                TextColor="White" />
+                                            <!--  Saved indicator  -->
+                                            <Label
+                                                Grid.Column="1"
+                                                FontSize="12"
+                                                IsVisible="{Binding IsAlreadySaved}"
+                                                Text="💾"
+                                                ToolTipProperties.Text="Device saved"
+                                                VerticalOptions="Center" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="Auto,Auto,Auto">
+                                            <Label
+                                                Grid.Column="0"
+                                                FontSize="12"
+                                                Text="{Binding SignalStrengthText, StringFormat='Signal: {0}'}"
+                                                TextColor="#B0B0B0" />
+                                            <Label
+                                                Grid.Column="1"
+                                                FontSize="12"
+                                                Text=" • "
+                                                TextColor="#B0B0B0" />
+                                            <Label
+                                                Grid.Column="2"
+                                                FontSize="12"
+                                                Text="{Binding SecurityTypeText}"
+                                                TextColor="#B0B0B0" />
+                                        </Grid>
+                                        <!-- Already saved message -->
+                                        <Label
+                                            FontSize="11"
+                                            IsVisible="{Binding IsAlreadySaved}"
+                                            Text="Already saved - remove from device list to re-add"
+                                            TextColor="#FFA500" />
+                                    </StackLayout>
+
+                                    <!--  Add Device Button (visible only for non-saved devices)  -->
+                                    <Button
+                                        Grid.Column="2"
+                                        Margin="2,0"
+                                        BackgroundColor="#4CAF50"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:WifiScanViewModel}}, Path=AddDeviceCommand}"
+                                        CommandParameter="{Binding}"
+                                        CornerRadius="17"
+                                        FontSize="18"
+                                        HeightRequest="35"
+                                        IsVisible="{Binding IsAlreadySaved, Converter={StaticResource InvertedBoolConverter}}"
+                                        Text="+"
+                                        TextColor="White"
+                                        ToolTipProperties.Text="Add as device"
+                                        VerticalOptions="Center"
+                                        WidthRequest="35" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <!--  No Networks Found  -->
+                <Border
+                    Padding="20"
+                    BackgroundColor="#2D2D2D"
+                    IsVisible="{Binding HasNetworks, Converter={StaticResource InvertedBoolConverter}}"
+                    Stroke="#404040"
+                    StrokeShape="RoundRectangle 8"
+                    StrokeThickness="1">
+                    <StackLayout HorizontalOptions="Center" Spacing="10">
+                        <Label
+                            FontSize="24"
+                            HorizontalOptions="Center"
+                            Text="📡" />
+                        <Label
+                            FontSize="14"
+                            HorizontalOptions="Center"
+                            Text="No WiFi networks found"
+                            TextColor="#B0B0B0" />
+                        <Label
+                            FontSize="12"
+                            HorizontalOptions="Center"
+                            Text="Tap refresh to scan again"
+                            TextColor="#666666" />
+                    </StackLayout>
+                </Border>
+
+                <!--  Loading indicator  -->
+                <ActivityIndicator
+                    HorizontalOptions="Center"
+                    IsRunning="{Binding IsScanning}"
+                    IsVisible="{Binding IsScanning}"
+                    Color="#007AFF" />
+            </StackLayout>
+        </ScrollView>
+
+        <!--  Footer Component  -->
+        <components:AppFooter
+            x:Name="Footer"
+            Grid.Row="2"
+            CenterIcon="refresh.svg" />
+    </Grid>
+
+</ContentPage>

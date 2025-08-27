@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ReisingerIntelliApp_V4.Views.SaveDevicePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
+    xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters"
+    Title="Device Speichern"
+    BackgroundColor="#1E1E1E"
+    Shell.NavBarIsVisible="False">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:BoolToStatusConverter x:Key="BoolToStatusConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" StrokeThickness="0">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0.0" Color="#2D2D2D" />
+                    <GradientStop Offset="1.0" Color="Transparent" />
+                </LinearGradientBrush>
+            </Border.Background>
+
+
+            <Grid ColumnDefinitions="Auto,*">
+                <!--  Back Button  -->
+                <Button
+                    x:Name="BackButton"
+                    Grid.Column="0"
+                    BackgroundColor="Transparent"
+                    BorderWidth="0"
+                    Command="{Binding BackCommand}"
+                    FontSize="24"
+                    HeightRequest="60"
+                    HorizontalOptions="Center"
+                    Text="&#8249;"
+                    TextColor="White"
+                    VerticalOptions="Start"
+                    WidthRequest="60" />
+
+                <!--  Title  -->
+                <Label
+                    Grid.Column="1"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="20"
+                    HorizontalOptions="Start"
+                    Text="Save Device"
+                    TextColor="White"
+                    VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!--  Content  -->
+        <ScrollView Grid.Row="1" Padding="20">
+            <StackLayout Spacing="20">
+
+                <!--  Device Information Card  -->
+                <Frame
+                    Padding="20"
+                    BackgroundColor="White"
+                    CornerRadius="12"
+                    HasShadow="True">
+                    <StackLayout Spacing="15">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="18"
+                            Text="Netzwerk Informationen"
+                            TextColor="#333" />
+
+                        <Grid
+                            ColumnDefinitions="120,*"
+                            RowDefinitions="Auto,Auto,Auto,Auto"
+                            RowSpacing="10">
+                            <Label
+                                Grid.Row="0"
+                                Grid.Column="0"
+                                FontAttributes="Bold"
+                                Text="SSID:"
+                                TextColor="#666" />
+                            <Label
+                                Grid.Row="0"
+                                Grid.Column="1"
+                                FontSize="16"
+                                Text="{Binding SelectedNetwork.Ssid}" />
+
+                            <Label
+                                Grid.Row="1"
+                                Grid.Column="0"
+                                FontAttributes="Bold"
+                                Text="Signalstärke:"
+                                TextColor="#666" />
+                            <Label
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                FontSize="16"
+                                Text="{Binding SelectedNetwork.SignalStrength}" />
+
+                            <Label
+                                Grid.Row="2"
+                                Grid.Column="0"
+                                FontAttributes="Bold"
+                                Text="Sicherheit:"
+                                TextColor="#666" />
+                            <Label
+                                Grid.Row="2"
+                                Grid.Column="1"
+                                FontSize="16"
+                                Text="{Binding SelectedNetwork.SecurityType}" />
+
+                            <Label
+                                Grid.Row="3"
+                                Grid.Column="0"
+                                FontAttributes="Bold"
+                                Text="Status:"
+                                TextColor="#666" />
+                            <Label
+                                Grid.Row="3"
+                                Grid.Column="1"
+                                FontSize="16"
+                                Text="{Binding SelectedNetwork.IsConnected, Converter={StaticResource BoolToStatusConverter}}"
+                                TextColor="{Binding SelectedNetwork.IsConnected, Converter={StaticResource BoolToColorConverter}}" />
+                        </Grid>
+                    </StackLayout>
+                </Frame>
+
+                <!--  Device Credentials Card  -->
+                <Frame
+                    Padding="20"
+                    BackgroundColor="White"
+                    CornerRadius="12"
+                    HasShadow="True">
+                    <StackLayout Spacing="20">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="18"
+                            Text="Gerätezugangsdaten"
+                            TextColor="#333" />
+
+                        <StackLayout Spacing="5">
+                            <Label
+                                FontAttributes="Bold"
+                                Text="Benutzername:"
+                                TextColor="#666" />
+                            <Entry
+                                BackgroundColor="#F8F8F8"
+                                Placeholder="Benutzername eingeben..."
+                                PlaceholderColor="#999"
+                                Text="{Binding Username}" />
+                        </StackLayout>
+
+                        <StackLayout Spacing="5">
+                            <Label
+                                FontAttributes="Bold"
+                                Text="Passwort:"
+                                TextColor="#666" />
+                            <Entry
+                                BackgroundColor="#F8F8F8"
+                                IsPassword="True"
+                                Placeholder="Passwort eingeben..."
+                                PlaceholderColor="#999"
+                                Text="{Binding Password}" />
+                        </StackLayout>
+
+                        <StackLayout Spacing="5">
+                            <Label
+                                FontAttributes="Bold"
+                                Text="Gerätename:"
+                                TextColor="#666" />
+                            <Entry
+                                BackgroundColor="#F8F8F8"
+                                Placeholder="Name für das Gerät..."
+                                PlaceholderColor="#999"
+                                Text="{Binding DeviceName}" />
+                        </StackLayout>
+                    </StackLayout>
+                </Frame>
+
+                <!--  Test Connection Card  -->
+                <Frame
+                    Padding="20"
+                    BackgroundColor="White"
+                    CornerRadius="12"
+                    HasShadow="True">
+                    <StackLayout Spacing="15">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="18"
+                            Text="Verbindungstest"
+                            TextColor="#333" />
+
+                        <Label
+                            FontSize="14"
+                            Text="Teste die Verbindung zum WiFi-Netzwerk des Geräts."
+                            TextColor="#666" />
+
+                        <Button
+                            BackgroundColor="#007ACC"
+                            Command="{Binding TestConnectionCommand}"
+                            CornerRadius="8"
+                            FontAttributes="Bold"
+                            HeightRequest="45"
+                            IsEnabled="{Binding CanTestConnection}"
+                            Text="{Binding TestButtonText}"
+                            TextColor="White" />
+
+                        <!--  Status Message  -->
+                        <Label
+                            FontAttributes="Bold"
+                            HorizontalOptions="Center"
+                            IsVisible="{Binding ShowStatusMessage}"
+                            Text="{Binding StatusMessage}"
+                            TextColor="{Binding StatusColor}" />
+                    </StackLayout>
+                </Frame>
+
+                <!--  Action Buttons  -->
+                <Grid
+                    Margin="0,10,0,30"
+                    ColumnDefinitions="*,*"
+                    ColumnSpacing="15">
+                    <Button
+                        Grid.Column="0"
+                        BackgroundColor="#6C757D"
+                        Command="{Binding CancelCommand}"
+                        CornerRadius="8"
+                        FontAttributes="Bold"
+                        HeightRequest="50"
+                        Text="Abbrechen"
+                        TextColor="White" />
+
+                    <Button
+                        Grid.Column="1"
+                        BackgroundColor="#28A745"
+                        Command="{Binding SaveDeviceCommand}"
+                        CornerRadius="8"
+                        FontAttributes="Bold"
+                        HeightRequest="50"
+                        IsEnabled="{Binding CanSaveDevice}"
+                        Text="Gerät speichern"
+                        TextColor="White" />
+                </Grid>
+
+            </StackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

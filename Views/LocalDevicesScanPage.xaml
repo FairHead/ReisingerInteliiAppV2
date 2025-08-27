@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
+             xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
+             x:Class="ReisingerIntelliApp_V4.Views.LocalDevicesScanPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="#1E1E1E">
+
+    <ContentPage.BindingContext>
+        <viewmodels:LocalDevicesScanPageViewModel />
+    </ContentPage.BindingContext>
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+        <!-- Header with Back Button and Title -->
+        <Border Grid.Row="0" Padding="20,15" StrokeThickness="0">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#2D2D2D" Offset="0.0" />
+                    <GradientStop Color="Transparent" Offset="1.0" />
+                </LinearGradientBrush>
+            </Border.Background>
+            
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="*">
+                <!-- Back Button -->
+                <Button Grid.Column="0" 
+                        Grid.Row="0"
+                        Padding="0,0,0,0"
+                        Margin="0,0,0,7"
+                        x:Name="BackButton"
+                        Text="&#8249;"
+                        FontSize="30"
+                        TextColor="White"
+                        BackgroundColor="Transparent"
+                        BorderWidth="0"
+                        WidthRequest="40"
+                        HeightRequest="40"
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"
+                        Command="{Binding BackCommand}" />
+                <!-- Title -->
+                <Label Grid.Column="1" 
+                       Grid.Row="0"
+                       Text="{Binding Title}" 
+                       TextColor="White" 
+                       FontSize="20"
+                       FontFamily="SpaceMonoBold"
+                       HorizontalOptions="Start"
+                       VerticalOptions="Center"
+                       Margin="10,0,0,0" />
+            </Grid>
+        </Border>
+
+        <!-- Main Content -->
+        <ScrollView Grid.Row="1" Padding="20">
+            <StackLayout Spacing="20">
+                <!-- SSID Info -->
+                <StackLayout Spacing="5">
+                    <Label Text="SSID: MyNetwork" 
+                           FontSize="16" 
+                           FontFamily="SpaceMonoBold"
+                           TextColor="White" 
+                           HorizontalOptions="Start" />
+                </StackLayout>
+                
+                <!-- Device List -->
+                <StackLayout x:Name="LocalDevicesList" Spacing="15">
+                    <!-- Local devices will be added here dynamically -->
+                </StackLayout>
+                
+                <!-- Loading indicator -->
+                <ActivityIndicator IsVisible="{Binding IsBusy}" 
+                                  IsRunning="{Binding IsBusy}"
+                                  Color="#007AFF"
+                                  HorizontalOptions="Center" />
+            </StackLayout>
+        </ScrollView>
+
+        <!-- IP Range Input Section -->
+        <StackLayout Grid.Row="2" Padding="20,0,20,20" Spacing="15">
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <!-- Start IP Entry -->
+                <Entry Grid.Column="0"
+                       x:Name="StartIpEntry"
+                       Placeholder="Start IP"
+                       PlaceholderColor="#808080"
+                       TextColor="White"
+                       BackgroundColor="#2A2A2A"
+                       FontFamily="SpaceMonoBold"
+                       FontSize="14"
+                       HeightRequest="50"
+                       MaxLength="15"
+                       Text="192.168.0.1"
+                       TextChanged="OnIpEntryTextChanged" />
+                
+                <!-- End IP Entry -->
+                <Entry Grid.Column="1"
+                       x:Name="EndIpEntry"
+                       Placeholder="End IP"
+                       PlaceholderColor="#808080"
+                       TextColor="White"
+                       BackgroundColor="#2A2A2A"
+                       FontFamily="SpaceMonoBold"
+                       FontSize="14"
+                       HeightRequest="50"
+                       MaxLength="15"
+                       Text="192.168.0.254"
+                       TextChanged="OnIpEntryTextChanged" />
+            </Grid>
+            
+            <!-- Scan Button -->
+            <Button x:Name="ScanButton"
+                    Text="Scan Local Network"
+                    BackgroundColor="#007AFF"
+                    TextColor="White"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="16"
+                    HeightRequest="50"
+                    CornerRadius="25"
+                    Command="{Binding ScanCommand}" />
+        </StackLayout>
+
+        <!-- Footer Component -->
+        <components:AppFooter Grid.Row="3" 
+                             x:Name="Footer" />
+    </Grid>
+
+</ContentPage>
