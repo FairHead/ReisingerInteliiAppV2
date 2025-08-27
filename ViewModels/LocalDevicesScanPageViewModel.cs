@@ -30,8 +30,8 @@ public class LocalDevicesScanPageViewModel : BaseViewModel
         IsBusy = true;
         try
         {
-            if (Application.Current?.Windows?.FirstOrDefault()?.Page is Page page)
-                await page.DisplayAlert("Refresh", "Refreshing local devices scan...", "OK");
+            if (Application.Current?.MainPage != null)
+                await Application.Current.MainPage.DisplayAlert("Refresh", "Refreshing local devices scan...", "OK");
         }
         finally
         {
@@ -41,8 +41,8 @@ public class LocalDevicesScanPageViewModel : BaseViewModel
 
     private async void OnSettingsTapped()
     {
-        if (Application.Current?.Windows?.FirstOrDefault()?.Page is Page page)
-            await page.DisplayAlert("Settings", "Opening settings...", "OK");
+        if (Application.Current?.MainPage != null)
+            await Application.Current.MainPage.DisplayAlert("Settings", "Opening settings...", "OK");
     }
 
     private async void OnBackButtonClicked()
@@ -55,8 +55,8 @@ public class LocalDevicesScanPageViewModel : BaseViewModel
         IsBusy = true;
         try
         {
-            if (Application.Current?.Windows?.FirstOrDefault()?.Page is Page page)
-                await page.DisplayAlert("Scan", "Starting local devices scan...", "OK");
+            if (Application.Current?.MainPage != null)
+                await Application.Current.MainPage.DisplayAlert("Scan", "Starting local devices scan...", "OK");
         }
         finally
         {
