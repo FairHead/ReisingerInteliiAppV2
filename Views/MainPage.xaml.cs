@@ -1,5 +1,8 @@
 using Microsoft.Maui.Controls.Shapes;
 using ReisingerIntelliApp_V4.ViewModels;
+using ReisingerIntelliApp_V4.Helpers;
+using ReisingerIntelliApp_V4.Services;
+using System.Linq;
 
 namespace ReisingerIntelliApp_V4.Views;
 
@@ -52,6 +55,37 @@ public partial class MainPage : ContentPage
     private void OnDropdownContentTapped(object? sender, TappedEventArgs e)
     {
         // Prevent the background tap from being triggered when clicking inside dropdown
+    }
+
+    private async void OnDropdownItemSelected(object sender, SelectionChangedEventArgs e)
+    {
+        try
+        {
+            if (_viewModel?.CurrentActiveTab == null) return;
+            var selected = e.CurrentSelection?.FirstOrDefault();
+            if (selected is not ReisingerIntelliApp_V4.Models.DropdownItemModel item) return;
+
+            // Clear selection for tap-like behavior
+            if (sender is CollectionView cv) cv.SelectedItem = null;
+
+            if (_viewModel.CurrentActiveTab == "Structures")
+            {
+                // Update selected building and highlight
+                _viewModel.SelectedBuildingName = item.Id;
+                foreach (var it in _viewModel.DropdownItems)
+                    it.IsSelected = it.Id == item.Id;
+                // Auto-switch to Levels to show floors of the selected building
+                _viewModel.TabTappedCommand.Execute("Levels");
+            }
+            else if (_viewModel.CurrentActiveTab == "Levels")
+            {
+                // Select a level for later operations and highlight
+                _viewModel.SelectedLevelName = item.Id;
+                foreach (var it in _viewModel.DropdownItems)
+                    it.IsSelected = it.Id == item.Id;
+            }
+        }
+        catch { }
     }
 
     private void SetActiveTab(string tabName)

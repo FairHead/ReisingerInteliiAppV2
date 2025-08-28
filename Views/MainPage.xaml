@@ -159,6 +159,8 @@
                     x:Name="DropdownItemsView"
                     Grid.Row="1"
                     ItemsSource="{Binding DropdownItems}"
+                    SelectionMode="Single"
+                    SelectionChanged="OnDropdownItemSelected"
                     VerticalOptions="FillAndExpand">
                     <CollectionView.ItemsLayout>
                         <GridItemsLayout
@@ -174,7 +176,8 @@
                                 BackgroundColor="#2A2A2A"
                                 MinimumHeightRequest="175"
                                 StrokeShape="RoundRectangle 8"
-                                StrokeThickness="0">
+                                StrokeThickness="{Binding IsSelected, Converter={StaticResource BoolToThicknessConverter}}"
+                                Stroke="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}}">
                                 <Grid RowDefinitions="Auto,*,Auto">
                                     <!--  Icon  -->
                                     <Image
@@ -193,10 +196,10 @@
                                             Text="{Binding Text}"
                                             TextColor="White" />
 
-                                        <!--  Connection Status (only for WiFi devices with actions)  -->
+                                        <!--  Connection Status (only for device tabs; hidden for Structures/Levels)  -->
                                         <StackLayout
                                             HorizontalOptions="Center"
-                                            IsVisible="{Binding HasActions}"
+                                            IsVisible="{Binding ShowStatus}"
                                             Orientation="Horizontal"
                                             Spacing="8">
                                             <!--  Status Indicator Dot  -->

@@ -11,6 +11,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 {
     private readonly IDeviceService _deviceService;
     private readonly IAuthenticationService _authService;
+    private readonly IBuildingStorageService _buildingStorage;
     private readonly WiFiManagerService _wifiService;
     private readonly IntellidriveApiService _apiService;
     private string? _currentActiveTab;
@@ -25,13 +26,16 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private bool _isDropdownVisible;
     private bool _showScanButton;
     private string _scanButtonText = string.Empty;
+    private string? _selectedBuildingName;
+    private string? _selectedLevelName;
 
-    public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService, IntellidriveApiService apiService)
+    public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService, IntellidriveApiService apiService, IBuildingStorageService buildingStorage)
     {
         _deviceService = deviceService;
         _authService = authService;
         _wifiService = wifiService;
         _apiService = apiService;
+        _buildingStorage = buildingStorage;
         Title = "Reisinger App";
         TabTappedCommand = new Command<string>(OnTabTapped);
         LeftSectionTappedCommand = new Command(OnLeftSectionTapped);
@@ -50,6 +54,18 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             {
                 await LoadLocalDevicesAsync();
             }
+        });
+
+        // Listen for building saved to refresh and auto-open Levels
+        MessagingCenter.Subscribe<StructureEditorViewModel, string>(this, "BuildingSaved", async (sender, buildingName) =>
+        {
+            await LoadStructuresAsync();
+            SelectedBuildingName = buildingName;
+            // Auto-open Levels and preselect first level if available
+            ShowDropdownForTab("Levels");
+            var structures = await _buildingStorage.LoadAsync();
+            var selected = structures.FirstOrDefault(b => b.BuildingName.Equals(buildingName, StringComparison.OrdinalIgnoreCase));
+            SelectedLevelName = selected?.Floors?.FirstOrDefault()?.FloorName;
         });
     }
 
@@ -97,6 +113,20 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         set => SetProperty(ref _scanButtonText, value);
     }
 
+    // Tracks the currently selected building from the Structures tab
+    public string? SelectedBuildingName
+    {
+        get => _selectedBuildingName;
+        set => SetProperty(ref _selectedBuildingName, value);
+    }
+
+    // Tracks the currently selected level within the selected building
+    public string? SelectedLevelName
+    {
+        get => _selectedLevelName;
+        set => SetProperty(ref _selectedLevelName, value);
+    }
+
     // Event to notify the View about tab changes
     public event EventHandler<string>? TabActivated;
     public event EventHandler? TabDeactivated;
@@ -107,27 +137,11 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private void InitializeDropdownData()
     {
         // Pre-cache all dropdown data for instant access
-        _dropdownCache["Structures"] = ("Structures", new List<DropdownItemModel>
-        {
-            new() { Id = "struct_001", Icon = "home.svg", Text = "Main HQ", HasActions = false },
-            new() { Id = "struct_002", Icon = "home.svg", Text = "Storage\nFacility", HasActions = false },
-            new() { Id = "struct_003", Icon = "home.svg", Text = "Manufacturing\nPlant", HasActions = false },
-            new() { Id = "struct_004", Icon = "home.svg", Text = "Data Center", HasActions = false },
-            new() { Id = "struct_005", Icon = "home.svg", Text = "Data Center", HasActions = false },
-            new() { Id = "struct_006", Icon = "home.svg", Text = "Data Center", HasActions = false }
-        });
+    // Initial placeholders; will be replaced by persisted Buildings/Levels when tabs open
+    _dropdownCache["Structures"] = ("Structures", new List<DropdownItemModel>());
+    _dropdownCache["Levels"] = ("Levels", new List<DropdownItemModel>());
 
-        _dropdownCache["Levels"] = ("Levels", new List<DropdownItemModel>
-        {
-            new() { Id = "level_001", Icon = "levels.svg", Text = "First Floor\nRight Section", HasActions = false },
-            new() { Id = "level_002", Icon = "levels.svg", Text = "First Floor\nLeft Section", HasActions = false },
-            new() { Id = "level_003", Icon = "levels.svg", Text = "Second Floor\nRight Section", HasActions = false },
-            new() { Id = "level_004", Icon = "levels.svg", Text = "Second Floor\nLeft Section", HasActions = false },
-            new() { Id = "level_005", Icon = "levels.svg", Text = "Third Floor\nRight Section", HasActions = false },
-            new() { Id = "level_006", Icon = "levels.svg", Text = "Third Floor\nLeft Section", HasActions = false }
-        });
-
-        _dropdownCache["WifiDev"] = ("Wifi Devices", new List<DropdownItemModel>());
+    _dropdownCache["WifiDev"] = ("Wifi Devices", new List<DropdownItemModel>());
 
     _dropdownCache["LocalDev"] = ("Local Devices", new List<DropdownItemModel>());
     }
@@ -163,7 +177,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     {
         CurrentActiveTab = tabName;
         
-        if (tabName == "WifiDev")
+    if (tabName == "WifiDev")
         {
             _ = LoadWifiDevicesAsync();
             // Ensure WiFi status monitoring is active for WifiDev tab
@@ -181,13 +195,26 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 StartLocalDevStatusMonitoring();
             }
         }
+        else if (tabName == "Structures")
+        {
+            _ = LoadStructuresAsync();
+        }
+        else if (tabName == "Levels")
+        {
+            _ = LoadLevelsAsync();
+        }
         else if (_dropdownCache.TryGetValue(tabName, out var cachedData))
         {
             DropdownTitle = cachedData.Title;
+            // Only show scan button for device tabs; Structures uses the main '+'
             ShowScanButton = tabName == "LocalDev";
             
             // Set scan button text based on tab
-            ScanButtonText = "Scan Local Network for Devices";
+            ScanButtonText = tabName switch
+            {
+                "LocalDev" => "Scan Local Network for Devices",
+                _ => string.Empty
+            };
             
             // Clear and add items directly
             DropdownItems.Clear();
@@ -255,6 +282,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         Icon = "wifi_icon.svg",
                         Text = $"{device.Name}\n{device.Ssid} • {lastSeenText}",
                         HasActions = true,
+                        ShowStatus = true,
                         IsConnected = false // Start with disconnected, will be updated immediately by monitoring
                     };
                     
@@ -338,7 +366,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         Icon = "local_icon.svg",
                         Text = $"{device.Name}\n{device.IpAddress} • {lastSeenText}",
                         HasActions = true,
-                        IsConnected = false // Start with disconnected, will be updated by monitoring
+                        ShowStatus = true,
+                        IsConnected = false // Start with disconnected, will be updated immediately by monitoring
                     };
                     
                     DropdownItems.Add(dropdownItem);
@@ -379,6 +408,58 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
     }
 
+    private async Task LoadStructuresAsync()
+    {
+        DropdownTitle = "Structures";
+        // Add Building moved to main '+'
+        ShowScanButton = false;
+        ScanButtonText = string.Empty;
+        DropdownItems.Clear();
+        DropdownItems.Add(new DropdownItemModel { Id = "loading", Icon = "loading.svg", Text = "Loading buildings..." });
+        IsDropdownVisible = true;
+
+        var buildings = await _buildingStorage.LoadAsync();
+        DropdownItems.Clear();
+        if (buildings.Count == 0)
+        {
+            DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "No buildings yet\nUse '+' to add", HasActions = false });
+            return;
+        }
+        foreach (var b in buildings)
+        {
+            DropdownItems.Add(new DropdownItemModel { Id = b.BuildingName, Icon = "home.svg", Text = b.BuildingName, HasActions = true, ShowStatus = false, IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) });
+        }
+    }
+
+    private async Task LoadLevelsAsync()
+    {
+        DropdownTitle = "Levels";
+        ShowScanButton = false;
+        DropdownItems.Clear();
+        DropdownItems.Add(new DropdownItemModel { Id = "loading", Icon = "loading.svg", Text = "Loading floors..." });
+        IsDropdownVisible = true;
+
+        var structures = await _buildingStorage.LoadAsync();
+        DropdownItems.Clear();
+
+        if (string.IsNullOrWhiteSpace(SelectedBuildingName))
+        {
+            DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "Select a building in Structures first" });
+            return;
+        }
+
+        var selected = structures.FirstOrDefault(b => b.BuildingName.Equals(SelectedBuildingName, StringComparison.OrdinalIgnoreCase));
+        if (selected == null || selected.Floors.Count == 0)
+        {
+            DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "No floors to display" });
+            return;
+        }
+        foreach (var f in selected.Floors)
+        {
+            DropdownItems.Add(new DropdownItemModel { Id = f.FloorName, Icon = "levels.svg", Text = f.FloorName, HasActions = true, ShowStatus = false, IsSelected = string.Equals(SelectedLevelName, f.FloorName, StringComparison.OrdinalIgnoreCase) });
+        }
+    }
+
     private void RemoveDefaultNoDeviceCard()
     {
         var noDeviceItem = DropdownItems.FirstOrDefault(i => i.Id == NO_DEVICES_ITEM_ID);
@@ -409,6 +490,11 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
     private async void OnCenterButtonTapped()
     {
+        if (CurrentActiveTab == "Structures")
+        {
+            await Shell.Current.GoToAsync("structureeditor");
+            return;
+        }
         if (Application.Current?.Windows?.FirstOrDefault()?.Page is Page page)
             await page.DisplayAlert("Action", "Add button tapped", "OK");
     }
@@ -429,6 +515,10 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         {
             await Shell.Current.GoToAsync("localscan");
         }
+        else if (CurrentActiveTab == "Structures")
+        {
+            await Shell.Current.GoToAsync("structureeditor");
+        }
         
         CloseDropdown();
     }
@@ -439,67 +529,87 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
         try
         {
-            var confirm = await Application.Current.MainPage.DisplayAlert(
+            // Branch by current tab
+            if (CurrentActiveTab == "Structures")
+            {
+                var confirm = await Application.Current.MainPage.DisplayAlert(
+                    "Delete Building",
+                    $"Delete building '{device.Text}' and all its floors?",
+                    "Delete",
+                    "Cancel");
+                if (!confirm) return;
+
+                var list = await _buildingStorage.LoadAsync();
+                var toRemove = list.FirstOrDefault(b => b.BuildingName.Equals(device.Id, StringComparison.OrdinalIgnoreCase));
+                if (toRemove != null)
+                {
+                    list.Remove(toRemove);
+                    await _buildingStorage.SaveAsync(list);
+                }
+                // Refresh Structures view
+                await LoadStructuresAsync();
+                return;
+            }
+            if (CurrentActiveTab == "Levels")
+            {
+                if (string.IsNullOrWhiteSpace(SelectedBuildingName))
+                {
+                    await Application.Current.MainPage.DisplayAlert("Info", "Select a building first.", "OK");
+                    return;
+                }
+                var confirm = await Application.Current.MainPage.DisplayAlert(
+                    "Delete Floor",
+                    $"Delete floor '{device.Text}' from '{SelectedBuildingName}'?",
+                    "Delete",
+                    "Cancel");
+                if (!confirm) return;
+
+                var list = await _buildingStorage.LoadAsync();
+                var building = list.FirstOrDefault(b => b.BuildingName.Equals(SelectedBuildingName, StringComparison.OrdinalIgnoreCase));
+                if (building != null)
+                {
+                    var floor = building.Floors.FirstOrDefault(f => f.FloorName.Equals(device.Id, StringComparison.OrdinalIgnoreCase));
+                    if (floor != null)
+                        building.Floors.Remove(floor);
+                    await _buildingStorage.SaveAsync(list);
+                }
+                // Refresh Levels view
+                await LoadLevelsAsync();
+                return;
+            }
+
+            // Default device deletion logic
+            var confirmDelete = await Application.Current.MainPage.DisplayAlert(
                 "Delete Device",
                 $"Are you sure you want to delete the device '{device.Text.Split('\n')[0]}'?",
                 "Delete",
                 "Cancel");
 
-            if (confirm)
+            if (confirmDelete)
             {
-                // Remove from DeviceService if it's a WiFi device
                 if (CurrentActiveTab == "WifiDev")
                 {
-                    // Create a DeviceModel to delete from service
                     var deviceToDelete = new DeviceModel
                     {
                         DeviceId = device.Id,
-                        // Extract device name from the text (first line)
                         Name = device.Text.Split('\n')[0],
                         ConnectionType = ConnectionType.Wifi
                     };
-                    
                     await _deviceService.DeleteDeviceAsync(deviceToDelete);
                 }
                 else if (CurrentActiveTab == "LocalDev")
                 {
-                    // Persist deletion for Local devices as well
                     var deviceToDelete = new DeviceModel
                     {
                         DeviceId = device.Id,
                         Name = device.Text.Split('\n')[0],
                         ConnectionType = ConnectionType.Local
                     };
-
                     await _deviceService.DeleteDeviceAsync(deviceToDelete);
                 }
 
-                // Remove from the current dropdown items
                 DropdownItems.Remove(device);
 
-                // Also remove from the cache
-                if (CurrentActiveTab == "WifiDev" && _dropdownCache.ContainsKey("WifiDev"))
-                {
-                    var (title, items) = _dropdownCache["WifiDev"];
-                    var itemToRemove = items.FirstOrDefault(i => i.Id == device.Id);
-                    if (itemToRemove != null)
-                    {
-                        items.Remove(itemToRemove);
-                        _dropdownCache["WifiDev"] = (title, items);
-                    }
-                }
-                else if (CurrentActiveTab == "LocalDev" && _dropdownCache.ContainsKey("LocalDev"))
-                {
-                    var (title, items) = _dropdownCache["LocalDev"];
-                    var itemToRemove = items.FirstOrDefault(i => i.Id == device.Id);
-                    if (itemToRemove != null)
-                    {
-                        items.Remove(itemToRemove);
-                        _dropdownCache["LocalDev"] = (title, items);
-                    }
-                }
-
-                // If no actionable items remain, show the default "no devices" card
                 if (CurrentActiveTab == "LocalDev" && !DropdownItems.Any(i => i.HasActions))
                 {
                     DropdownItems.Add(new DropdownItemModel
@@ -523,7 +633,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
                 await Application.Current.MainPage.DisplayAlert(
                     "Success",
-                    "Device has been deleted successfully.",
+                    "Deleted successfully.",
                     "OK");
             }
         }
@@ -531,7 +641,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         {
             await Application.Current.MainPage.DisplayAlert(
                 "Error",
-                $"Failed to delete device: {ex.Message}",
+                $"Failed to delete: {ex.Message}",
                 "OK");
         }
     }
@@ -542,6 +652,26 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
         try
         {
+            if (CurrentActiveTab == "Structures")
+            {
+                // Open building editor
+                var route = $"structureeditor?name={Uri.EscapeDataString(device.Id)}";
+                await Shell.Current.GoToAsync(route);
+                return;
+            }
+            if (CurrentActiveTab == "Levels")
+            {
+                // Open building editor for the selected building to manage floors
+                if (string.IsNullOrWhiteSpace(SelectedBuildingName))
+                {
+                    await Application.Current.MainPage.DisplayAlert("Info", "Select a building first.", "OK");
+                    return;
+                }
+                var route = $"structureeditor?name={Uri.EscapeDataString(SelectedBuildingName)}";
+                await Shell.Current.GoToAsync(route);
+                return;
+            }
+
             var deviceName = device.Text.Split('\n')[0];
             var options = new List<string>
             {

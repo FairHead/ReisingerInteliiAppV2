@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ReisingerIntelliApp_V4.Views.StructureEditorPage"
+    x:Name="EditorPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    BackgroundColor="#1E1E1E"
+    Title="Structure Editor">
+
+    <VerticalStackLayout Padding="20" Spacing="12">
+        <Label Text="Building Name" TextColor="White" />
+        <Entry Text="{Binding Name}" Placeholder="Enter name" />
+
+        <Label Text="Floors" TextColor="White" />
+        <HorizontalStackLayout Spacing="8">
+            <Entry Text="{Binding NewFloorName}" Placeholder="New floor name" />
+            <Button Text="Add" Command="{Binding AddFloorCommand}" />
+        </HorizontalStackLayout>
+
+    <CollectionView ItemsSource="{Binding Floors}" HeightRequest="250">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" Padding="8">
+                        <Label Text="{Binding FloorName}" TextColor="White" />
+                        <Button Grid.Column="1" Text="Remove"
+                                Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.RemoveFloorCommand}"
+                                CommandParameter="{Binding .}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Button Text="Save" Command="{Binding SaveCommand}" />
+    </VerticalStackLayout>
+</ContentPage>

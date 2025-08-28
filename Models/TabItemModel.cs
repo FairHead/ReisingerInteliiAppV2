@@ -19,6 +19,14 @@ public partial class DropdownItemModel : ObservableObject
     public string SubText { get; set; } = string.Empty;
     public bool HasActions { get; set; }
     
+    // Controls whether the connection status UI is shown for this item
+    [ObservableProperty]
+    private bool showStatus = false;
+
+    // Selection state for visual highlighting in Structures/Levels (and reusable elsewhere)
+    [ObservableProperty]
+    private bool isSelected = false;
+    
     [ObservableProperty]
     private bool isConnected = false;
     
