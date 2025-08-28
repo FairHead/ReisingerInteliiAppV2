@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDeviceService, DeviceService>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IAuthenticationService, AuthenticationService>();
+    services.AddSingleton<IBuildingStorageService, BuildingStorageService>();
         services.AddSingleton<IntellidriveApiService>();
         services.AddSingleton<WiFiManagerService>();
 
@@ -30,6 +31,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<LocalDevicesScanPageViewModel>();
         services.AddTransient<SaveDevicePageViewModel>();
     services.AddTransient<SaveLocalDevicePageViewModel>();
+    services.AddTransient<StructuresViewModel>();
+    services.AddTransient<StructureEditorViewModel>();
 
         // Register Pages
         services.AddTransient<MainPage>();
@@ -37,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<LocalDevicesScanPage>();
         services.AddTransient<SaveDevicePage>();
     services.AddTransient<SaveLocalDevicePage>();
+    services.AddTransient<StructureEditorPage>();
 
         return services;
     }
