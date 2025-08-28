@@ -1,5 +1,7 @@
 using ReisingerIntelliApp_V4.Models;
 using System.Text.Json;
+using System.Diagnostics;
+using System.Net;
 
 namespace ReisingerIntelliApp_V4.Services;
 
@@ -7,11 +9,13 @@ public interface IDeviceService
 {
     Task<List<DeviceModel>> ScanForWifiDevicesAsync();
     Task<List<DeviceModel>> ScanForLocalDevicesAsync(string startIp, string endIp);
+    Task<List<LocalNetworkDeviceModel>> ScanForLocalNetworkDevicesAsync(string startIp, string endIp);
     Task<DeviceModel?> GetDeviceDetailsAsync(string deviceId);
     Task<bool> ConnectToDeviceAsync(string deviceId);
     
     // New methods for saving/loading devices
     Task<List<DeviceModel>> GetSavedWifiDevicesAsync();
+    Task<List<DeviceModel>> GetSavedLocalDevicesAsync();
     Task<List<DeviceModel>> AddDeviceAndReturnUpdatedListAsync(DeviceModel device);
     Task SaveDeviceAsync(DeviceModel device);
     Task DeleteDeviceAsync(DeviceModel device);
@@ -23,6 +27,12 @@ public interface IDeviceService
 public class DeviceService : IDeviceService
 {
     private const string DevicesKey = "SavedDevices";
+    private readonly IntellidriveApiService _intellidriveApiService;
+
+    public DeviceService(IntellidriveApiService intellidriveApiService)
+    {
+        _intellidriveApiService = intellidriveApiService ?? throw new ArgumentNullException(nameof(intellidriveApiService));
+    }
 
     public async Task<List<DeviceModel>> ScanForWifiDevicesAsync()
     {
@@ -54,30 +64,148 @@ public class DeviceService : IDeviceService
 
     public async Task<List<DeviceModel>> ScanForLocalDevicesAsync(string startIp, string endIp)
     {
-        // Simulate scanning for local devices
-        await Task.Delay(3000); // Simulate network scanning delay
-        
-        return new List<DeviceModel>
+        try
         {
-            new() 
-            { 
-                DeviceId = "local_001", 
-                Name = "IT Door Right 1", 
-                IpAddress = "192.168.0.45", 
-                Type = AppDeviceType.LocalDevice, 
-                IsOnline = true, 
-                LastSeen = DateTime.Now 
-            },
-            new() 
-            { 
-                DeviceId = "local_002", 
-                Name = "Security Camera 01", 
-                IpAddress = "192.168.0.101", 
-                Type = AppDeviceType.SmartDevice, 
-                IsOnline = false, 
-                LastSeen = DateTime.Now.AddMinutes(-15) 
+            var foundDevices = new List<DeviceModel>();
+            var scannedDevices = await ScanForLocalNetworkDevicesAsync(startIp, endIp);
+            
+            foreach (var device in scannedDevices)
+            {
+                var deviceModel = new DeviceModel
+                {
+                    DeviceId = device.DeviceId ?? $"local_{DateTime.Now.Ticks}",
+                    Name = device.DisplayName,
+                    IpAddress = device.IpAddress,
+                    SerialNumber = device.SerialNumber,
+                    FirmwareVersion = device.FirmwareVersion,
+                    SoftwareVersion = device.SoftwareVersion,
+                    LatestFirmware = device.LatestFirmware,
+                    Type = AppDeviceType.LocalDevice,
+                    ConnectionType = ConnectionType.Local,
+                    IsOnline = device.IsOnline,
+                    LastUpdated = device.DiscoveredAt,
+                    Ip = device.IpAddress
+                };
+                
+                foundDevices.Add(deviceModel);
             }
-        };
+            
+            return foundDevices;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error in ScanForLocalDevicesAsync: {ex.Message}");
+            return new List<DeviceModel>();
+        }
+    }
+
+    /// <summary>
+    /// Efficient parallel scanning of IP range for Intellidrive devices
+    /// Based on sophisticated implementation from V3 with improvements
+    /// </summary>
+    public async Task<List<LocalNetworkDeviceModel>> ScanForLocalNetworkDevicesAsync(string startIp, string endIp)
+    {
+        var foundDevices = new List<LocalNetworkDeviceModel>();
+        
+        try
+        {
+            Debug.WriteLine($"🔍 Starting local network scan from {startIp} to {endIp}");
+            
+            // Get saved device serial numbers for comparison
+            var savedDevices = await GetSavedLocalDevicesAsync();
+            var savedSerialNumbers = savedDevices.Select(d => d.SerialNumber).ToHashSet();
+            
+            // Parse IP range
+            var startBytes = IPAddress.Parse(startIp).GetAddressBytes();
+            var endBytes = IPAddress.Parse(endIp).GetAddressBytes();
+            uint start = BitConverter.ToUInt32(startBytes.Reverse().ToArray(), 0);
+            uint end = BitConverter.ToUInt32(endBytes.Reverse().ToArray(), 0);
+            
+            // Generate list of IP addresses to scan
+            var ipsToScan = Enumerable
+                .Range(0, (int)(end - start + 1))
+                .Select(i => {
+                    uint ip = start + (uint)i;
+                    byte[] bytes = BitConverter.GetBytes(ip).Reverse().ToArray();
+                    return new IPAddress(bytes).ToString();
+                })
+                .ToList();
+            
+            Debug.WriteLine($"📡 Scanning {ipsToScan.Count} IP addresses with parallel processing");
+            
+            // Use SemaphoreSlim for controlled parallelism (max 20 concurrent connections)
+            using var semaphore = new SemaphoreSlim(20, 20);
+            var scanTasks = ipsToScan.Select(async ip => {
+                await semaphore.WaitAsync();
+                try
+                {
+                    return await ScanSingleDeviceAsync(ip, savedSerialNumbers);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+            
+            var results = await Task.WhenAll(scanTasks);
+            foundDevices = results.Where(d => d != null).Cast<LocalNetworkDeviceModel>().ToList();
+            
+            Debug.WriteLine($"✅ Network scan completed. Found {foundDevices.Count} devices");
+            
+            return foundDevices;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error during network scan: {ex.Message}");
+            return foundDevices;
+        }
+    }
+    
+    private async Task<LocalNetworkDeviceModel?> ScanSingleDeviceAsync(string ipAddress, HashSet<string> savedSerialNumbers)
+    {
+        try
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            
+            // Try to get version info from the device
+            var versionResponse = await _intellidriveApiService.GetVersionAsync(ipAddress, timeoutSeconds: 3);
+            
+            stopwatch.Stop();
+            
+            if (versionResponse != null && !string.IsNullOrEmpty(versionResponse.Message))
+            {
+                var device = new LocalNetworkDeviceModel
+                {
+                    IpAddress = ipAddress,
+                    DeviceId = versionResponse.DeviceId ?? $"local_{DateTime.Now.Ticks}",
+                    SerialNumber = versionResponse.DeviceId ?? "Unknown",
+                    FirmwareVersion = versionResponse.FirmwareVersion ?? "Unknown",
+                    SoftwareVersion = versionResponse.Message ?? "Unknown", 
+                    LatestFirmware = versionResponse.LatestFirmware,
+                    IsAlreadySaved = savedSerialNumbers.Contains(versionResponse.DeviceId ?? ""),
+                    DiscoveredAt = DateTime.Now,
+                    IsOnline = true,
+                    ResponseTime = DateTime.Now // Fixed: Use DateTime instead of TimeSpan
+                };
+                
+                Debug.WriteLine($"✅ Found device at {ipAddress}: {device.SerialNumber} (Response: {stopwatch.ElapsedMilliseconds}ms)");
+                return device;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            // Device not reachable - this is expected for most IPs
+        }
+        catch (TaskCanceledException)
+        {
+            // Timeout - also expected
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"⚠️ Error scanning {ipAddress}: {ex.Message}");
+        }
+        
+        return null;
     }
 
     public async Task<DeviceModel?> GetDeviceDetailsAsync(string deviceId)
@@ -171,6 +299,38 @@ public class DeviceService : IDeviceService
         {
             System.Diagnostics.Debug.WriteLine($"❌ Error loading device list: {ex.Message}");
             return (false, true, new List<DeviceModel>());
+        }
+    }
+
+    public async Task<List<DeviceModel>> GetSavedLocalDevicesAsync()
+    {
+        try
+        {
+            var (isSuccessful, isEmpty, devices) = await LoadDeviceListAsync();
+            
+            if (!isSuccessful)
+            {
+                Debug.WriteLine("❌ Failed to load device list for local devices");
+                return new List<DeviceModel>();
+            }
+            
+            if (isEmpty)
+            {
+                Debug.WriteLine("📭 No devices found in storage");
+                return new List<DeviceModel>();
+            }
+            
+            // Filter for local devices only
+            var localDevices = devices.Where(d => d.ConnectionType == ConnectionType.Local).ToList();
+            
+            Debug.WriteLine($"🏠 Found {localDevices.Count} saved local devices");
+            
+            return localDevices;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error getting saved local devices: {ex.Message}");
+            return new List<DeviceModel>();
         }
     }
 

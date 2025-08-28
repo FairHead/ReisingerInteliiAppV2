@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using ReisingerIntelliApp_V4.Models;
 
@@ -19,6 +20,29 @@ public class IntellidriveApiService
     {
         _httpClient = httpClient;
         _httpClient.Timeout = TimeSpan.FromSeconds(RequestTimeoutSeconds);
+    }
+
+    // Build absolute URL for a device IP and path
+    private static string Url(string ip, string path) => $"http://{ip.TrimEnd('/')}/{path.TrimStart('/')}";
+
+    private static AuthenticationHeaderValue BuildUserAuth(string username, string password)
+        => new AuthenticationHeaderValue("User", $"{username}:{password}");
+
+    private async Task<HttpResponseMessage> SendAuthedGetAsync(string ip, string path, string username, string password, CancellationToken ct = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, Url(ip, path));
+        req.Headers.Authorization = BuildUserAuth(username, password);
+        req.Headers.Accept.ParseAdd("application/json");
+        return await _httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+    }
+
+    private async Task<HttpResponseMessage> SendAuthedPostAsync(string ip, string path, string username, string password, HttpContent? content = null, CancellationToken ct = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, Url(ip, path));
+        req.Headers.Authorization = BuildUserAuth(username, password);
+        req.Headers.Accept.ParseAdd("application/json");
+        if (content != null) req.Content = content;
+        return await _httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
     }
 
     /// <summary>
@@ -133,9 +157,151 @@ public class IntellidriveApiService
         return await GetDeviceVersionAsync(WifiDeviceDefaultIp);
     }
 
-    // Future endpoints can be added here following the same pattern:
-    // - /intellidrive/status
-    // - /intellidrive/control
-    // - /intellidrive/config
-    // etc.
+    /// <summary>
+    /// Gets version information from device at specific IP address with timeout
+    /// Used for local network scanning
+    /// </summary>
+    /// <param name="ipAddress">IP address of the device</param>
+    /// <param name="timeoutSeconds">Timeout in seconds for the request</param>
+    /// <returns>Version response or null if failed</returns>
+    public async Task<IntellidriveVersionResponse?> GetVersionAsync(string ipAddress, int timeoutSeconds = 5)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            var endpoint = $"http://{ipAddress}/intellidrive/version";
+            
+            Debug.WriteLine($"🔍 Scanning device at {ipAddress}");
+            
+            var response = await _httpClient.GetAsync(endpoint, cts.Token);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var versionResponse = JsonSerializer.Deserialize<IntellidriveVersionResponse>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                
+                Debug.WriteLine($"✅ Device found at {ipAddress}: {versionResponse?.DeviceId}");
+                return versionResponse;
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // Timeout is expected during scanning
+        }
+        catch (HttpRequestException)
+        {
+            // Connection refused is expected during scanning
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"⚠️ Error scanning {ipAddress}: {ex.Message}");
+        }
+        
+        return null;
+    }
+
+    // ===== V3 Endpoints ported and ready for future use =====
+    public async Task<string> GetSerialNumberAsync(DeviceModel device, CancellationToken ct = default)
+    {
+        var res = await SendAuthedGetAsync(device.Ip, "/intellidrive/serialnumber", device.Username, device.Password, ct);
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadAsStringAsync(ct);
+    }
+
+    public async Task<string> BeepAsync(DeviceModel device, CancellationToken ct = default)
+    {
+        var res = await SendAuthedPostAsync(device.Ip, "/intellidrive/beep", device.Username, device.Password, null, ct);
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadAsStringAsync(ct);
+    }
+
+    public async Task<string> RestartIntellidriveAsync(DeviceModel device, CancellationToken ct = default)
+    {
+        var res = await SendAuthedPostAsync(device.Ip, "/intellidrive/restart", device.Username, device.Password, null, ct);
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadAsStringAsync(ct);
+    }
+
+    public async Task<string> RestartDriveAsync(DeviceModel device, CancellationToken ct = default)
+    {
+        var res = await SendAuthedPostAsync(device.Ip, "/intellidrive/restart/drive", device.Username, device.Password, null, ct);
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadAsStringAsync(ct);
+    }
+
+    // Door endpoints
+    public Task<string> GetDoorStateAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedGetAsync(device.Ip, "/intellidrive/door/state", device.Username, device.Password, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    public Task<string> GetDoorPositionAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedGetAsync(device.Ip, "/intellidrive/door/position", device.Username, device.Password, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    public Task<string> OpenDoorAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedPostAsync(device.Ip, "/intellidrive/door/open", device.Username, device.Password, null, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    public Task<string> OpenDoorFullAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedPostAsync(device.Ip, "/intellidrive/door/open-full", device.Username, device.Password, null, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    public Task<string> OpenDoorShortAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedPostAsync(device.Ip, "/intellidrive/door/open-short", device.Username, device.Password, null, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    public Task<string> CloseDoorAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedPostAsync(device.Ip, "/intellidrive/door/close", device.Username, device.Password, null, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    public Task<string> ForceCloseDoorAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedPostAsync(device.Ip, "/intellidrive/door/force-close", device.Username, device.Password, null, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    public Task<string> LockDoorAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedPostAsync(device.Ip, "/intellidrive/door/lock", device.Username, device.Password, null, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    public Task<string> UnlockDoorAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedPostAsync(device.Ip, "/intellidrive/door/unlock", device.Username, device.Password, null, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    // Parameters
+    public async Task<IntellidriveParametersResponse?> GetParametersAsync(DeviceModel device, CancellationToken ct = default)
+    {
+        var res = await SendAuthedGetAsync(device.Ip, "/intellidrive/parameters", device.Username, device.Password, ct);
+        if (!res.IsSuccessStatusCode) return null;
+        var json = await res.Content.ReadAsStringAsync(ct);
+        return JsonSerializer.Deserialize<IntellidriveParametersResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    }
+
+    public async Task<string> SetParametersAsync(DeviceModel device, string parametersJson, CancellationToken ct = default)
+    {
+        var content = new StringContent(parametersJson, System.Text.Encoding.UTF8, "application/json");
+        var res = await SendAuthedPostAsync(device.Ip, "/intellidrive/parameters/set", device.Username, device.Password, content, ct);
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadAsStringAsync(ct);
+    }
+
+    public Task<string> GetMinParameterValuesAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedGetAsync(device.Ip, "/intellidrive/parameters/min-values", device.Username, device.Password, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
+
+    public Task<string> GetMaxParameterValuesAsync(DeviceModel device, CancellationToken ct = default)
+        => SendAuthedGetAsync(device.Ip, "/intellidrive/parameters/max-values", device.Username, device.Password, ct)
+            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
+            .Unwrap();
 }

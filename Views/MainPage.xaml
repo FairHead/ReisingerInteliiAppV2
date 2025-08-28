@@ -188,17 +188,17 @@
                                     <!--  Text  -->
                                     <StackLayout Grid.Row="1" Spacing="5">
                                         <Label
-                                            FontSize="14"
+                                            FontSize="10"
                                             LineBreakMode="WordWrap"
                                             Text="{Binding Text}"
                                             TextColor="White" />
-                                        
+
                                         <!--  Connection Status (only for WiFi devices with actions)  -->
-                                        <StackLayout 
-                                            Orientation="Horizontal" 
-                                            Spacing="8"
+                                        <StackLayout
+                                            HorizontalOptions="Center"
                                             IsVisible="{Binding HasActions}"
-                                            HorizontalOptions="Center">
+                                            Orientation="Horizontal"
+                                            Spacing="8">
                                             <!--  Status Indicator Dot  -->
                                             <Ellipse
                                                 Fill="{Binding ConnectionColor}"

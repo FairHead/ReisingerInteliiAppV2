@@ -114,7 +114,8 @@ namespace ReisingerIntelliApp_V4.ViewModels
             {
                 IsScanning = true;
                 ScanStatusText = "Scanning for WiFi networks...";
-                HasNetworks = false;
+                // Keep previous state until we have new results to prevent flicker/empty UI on scan failures
+                // HasNetworks will be updated after processing results
 
                 Debug.WriteLine("🔍 Starting WiFi network scan...");
 
@@ -125,16 +126,17 @@ namespace ReisingerIntelliApp_V4.ViewModels
                     var currentNetworkSsid = _androidWifiService.GetCurrentNetworkSsid();
                     Debug.WriteLine($"🔗 Current connected network: '{currentNetworkSsid}'");
 
-                    // Clear existing networks
-                    WifiNetworks.Clear();
-
                     // Scan for networks
                     var scanResults = await _androidWifiService.ScanWifiNetworksAsync();
-                    
+
+                    // Build a temporary list first; only replace UI list if we actually have results
+                    var newNetworks = new List<NetworkDataModel>();
+                    NetworkDataModel? newCurrent = null;
+
                     foreach (var result in scanResults)
                     {
                         // Check if this is the currently connected network
-                        var isConnected = !string.IsNullOrEmpty(currentNetworkSsid) && 
+                        var isConnected = !string.IsNullOrEmpty(currentNetworkSsid) &&
                                         string.Equals(result.Ssid?.Trim(), currentNetworkSsid?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         // Check if device is already saved
@@ -151,20 +153,36 @@ namespace ReisingerIntelliApp_V4.ViewModels
                             IsAlreadySaved = isAlreadySaved
                         };
 
-                        WifiNetworks.Add(network);
-                        
-                        // Set current network if this matches the current SSID
+                        newNetworks.Add(network);
+
                         if (isConnected)
                         {
-                            CurrentNetwork = network;
+                            newCurrent = network;
                         }
-                        
+
                         Debug.WriteLine($"📶 Found network: {network.Ssid} (Signal: {network.SignalStrength}, Security: {network.SecurityType}, Connected: {network.IsConnected}, Saved: {network.IsAlreadySaved})");
                     }
 
-                    HasNetworks = WifiNetworks.Count > 0;
-                    ScanStatusText = WifiNetworks.Count > 0 ? $"Found {WifiNetworks.Count} networks" : "No networks found";
-                    Debug.WriteLine($"✅ Scan completed. Found {WifiNetworks.Count} networks.");
+                    if (newNetworks.Count > 0)
+                    {
+                        WifiNetworks.Clear();
+                        foreach (var n in newNetworks)
+                            WifiNetworks.Add(n);
+
+                        CurrentNetwork = newCurrent;
+                        HasNetworks = WifiNetworks.Count > 0;
+                        ScanStatusText = $"Found {WifiNetworks.Count} networks";
+                        Debug.WriteLine($"✅ Scan completed. Found {WifiNetworks.Count} networks.");
+                    }
+                    else
+                    {
+                        // Do not clear existing list if Android rate-limits scans (StartScan may fail or return cached/empty)
+                        HasNetworks = WifiNetworks.Count > 0;
+                        ScanStatusText = HasNetworks
+                            ? "No new networks found – showing previous results"
+                            : "No networks found";
+                        Debug.WriteLine("⚠️ Scan returned no results – keeping previous list");
+                    }
                 }
                 else
                 {

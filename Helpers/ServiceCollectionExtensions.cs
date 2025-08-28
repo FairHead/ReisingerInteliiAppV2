@@ -29,11 +29,14 @@ public static class ServiceCollectionExtensions
         services.AddTransient<WifiScanPageViewModel>();
         services.AddTransient<LocalDevicesScanPageViewModel>();
         services.AddTransient<SaveDevicePageViewModel>();
+    services.AddTransient<SaveLocalDevicePageViewModel>();
 
         // Register Pages
         services.AddTransient<MainPage>();
         services.AddTransient<WifiScanPage>();
+        services.AddTransient<LocalDevicesScanPage>();
         services.AddTransient<SaveDevicePage>();
+    services.AddTransient<SaveLocalDevicePage>();
 
         return services;
     }

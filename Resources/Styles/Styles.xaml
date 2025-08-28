@@ -2,7 +2,15 @@
 <?xaml-comp compile="true" ?>
 <ResourceDictionary 
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters">
+
+    <!-- Value Converters -->
+    <converters:SavedDeviceOpacityConverter x:Key="SavedDeviceOpacityConverter" />
+    <converters:PercentageToProgressConverter x:Key="PercentageToProgressConverter" />
+    <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
+    <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
+    <converters:InverseBoolConverter x:Key="InvertedBoolConverter" />
 
     <Style TargetType="ActivityIndicator">
         <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" />

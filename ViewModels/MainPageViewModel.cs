@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using ReisingerIntelliApp_V4.Models;
 using ReisingerIntelliApp_V4.Services;
+using System.Text.RegularExpressions;
 
 namespace ReisingerIntelliApp_V4.ViewModels;
 
@@ -11,6 +12,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private readonly IDeviceService _deviceService;
     private readonly IAuthenticationService _authService;
     private readonly WiFiManagerService _wifiService;
+    private readonly IntellidriveApiService _apiService;
     private string? _currentActiveTab;
     private DateTime _lastTabTapTime = DateTime.MinValue;
     private const int TAB_DEBOUNCE_MS = 300;
@@ -24,11 +26,12 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private bool _showScanButton;
     private string _scanButtonText = string.Empty;
 
-    public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService)
+    public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService, IntellidriveApiService apiService)
     {
         _deviceService = deviceService;
         _authService = authService;
         _wifiService = wifiService;
+        _apiService = apiService;
         Title = "Reisinger App";
         TabTappedCommand = new Command<string>(OnTabTapped);
         LeftSectionTappedCommand = new Command(OnLeftSectionTapped);
@@ -39,6 +42,15 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         ShowDeviceOptionsCommand = new Command<DropdownItemModel>(OnShowDeviceOptions);
         
         InitializeDropdownData();
+        
+        // Subscribe to device added messages
+        MessagingCenter.Subscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded", async (sender) =>
+        {
+            if (CurrentActiveTab == "LocalDev")
+            {
+                await LoadLocalDevicesAsync();
+            }
+        });
     }
 
     public ICommand TabTappedCommand { get; }
@@ -117,13 +129,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
         _dropdownCache["WifiDev"] = ("Wifi Devices", new List<DropdownItemModel>());
 
-        _dropdownCache["LocalDev"] = ("Local Devices", new List<DropdownItemModel>
-        {
-            new() { Id = "local_001", Icon = "local_icon.svg", Text = "IT Door Right 1\n192.168.0.45", HasActions = true },
-            new() { Id = "local_002", Icon = "local_icon.svg", Text = "IT Door Right 1\n192.168.0.45", HasActions = true },
-            new() { Id = "local_003", Icon = "local_icon.svg", Text = "IT Door Right 1\n192.168.0.45", HasActions = true },
-            new() { Id = "local_004", Icon = "local_icon.svg", Text = "IT Door Right 1\n192.168.0.45", HasActions = true }
-        });
+    _dropdownCache["LocalDev"] = ("Local Devices", new List<DropdownItemModel>());
     }
 
     private void OnTabTapped(string tabName)
@@ -164,6 +170,15 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             if (DropdownItems.Any(item => item.HasActions))
             {
                 StartWifiStatusMonitoring();
+            }
+        }
+        else if (tabName == "LocalDev")
+        {
+            _ = LoadLocalDevicesAsync();
+            // Ensure Local device status monitoring is active for LocalDev tab
+            if (DropdownItems.Any(item => item.HasActions))
+            {
+                StartLocalDevStatusMonitoring();
             }
         }
         else if (_dropdownCache.TryGetValue(tabName, out var cachedData))
@@ -281,6 +296,89 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
     }
 
+    private async Task LoadLocalDevicesAsync()
+    {
+        try
+        {
+            DropdownTitle = "Local Devices";
+            ShowScanButton = true;
+            ScanButtonText = "Scan Local Network for Devices";
+            
+            // Show loading state
+            DropdownItems.Clear();
+            DropdownItems.Add(new DropdownItemModel 
+            { 
+                Id = "loading", 
+                Icon = "loading.svg", 
+                Text = "Loading saved local devices...", 
+                HasActions = false 
+            });
+            IsDropdownVisible = true;
+
+            // Load saved local devices
+            var savedDevices = await _deviceService.GetSavedLocalDevicesAsync();
+            
+            // Clear loading and add real devices
+            DropdownItems.Clear();
+            
+            if (savedDevices.Any())
+            {
+                // Ensure any previous default card is removed
+                RemoveDefaultNoDeviceCard();
+
+                foreach (var device in savedDevices)
+                {
+                    var lastSeenText = device.LastSeen != default(DateTime) 
+                        ? $"Last seen: {device.LastSeen:HH:mm}"
+                        : "Never connected";
+                    
+                    var dropdownItem = new DropdownItemModel
+                    {
+                        Id = device.DeviceId,
+                        Icon = "local_icon.svg",
+                        Text = $"{device.Name}\n{device.IpAddress} • {lastSeenText}",
+                        HasActions = true,
+                        IsConnected = false // Start with disconnected, will be updated by monitoring
+                    };
+                    
+                    DropdownItems.Add(dropdownItem);
+                }
+                
+                // Start monitoring local device status IMMEDIATELY
+                StartLocalDevStatusMonitoring();
+                
+                // Trigger an immediate status check to get current connectivity state
+                _ = Task.Run(async () => 
+                {
+                    await Task.Delay(100); // Small delay to ensure UI is ready
+                    await CheckLocalDeviceStatusAsync();
+                });
+            }
+            else
+            {
+                // Only show the default card when there are no saved devices
+                DropdownItems.Add(new DropdownItemModel
+                {
+                    Id = NO_DEVICES_ITEM_ID,
+                    Icon = "info.svg",
+                    Text = "No saved local devices\nUse 'Scan' to add devices",
+                    HasActions = false
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            DropdownItems.Clear();
+            DropdownItems.Add(new DropdownItemModel
+            {
+                Id = "error",
+                Icon = "error.svg",
+                Text = $"Error loading local devices:\n{ex.Message}",
+                HasActions = false
+            });
+        }
+    }
+
     private void RemoveDefaultNoDeviceCard()
     {
         var noDeviceItem = DropdownItems.FirstOrDefault(i => i.Id == NO_DEVICES_ITEM_ID);
@@ -363,6 +461,18 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                     
                     await _deviceService.DeleteDeviceAsync(deviceToDelete);
                 }
+                else if (CurrentActiveTab == "LocalDev")
+                {
+                    // Persist deletion for Local devices as well
+                    var deviceToDelete = new DeviceModel
+                    {
+                        DeviceId = device.Id,
+                        Name = device.Text.Split('\n')[0],
+                        ConnectionType = ConnectionType.Local
+                    };
+
+                    await _deviceService.DeleteDeviceAsync(deviceToDelete);
+                }
 
                 // Remove from the current dropdown items
                 DropdownItems.Remove(device);
@@ -387,6 +497,28 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         items.Remove(itemToRemove);
                         _dropdownCache["LocalDev"] = (title, items);
                     }
+                }
+
+                // If no actionable items remain, show the default "no devices" card
+                if (CurrentActiveTab == "LocalDev" && !DropdownItems.Any(i => i.HasActions))
+                {
+                    DropdownItems.Add(new DropdownItemModel
+                    {
+                        Id = NO_DEVICES_ITEM_ID,
+                        Icon = "info.svg",
+                        Text = "No saved local devices\nUse 'Scan' to add devices",
+                        HasActions = false
+                    });
+                }
+                else if (CurrentActiveTab == "WifiDev" && !DropdownItems.Any(i => i.HasActions))
+                {
+                    DropdownItems.Add(new DropdownItemModel
+                    {
+                        Id = NO_DEVICES_ITEM_ID,
+                        Icon = "info.svg",
+                        Text = "No saved WiFi devices\nUse 'Scan' to add devices",
+                        HasActions = false
+                    });
                 }
 
                 await Application.Current.MainPage.DisplayAlert(
@@ -491,10 +623,10 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             // Stop existing timer if any
             _wifiStatusTimer?.Dispose();
             
-            // Use the SAME interval as SaveDevicePage (5 seconds) for consistency
-            _wifiStatusTimer = new Timer(async _ => await CheckLocalDeviceStatusAsync(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            // Poll every 3 seconds via /intellidrive/version as requested
+            _wifiStatusTimer = new Timer(async _ => await CheckLocalDeviceStatusAsync(), null, TimeSpan.Zero, TimeSpan.FromSeconds(3));
             
-            System.Diagnostics.Debug.WriteLine("🔄 Local device status monitoring started for MainPage dropdown (5s interval - same as SaveDevicePage)");
+            System.Diagnostics.Debug.WriteLine("🔄 Local device status monitoring started for MainPage dropdown (3s interval)");
         }
     }
 
@@ -582,11 +714,19 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 // Extract IP address from the text (format: "Device Name\n192.168.x.x")
                 var lines = dropdownItem.Text.Split('\n');
                 if (lines.Length < 2) continue;
+
+                // lines[1] can contain "<ip> • Last seen: HH:mm" – extract just the IPv4 portion
+                var secondLine = lines[1];
+                // Quick cut before separator if present
+                var beforeSeparator = secondLine.Split('•')[0];
+                // Use regex to extract IPv4
+                var match = Regex.Match(beforeSeparator, "\\b((25[0-5]|2[0-4]\\d|[0-1]?\\d?\\d)(\\.)){3}(25[0-5]|2[0-4]\\d|[0-1]?\\d?\\d)\\b");
+                if (!match.Success) continue;
+                var ipAddress = match.Value;
                 
-                var ipAddress = lines[1].Trim();
-                
-                // Test connectivity to the IP address
-                var isConnected = await _authService.IsNetworkReachableAsync(ipAddress);
+                // Query /intellidrive/version and mark online on successful JSON response
+                var (success, _, _) = await _apiService.TestIntellidriveConnectionAsync(ipAddress);
+                var isConnected = success;
                 
                 // Update the UI if status changed
                 if (dropdownItem.IsConnected != isConnected)
@@ -595,7 +735,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                     {
                         dropdownItem.IsConnected = isConnected;
                         
-                        System.Diagnostics.Debug.WriteLine($"🏠 Updated local device {lines[0]} ({ipAddress}) status: {(isConnected ? "Connected" : "Disconnected")}");
+                        System.Diagnostics.Debug.WriteLine($"🏠 Updated local device {lines[0]} ({ipAddress}) status: {(isConnected ? "Connected" : "Disconnected")} (via /intellidrive/version)");
                     });
                 }
             }
@@ -645,6 +785,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     public void Dispose()
     {
         StopWifiStatusMonitoring();
+        MessagingCenter.Unsubscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded");
     }
 
     #endregion

@@ -12,5 +12,6 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute("wifiscan", typeof(WifiScanPage));
 		Routing.RegisterRoute("localscan", typeof(LocalDevicesScanPage));
 		Routing.RegisterRoute("savedevice", typeof(SaveDevicePage));
+		Routing.RegisterRoute("savelocaldevice", typeof(SaveLocalDevicePage));
 	}
 }
