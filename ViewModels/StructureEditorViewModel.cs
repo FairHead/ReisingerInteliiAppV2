@@ -10,6 +10,7 @@ namespace ReisingerIntelliApp_V4.ViewModels;
 public partial class StructureEditorViewModel : ObservableObject
 {
     private readonly IBuildingStorageService _storage;
+    private readonly PdfStorageService _pdfStorage;
     private string? _originalName; // Tracks the name of the building when the editor was opened
 
     [ObservableProperty] private string name = string.Empty;
@@ -19,13 +20,18 @@ public partial class StructureEditorViewModel : ObservableObject
     public IAsyncRelayCommand SaveCommand { get; }
     public IRelayCommand AddFloorCommand { get; }
     public IRelayCommand<Floor> RemoveFloorCommand { get; }
+    public IAsyncRelayCommand<Floor> UploadPdfCommand { get; }
+    public IAsyncRelayCommand<Floor> DeletePdfCommand { get; }
 
-    public StructureEditorViewModel(IBuildingStorageService storage)
+    public StructureEditorViewModel(IBuildingStorageService storage, PdfStorageService pdfStorage)
     {
         _storage = storage;
+        _pdfStorage = pdfStorage;
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         AddFloorCommand = new RelayCommand(AddFloor);
         RemoveFloorCommand = new RelayCommand<Floor>(RemoveFloor);
+        UploadPdfCommand = new AsyncRelayCommand<Floor>(UploadPdfAsync);
+        DeletePdfCommand = new AsyncRelayCommand<Floor>(DeletePdfAsync);
     }
 
     public async Task InitializeAsync()
@@ -56,7 +62,62 @@ public partial class StructureEditorViewModel : ObservableObject
         Floors.Remove(floor);
     }
 
+    private async Task UploadPdfAsync(Floor? floor)
+    {
+        if (floor == null) return;
+        try
+        {
+            var result = await FilePicker.PickAsync(new PickOptions
+            {
+                PickerTitle = "Select floor plan PDF",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.Android, new[] { "application/pdf" } },
+                    { DevicePlatform.iOS, new[] { "com.adobe.pdf" } },
+                    { DevicePlatform.WinUI, new[] { ".pdf" } },
+                    { DevicePlatform.MacCatalyst, new[] { "com.adobe.pdf" } },
+                })
+            });
+            if (result == null) return;
+
+            var imported = await _pdfStorage.ImportPdfAsync(new Building { BuildingName = Name }, floor, result, generatePreviewPng: true);
+            floor.PdfPath = imported.pdfPath;
+            floor.PngPath = imported.pngPath;
+
+            await PersistAsync(closeAndNotify: false);
+            MessagingCenter.Send(this, "FloorPlanChanged", (Name, floor.FloorName));
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.MainPage.DisplayAlert("Error", $"Upload failed: {ex.Message}", "OK");
+        }
+    }
+
+    private async Task DeletePdfAsync(Floor? floor)
+    {
+        if (floor == null) return;
+        var confirm = await Application.Current.MainPage.DisplayAlert("Delete Plan", $"Delete plan for '{floor.FloorName}'?", "Delete", "Cancel");
+        if (!confirm) return;
+        try
+        {
+            await _pdfStorage.DeleteFloorAssetsAsync(new Building { BuildingName = Name }, floor);
+            floor.PdfPath = null;
+            floor.PngPath = null;
+            await PersistAsync(closeAndNotify: false);
+            MessagingCenter.Send(this, "FloorPlanChanged", (Name, floor.FloorName));
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.MainPage.DisplayAlert("Error", $"Delete failed: {ex.Message}", "OK");
+        }
+    }
+
     private async Task SaveAsync()
+    {
+        await PersistAsync(closeAndNotify: true);
+    }
+
+    private async Task PersistAsync(bool closeAndNotify)
     {
         var trimmedName = Name?.Trim() ?? string.Empty;
 
@@ -102,8 +163,11 @@ public partial class StructureEditorViewModel : ObservableObject
 
     await _storage.SaveAsync(list);
 
-    // Notify listeners and navigate back
-    MessagingCenter.Send(this, "BuildingSaved", trimmedName);
-    await Shell.Current.GoToAsync("..");
+    if (closeAndNotify)
+    {
+        // Notify listeners and navigate back
+        MessagingCenter.Send(this, "BuildingSaved", trimmedName);
+        await Shell.Current.GoToAsync("..");
+    }
     }
 }

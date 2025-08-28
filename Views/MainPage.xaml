@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     x:Class="ReisingerIntelliApp_V4.Views.MainPage"
+    x:Name="Root"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
     xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
+    xmlns:controls="clr-namespace:ReisingerIntelliApp_V4.Controls"
     BackgroundColor="#1E1E1E"
     Shell.NavBarIsVisible="False">
 
@@ -19,14 +21,16 @@
             Title="{Binding Title}"
             Grid.Row="0"
             FontSize="20"
-            TitleColor="White" />
+            TitleColor="White"
+            ZIndex="2" />
 
         <!--  Tab Bar  -->
         <Border
             Grid.Row="1"
             Padding="10,0"
             BackgroundColor="Transparent"
-            StrokeThickness="0">
+            StrokeThickness="0"
+            ZIndex="2">
 
             <Grid ColumnDefinitions="*,*,*,*">
                 <Border
@@ -131,8 +135,8 @@
             </Grid>
         </Border>
 
-        <!--  Main Content Area with Dropdown  -->
-        <Grid Grid.Row="2" BackgroundColor="Transparent">
+    <!--  Main Content Area with Dropdown and Floorplan viewer  -->
+    <Grid Grid.Row="2" BackgroundColor="Transparent" IsClippedToBounds="True">
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnBackgroundTapped" />
             </Grid.GestureRecognizers>
@@ -248,8 +252,7 @@
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
-
-                <!--  Scan Button (if ShowScanButton is true)  -->
+                <!--  Scan button at bottom of dropdown  -->
                 <Border
                     Grid.Row="2"
                     Margin="0,20,0,0"
@@ -257,7 +260,9 @@
                     BackgroundColor="#007AFF"
                     HorizontalOptions="Center"
                     IsVisible="{Binding ShowScanButton}"
-                    StrokeShape="RoundRectangle 25">
+                    StrokeShape="RoundRectangle 25"
+                    ZIndex="1"
+                    InputTransparent="False">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding ScanButtonTappedCommand}" />
                     </Border.GestureRecognizers>
@@ -269,6 +274,70 @@
                         TextColor="White"
                         VerticalOptions="Center" />
                 </Border>
+            </Grid>
+
+            <!-- Floorplan display host -->
+            <Grid
+                x:Name="PlanHost"
+                Padding="10"
+                IsVisible="True"
+                RowDefinitions="*"
+                ZIndex="-1"
+                InputTransparent="False"
+                IsClippedToBounds="True">
+                <Grid.Triggers>
+                    <DataTrigger TargetType="Grid" Binding="{Binding IsDropdownVisible}" Value="True">
+                        <Setter Property="InputTransparent" Value="True" />
+                    </DataTrigger>
+                </Grid.Triggers>
+                <!-- Placeholder when no plan -->
+                <Label
+                    Text="No floor plan available"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center"
+                    TextColor="#B0B0B0">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.HasPlan}" Value="True">
+                            <Setter Property="IsVisible" Value="False" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+
+                <!-- PNG fallback viewer with pinch/zoom using PanPinchContainer -->
+                <controls:PanPinchContainer>
+                    <Image
+                        x:Name="PlanImage"
+                        Aspect="AspectFit">
+                        <Image.Triggers>
+                            <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="True">
+                                <Setter Property="IsVisible" Value="False" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPngPath}" Value="{x:Null}">
+                                <Setter Property="IsVisible" Value="False" />
+                            </DataTrigger>
+                        </Image.Triggers>
+                        <Image.Source>
+                            <Binding Source="{x:Reference Root}" Path="BindingContext.StructuresVM.CurrentPngPath" />
+                        </Image.Source>
+                    </Image>
+                </controls:PanPinchContainer>
+
+                <!-- PDF viewer placeholder; bind to CurrentPdfPath. Replace with an actual PDF control if added. -->
+                <ContentView x:Name="PdfViewerHost">
+                    <ContentView.Triggers>
+                        <DataTrigger TargetType="ContentView" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="False">
+                            <Setter Property="IsVisible" Value="False" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="ContentView" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}" Value="{x:Null}">
+                            <Setter Property="IsVisible" Value="False" />
+                        </DataTrigger>
+                    </ContentView.Triggers>
+                    <VerticalStackLayout Spacing="6" HorizontalOptions="Center" VerticalOptions="Center">
+                        <Image Source="pdf_icon.svg" WidthRequest="48" HeightRequest="48" />
+                        <Label Text="PDF viewer not installed. Showing placeholder." TextColor="#B0B0B0" />
+                        <Label Text="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}" FontSize="10" TextColor="#808080" />
+                    </VerticalStackLayout>
+                </ContentView>
             </Grid>
         </Grid>
 

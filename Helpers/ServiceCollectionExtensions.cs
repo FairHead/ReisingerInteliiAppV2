@@ -21,8 +21,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IAuthenticationService, AuthenticationService>();
     services.AddSingleton<IBuildingStorageService, BuildingStorageService>();
+    services.AddSingleton<PdfConversionService>();
+    services.AddSingleton<PdfStorageService>();
         services.AddSingleton<IntellidriveApiService>();
         services.AddSingleton<WiFiManagerService>();
+    services.AddSingleton<PdfConversionService>();
+    services.AddSingleton<PdfStorageService>();
 
         // Register ViewModels
         services.AddTransient<MainPageViewModel>();
