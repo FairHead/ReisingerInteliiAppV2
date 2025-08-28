@@ -31,17 +31,17 @@ public class AuthenticationService : IAuthenticationService
             // Use the intellidrive/beep endpoint for authentication test
             var endpoint = $"http://{ipAddress}/intellidrive/beep";
             
-            // Create authentication header using "User" scheme (matching V3)
-            var authValue = $"{username}:{password}";
-            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("User", authValue);
+            // Build per-request message with auth header to avoid side effects on the shared client
+            var authValue = $"{username}:{password}"; // Device expects scheme 'User' with value 'username:password'
+            using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("User", authValue);
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.ParseAdd("application/json");
 
             System.Diagnostics.Debug.WriteLine($"🔄 Sending GET request to: {endpoint}");
             System.Diagnostics.Debug.WriteLine($"🔄 Authorization: User {username}:******");
 
-            var response = await _httpClient.GetAsync(endpoint);
-            
-            // Clear auth header after request
-            _httpClient.DefaultRequestHeaders.Authorization = null;
+            var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             
             System.Diagnostics.Debug.WriteLine($"📶 Response status: {response.StatusCode}");
             

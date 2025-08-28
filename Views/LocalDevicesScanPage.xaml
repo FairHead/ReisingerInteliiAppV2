@@ -1,128 +1,307 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
-             xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
-             x:Class="ReisingerIntelliApp_V4.Views.LocalDevicesScanPage"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="#1E1E1E">
+<ContentPage
+    x:Class="ReisingerIntelliApp_V4.Views.LocalDevicesScanPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
+    xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters"
+    xmlns:models="clr-namespace:ReisingerIntelliApp_V4.Models"
+    xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
+    x:DataType="viewmodels:LocalDevicesScanPageViewModel"
+    BackgroundColor="#1E1E1E"
+    Shell.NavBarIsVisible="False">
 
-    <ContentPage.BindingContext>
-        <viewmodels:LocalDevicesScanPageViewModel />
-    </ContentPage.BindingContext>
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:SavedDeviceOpacityConverter x:Key="SavedDeviceOpacityConverter" />
+            <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
+            <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
+            <converters:PercentageToProgressConverter x:Key="PercentageToProgressConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto,*,Auto,Auto">
-        <!-- Header with Back Button and Title -->
-        <Border Grid.Row="0" Padding="20,15" StrokeThickness="0">
+    <Grid RowDefinitions="Auto,*">
+        <!--  Header with Back Button and Title  -->
+        <Border
+            Grid.Row="0"
+            Padding="20,15"
+            StrokeThickness="0">
             <Border.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#2D2D2D" Offset="0.0" />
-                    <GradientStop Color="Transparent" Offset="1.0" />
+                    <GradientStop Offset="0.0" Color="#2D2D2D" />
+                    <GradientStop Offset="1.0" Color="Transparent" />
                 </LinearGradientBrush>
             </Border.Background>
-            
+
             <Grid ColumnDefinitions="Auto,*" RowDefinitions="*">
-                <!-- Back Button -->
-                <Button Grid.Column="0" 
-                        Grid.Row="0"
-                        Padding="0,0,0,0"
-                        Margin="0,0,0,7"
-                        x:Name="BackButton"
-                        Text="&#8249;"
-                        FontSize="30"
-                        TextColor="White"
-                        BackgroundColor="Transparent"
-                        BorderWidth="0"
-                        WidthRequest="40"
-                        HeightRequest="40"
-                        HorizontalOptions="Start"
-                        VerticalOptions="Center"
-                        Command="{Binding BackCommand}" />
-                <!-- Title -->
-                <Label Grid.Column="1" 
-                       Grid.Row="0"
-                       Text="{Binding Title}" 
-                       TextColor="White" 
-                       FontSize="20"
-                       FontFamily="SpaceMonoBold"
-                       HorizontalOptions="Start"
-                       VerticalOptions="Center"
-                       Margin="10,0,0,0" />
+                <!--  Back Button  -->
+                <Button
+                    x:Name="BackButton"
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Margin="0,0,0,7"
+                    Padding="0,0,0,0"
+                    BackgroundColor="Transparent"
+                    BorderWidth="0"
+                    Clicked="OnBackButtonClicked"
+                    FontSize="30"
+                    HeightRequest="40"
+                    HorizontalOptions="Start"
+                    Text="&#8249;"
+                    TextColor="White"
+                    VerticalOptions="Center"
+                    WidthRequest="40" />
+
+                <!--  Title  -->
+                <Label
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Margin="10,0,0,0"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="20"
+                    HorizontalOptions="Start"
+                    Text="Local Device Scan"
+                    TextColor="White"
+                    VerticalOptions="Center" />
             </Grid>
         </Border>
 
-        <!-- Main Content -->
+        <!--  Main Content  -->
         <ScrollView Grid.Row="1" Padding="20">
             <StackLayout Spacing="20">
-                <!-- SSID Info -->
-                <StackLayout Spacing="5">
-                    <Label Text="SSID: MyNetwork" 
-                           FontSize="16" 
-                           FontFamily="SpaceMonoBold"
-                           TextColor="White" 
-                           HorizontalOptions="Start" />
-                </StackLayout>
-                
-                <!-- Device List -->
-                <StackLayout x:Name="LocalDevicesList" Spacing="15">
-                    <!-- Local devices will be added here dynamically -->
-                </StackLayout>
-                
-                <!-- Loading indicator -->
-                <ActivityIndicator IsVisible="{Binding IsBusy}" 
-                                  IsRunning="{Binding IsBusy}"
-                                  Color="#007AFF"
-                                  HorizontalOptions="Center" />
+
+                <!--  Scan Progress Section  -->
+                <Frame
+                    Padding="15"
+                    BackgroundColor="#3A3A3A"
+                    BorderColor="Transparent"
+                    CornerRadius="10"
+                    IsVisible="{Binding IsScanning}">
+                    <StackLayout Spacing="10">
+                        <Label
+                            FontSize="16"
+                            HorizontalOptions="Center"
+                            Text="{Binding ScanStatusMessage}"
+                            TextColor="White" />
+
+                        <ProgressBar Progress="{Binding ProgressPercentage, Converter={StaticResource PercentageToProgressConverter}}" ProgressColor="#007AFF" />
+
+                        <Label
+                            FontSize="14"
+                            HorizontalOptions="Center"
+                            TextColor="#B0B0B0">
+                            <Label.Text>
+                                <MultiBinding StringFormat="Fortschritt: {0} / {1} IPs ({2:F0}%)">
+                                    <Binding Path="ScannedCount" />
+                                    <Binding Path="TotalCount" />
+                                    <Binding Path="ProgressPercentage" />
+                                </MultiBinding>
+                            </Label.Text>
+                        </Label>
+                    </StackLayout>
+                </Frame>
+
+
+                <!--  Results Header  -->
+                <Label
+                    FontAttributes="Bold"
+                    FontSize="14"
+                    HorizontalOptions="Center"
+                    IsVisible="{Binding LocalDevices.Count, Converter={StaticResource IntToBoolConverter}}"
+                    TextColor="White">
+                    <Label.Text>
+                        <MultiBinding StringFormat="📱 Gefundene Intellidrive-Geräte: {0}">
+                            <Binding Path="LocalDevices.Count" />
+                        </MultiBinding>
+                    </Label.Text>
+                </Label>
+
+
+
+
+                <!--  Found Devices List  -->
+                <CollectionView IsVisible="{Binding LocalDevices.Count, Converter={StaticResource IntToBoolConverter}}" ItemsSource="{Binding LocalDevices}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:LocalNetworkDeviceModel">
+                            <Border
+                                Margin="0,5"
+                                Padding="15"
+                                BackgroundColor="#2D2D2D"
+                                Opacity="{Binding IsAlreadySaved, Converter={StaticResource SavedDeviceOpacityConverter}}"
+                                Stroke="#404040"
+                                StrokeThickness="1">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <!--  Icon  -->
+                                    <Label
+                                        Grid.Column="0"
+                                        FontSize="16"
+                                        Text="🔗"
+                                        VerticalOptions="Center" />
+
+                                    <!--  Info  -->
+                                    <StackLayout
+                                        Grid.Column="1"
+                                        Margin="10,0,10,0"
+                                        Spacing="2">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label
+                                                Grid.Column="0"
+                                                FontFamily="SpaceMonoBold"
+                                                FontSize="16"
+                                                Text="{Binding DisplayName}"
+                                                TextColor="White" />
+                                            <!--  Saved indicator  -->
+                                            <Label
+                                                Grid.Column="1"
+                                                FontSize="12"
+                                                IsVisible="{Binding IsAlreadySaved}"
+                                                Text="💾"
+                                                VerticalOptions="Center" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                            <Label
+                                                Grid.Column="0"
+                                                FontSize="12"
+                                                Text="{Binding IpAddress, StringFormat='IP: {0}'}"
+                                                TextColor="#B0B0B0" />
+                                            <Label
+                                                Grid.Column="1"
+                                                FontSize="12"
+                                                Text=" • "
+                                                TextColor="#B0B0B0" />
+                                            <Label
+                                                Grid.Column="2"
+                                                FontSize="12"
+                                                IsVisible="{Binding SerialNumber, Converter={StaticResource StringToBoolConverter}}"
+                                                Text="{Binding SerialNumber, StringFormat='SN: {0}'}"
+                                                TextColor="#B0B0B0" />
+                                            <Label
+                                                Grid.Column="3"
+                                                FontSize="12"
+                                                IsVisible="{Binding FirmwareVersion, Converter={StaticResource StringToBoolConverter}}"
+                                                Text=" • "
+                                                TextColor="#B0B0B0" />
+                                            <Label
+                                                Grid.Column="4"
+                                                FontSize="12"
+                                                IsVisible="{Binding FirmwareVersion, Converter={StaticResource StringToBoolConverter}}"
+                                                Text="{Binding FirmwareVersion, StringFormat='FW: {0}'}"
+                                                TextColor="#B0B0B0" />
+                                        </Grid>
+                                    </StackLayout>
+
+                                    <!--  Add (+) button  -->
+                                    <Button
+                                        Grid.Column="2"
+                                        Margin="2,0"
+                                        BackgroundColor="#4CAF50"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:LocalDevicesScanPageViewModel}}, Path=AddDeviceCommand}"
+                                        CommandParameter="{Binding}"
+                                        CornerRadius="17"
+                                        FontSize="18"
+                                        HeightRequest="35"
+                                        IsVisible="{Binding IsAlreadySaved, Converter={StaticResource InvertedBoolConverter}}"
+                                        Text="+"
+                                        TextColor="White"
+                                        ToolTipProperties.Text="Add as device"
+                                        WidthRequest="35" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <!--  No Results Message  -->
+                <Frame
+                    Padding="20"
+                    BackgroundColor="#3A3A3A"
+                    BorderColor="Transparent"
+                    CornerRadius="10"
+                    IsVisible="{Binding LocalDevices.Count, Converter={StaticResource IntToBoolConverter}, ConverterParameter=true}">
+                    <Label
+                        FontSize="16"
+                        HorizontalOptions="Center"
+                        Text="📭 Noch keine Intellidrive-Geräte gefunden"
+                        TextColor="#B0B0B0" />
+                </Frame>
+
+                <!--  IP Range Input Section  -->
+                <Frame
+                    Padding="15"
+                    BackgroundColor="#2A2A2A"
+                    BorderColor="Transparent"
+                    CornerRadius="10">
+                    <StackLayout Spacing="15">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="18"
+                            Text="🔍 IP-Bereich für Scan"
+                            TextColor="White" />
+
+                        <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="10">
+                            <Entry
+                                x:Name="StartIpEntry"
+                                Grid.Column="0"
+                                BackgroundColor="#3A3A3A"
+                                Keyboard="Numeric"
+                                Placeholder="Start IP (z.B. 192.168.1.1)"
+                                PlaceholderColor="#808080"
+                                Text="{Binding StartIp}"
+                                TextColor="White" />
+
+                            <Label
+                                Grid.Column="1"
+                                Text="bis"
+                                TextColor="White"
+                                VerticalOptions="Center" />
+
+                            <Entry
+                                x:Name="EndIpEntry"
+                                Grid.Column="2"
+                                BackgroundColor="#3A3A3A"
+                                Keyboard="Numeric"
+                                Placeholder="End IP (z.B. 192.168.1.254)"
+                                PlaceholderColor="#808080"
+                                Text="{Binding EndIp}"
+                                TextColor="White" />
+                        </Grid>
+
+                        <!--  Validation Message  -->
+                        <Label
+                            Margin="0,5,0,0"
+                            FontSize="12"
+                            IsVisible="{Binding HasValidationError}"
+                            Text="{Binding ValidationMessage}"
+                            TextColor="#FF3B30" />
+
+                        <!--  Scan Controls  -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Button
+                                Grid.Column="0"
+                                BackgroundColor="#007AFF"
+                                Command="{Binding StartLocalScanCommand}"
+                                IsEnabled="{Binding IsScanning, Converter={StaticResource InvertedBoolConverter}}"
+                                Text="🚀 Scan Starten"
+                                TextColor="White" />
+
+                            <Button
+                                Grid.Column="1"
+                                BackgroundColor="#FF3B30"
+                                Command="{Binding StopScanCommand}"
+                                IsVisible="{Binding IsScanning}"
+                                Text="⏹️ Stop"
+                                TextColor="White" />
+                        </Grid>
+                    </StackLayout>
+                </Frame>
+
+
+
             </StackLayout>
         </ScrollView>
-
-        <!-- IP Range Input Section -->
-        <StackLayout Grid.Row="2" Padding="20,0,20,20" Spacing="15">
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                <!-- Start IP Entry -->
-                <Entry Grid.Column="0"
-                       x:Name="StartIpEntry"
-                       Placeholder="Start IP"
-                       PlaceholderColor="#808080"
-                       TextColor="White"
-                       BackgroundColor="#2A2A2A"
-                       FontFamily="SpaceMonoBold"
-                       FontSize="14"
-                       HeightRequest="50"
-                       MaxLength="15"
-                       Text="192.168.0.1"
-                       TextChanged="OnIpEntryTextChanged" />
-                
-                <!-- End IP Entry -->
-                <Entry Grid.Column="1"
-                       x:Name="EndIpEntry"
-                       Placeholder="End IP"
-                       PlaceholderColor="#808080"
-                       TextColor="White"
-                       BackgroundColor="#2A2A2A"
-                       FontFamily="SpaceMonoBold"
-                       FontSize="14"
-                       HeightRequest="50"
-                       MaxLength="15"
-                       Text="192.168.0.254"
-                       TextChanged="OnIpEntryTextChanged" />
-            </Grid>
-            
-            <!-- Scan Button -->
-            <Button x:Name="ScanButton"
-                    Text="Scan Local Network"
-                    BackgroundColor="#007AFF"
-                    TextColor="White"
-                    FontFamily="SpaceMonoBold"
-                    FontSize="16"
-                    HeightRequest="50"
-                    CornerRadius="25"
-                    Command="{Binding ScanCommand}" />
-        </StackLayout>
-
-        <!-- Footer Component -->
-        <components:AppFooter Grid.Row="3" 
-                             x:Name="Footer" />
     </Grid>
-
 </ContentPage>

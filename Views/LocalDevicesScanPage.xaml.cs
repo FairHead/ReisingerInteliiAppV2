@@ -6,25 +6,15 @@ public partial class LocalDevicesScanPage : ContentPage
 {
     private LocalDevicesScanPageViewModel? _viewModel;
 
-    public LocalDevicesScanPage()
+    public LocalDevicesScanPage(LocalDevicesScanPageViewModel viewModel)
     {
         InitializeComponent();
-        _viewModel = BindingContext as LocalDevicesScanPageViewModel;
-        SetupFooterEvents();
+        _viewModel = viewModel;
+        BindingContext = _viewModel;
     }
 
-    private void SetupFooterEvents()
+    private async void OnBackButtonClicked(object sender, EventArgs e)
     {
-        if (_viewModel != null)
-        {
-            Footer.LeftSectionTapped += (s, e) => _viewModel.HomeCommand.Execute(null);
-            Footer.CenterButtonTapped += (s, e) => _viewModel.RefreshCommand.Execute(null);
-            Footer.RightSectionTapped += (s, e) => _viewModel.SettingsCommand.Execute(null);
-        }
-    }
-
-    private void OnIpEntryTextChanged(object sender, TextChangedEventArgs e)
-    {
-        // Validate IP format - can be implemented later
+        await Shell.Current.GoToAsync("..");
     }
 }
