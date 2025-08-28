@@ -17,9 +17,24 @@ public partial class MainPage : ContentPage
         BindingContext = _viewModel;
         SetupFooterEvents();
         SetupViewModelEvents();
+        // Hook plan updates to refresh image source when properties change
+        if (_viewModel.StructuresVM != null)
+        {
+            _viewModel.StructuresVM.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(_viewModel.StructuresVM.CurrentPngPath))
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        PlanImage.Source = _viewModel.StructuresVM.CurrentPngPath;
+                    });
+                }
+            };
+        }
         
-        System.Diagnostics.Debug.WriteLine("MainPage initialized");
+    System.Diagnostics.Debug.WriteLine("MainPage initialized");
     }
+
 
     private void SetupViewModelEvents()
     {

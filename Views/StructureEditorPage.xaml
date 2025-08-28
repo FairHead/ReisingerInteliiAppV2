@@ -17,12 +17,21 @@
             <Button Text="Add" Command="{Binding AddFloorCommand}" />
         </HorizontalStackLayout>
 
-    <CollectionView ItemsSource="{Binding Floors}" HeightRequest="250">
+    <CollectionView ItemsSource="{Binding Floors}" HeightRequest="300">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid ColumnDefinitions="*,Auto" Padding="8">
-                        <Label Text="{Binding FloorName}" TextColor="White" />
-                        <Button Grid.Column="1" Text="Remove"
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" Padding="8" ColumnSpacing="8">
+                        <VerticalStackLayout>
+                            <Label Text="{Binding FloorName}" TextColor="White" />
+                            <Label Text="{Binding PdfPath}" FontSize="10" TextColor="#808080" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="Upload/Replace PDF"
+                                Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.UploadPdfCommand}"
+                                CommandParameter="{Binding .}" />
+                        <Button Grid.Column="2" Text="Delete Plan"
+                                Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.DeletePdfCommand}"
+                                CommandParameter="{Binding .}" />
+                        <Button Grid.Column="3" Text="Remove"
                                 Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.RemoveFloorCommand}"
                                 CommandParameter="{Binding .}" />
                     </Grid>

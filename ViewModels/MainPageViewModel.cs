@@ -12,6 +12,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private readonly IDeviceService _deviceService;
     private readonly IAuthenticationService _authService;
     private readonly IBuildingStorageService _buildingStorage;
+    private readonly PdfStorageService _pdfStorageService;
     private readonly WiFiManagerService _wifiService;
     private readonly IntellidriveApiService _apiService;
     private string? _currentActiveTab;
@@ -28,14 +29,17 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private string _scanButtonText = string.Empty;
     private string? _selectedBuildingName;
     private string? _selectedLevelName;
+    public StructuresViewModel StructuresVM { get; }
 
-    public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService, IntellidriveApiService apiService, IBuildingStorageService buildingStorage)
+    public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService, IntellidriveApiService apiService, IBuildingStorageService buildingStorage, StructuresViewModel structuresVM, PdfStorageService pdfStorage)
     {
         _deviceService = deviceService;
         _authService = authService;
         _wifiService = wifiService;
         _apiService = apiService;
-        _buildingStorage = buildingStorage;
+    _buildingStorage = buildingStorage;
+    _pdfStorageService = pdfStorage;
+        StructuresVM = structuresVM;
         Title = "Reisinger App";
         TabTappedCommand = new Command<string>(OnTabTapped);
         LeftSectionTappedCommand = new Command(OnLeftSectionTapped);
@@ -66,6 +70,17 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             var structures = await _buildingStorage.LoadAsync();
             var selected = structures.FirstOrDefault(b => b.BuildingName.Equals(buildingName, StringComparison.OrdinalIgnoreCase));
             SelectedLevelName = selected?.Floors?.FirstOrDefault()?.FloorName;
+            _ = ApplyStructureSelectionAsync(SelectedBuildingName, SelectedLevelName);
+        });
+
+        // Listen for floor plan changes to refresh current viewer if affected
+        MessagingCenter.Subscribe<StructureEditorViewModel, (string building, string floor)>(this, "FloorPlanChanged", async (sender, payload) =>
+        {
+            if (string.Equals(SelectedBuildingName, payload.building, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(SelectedLevelName, payload.floor, StringComparison.OrdinalIgnoreCase))
+            {
+                await StructuresVM.RefreshCurrentFloorPlanAsync();
+            }
         });
     }
 
@@ -117,14 +132,26 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     public string? SelectedBuildingName
     {
         get => _selectedBuildingName;
-        set => SetProperty(ref _selectedBuildingName, value);
+        set
+        {
+            if (SetProperty(ref _selectedBuildingName, value))
+            {
+                _ = ApplyStructureSelectionAsync(_selectedBuildingName, _selectedLevelName);
+            }
+        }
     }
 
     // Tracks the currently selected level within the selected building
     public string? SelectedLevelName
     {
         get => _selectedLevelName;
-        set => SetProperty(ref _selectedLevelName, value);
+        set
+        {
+            if (SetProperty(ref _selectedLevelName, value))
+            {
+                _ = ApplyStructureSelectionAsync(_selectedBuildingName, _selectedLevelName);
+            }
+        }
     }
 
     // Event to notify the View about tab changes
@@ -144,6 +171,24 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     _dropdownCache["WifiDev"] = ("Wifi Devices", new List<DropdownItemModel>());
 
     _dropdownCache["LocalDev"] = ("Local Devices", new List<DropdownItemModel>());
+    }
+
+    public async Task ApplyStructureSelectionAsync(string? buildingName, string? levelName)
+    {
+        try
+        {
+            await StructuresVM.LoadAsync(buildingName);
+            if (!string.IsNullOrWhiteSpace(buildingName))
+            {
+                StructuresVM.SelectedBuilding = StructuresVM.Buildings.FirstOrDefault(b => b.BuildingName.Equals(buildingName, StringComparison.OrdinalIgnoreCase));
+            }
+            if (!string.IsNullOrWhiteSpace(levelName) && StructuresVM.SelectedBuilding != null)
+            {
+                StructuresVM.SelectedLevel = StructuresVM.Levels.FirstOrDefault(f => f.FloorName.Equals(levelName, StringComparison.OrdinalIgnoreCase));
+            }
+            await StructuresVM.RefreshCurrentFloorPlanAsync();
+        }
+        catch { }
     }
 
     private void OnTabTapped(string tabName)
@@ -570,7 +615,14 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 {
                     var floor = building.Floors.FirstOrDefault(f => f.FloorName.Equals(device.Id, StringComparison.OrdinalIgnoreCase));
                     if (floor != null)
+                    {
+                        await _pdfStorageService.DeleteFloorAssetsAsync(building, floor);
                         building.Floors.Remove(floor);
+                        if (string.Equals(SelectedLevelName, device.Id, StringComparison.OrdinalIgnoreCase))
+                        {
+                            SelectedLevelName = null;
+                        }
+                    }
                     await _buildingStorage.SaveAsync(list);
                 }
                 // Refresh Levels view
