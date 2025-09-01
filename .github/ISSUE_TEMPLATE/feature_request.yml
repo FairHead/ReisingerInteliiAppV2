@@ -1,45 +1,124 @@
 name: "Feature request"
-description: "Neues Feature für die .NET MAUI App vorschlagen"
+description: "Ein neues Feature für die ReisingerIntelliApp_V4 vorschlagen"
 title: "[Feature]: "
 labels: ["feature", "triage"]
+assignees: ["FairHead", "Copilot"]
 body:
   - type: markdown
     attributes:
-      value: "Bitte so konkret wie möglich ausfüllen."
+      value: |
+        Bitte fülle alle Felder so konkret wie möglich aus. Das hilft GitHub Copilot, das Feature automatisch umzusetzen.
+
   - type: input
-    id: summary
+    id: kurzbeschreibung
     attributes:
       label: Kurzbeschreibung
-      placeholder: "z. B. Drag&Drop von Geräten auf Floor‑Plan speichern"
+      placeholder: "Was soll dieses Feature grob tun?"
     validations:
       required: true
+
   - type: textarea
-    id: motivation
+    id: nutzen
     attributes:
       label: Nutzen / Motivation
+      placeholder: |
+        Warum ist dieses Feature wichtig?
+        Was bringt es der UX, Wartbarkeit oder Funktionalität?
+      value: |
+        - Visuelle Platzierung von Geräten direkt auf dem Bauplan (z. B. Türnähe)
+        - Verbesserter Workflow für Konfiguration, Steuerung und Wiedererkennung
+        - UX-Verbesserung durch direkte Interaktion statt Navigation über Listen
+        - Saubere, bildbasierte Koordinaten (auflösungsunabhängig)
+    validations:
+      required: true
+
   - type: textarea
-    id: acceptance
+    id: akzeptanzkriterien
     attributes:
       label: Akzeptanzkriterien (Given/When/Then)
       placeholder: |
         Given ...
-        When  ...
-        Then  ...
+        When ...
+        Then ...
+      value: |
+        Given ein Gebäude und ein Stockwerk mit geladenem Bauplan
+        And ein SavedDeviceModel oder LocalDeviceModel ist im Dropdown gewählt
+        When ich auf „+“ klicke
+        Then wird das Gerät als visuelles Pin-Widget auf dem Bauplan hinzugefügt
+
+        Given ein Gerät ist auf dem Bauplan sichtbar
+        When ich das Widget per LongPress/Drag verschiebe
+        Then wird die neue Position gespeichert (relativ zum Planbild)
     validations:
       required: true
+
   - type: textarea
     id: scope
     attributes:
-      label: Scope & Komponenten
-      description: "Betroffene Pages, ViewModels, Services, API-Endpunkte"
+      label: Scope & Komponenten (Views, ViewModels, Services, Models)
+      placeholder: |
+        Welche Teile der App sind betroffen oder müssen neu angelegt werden?
+      value: |
+        - Views: StructureEditorPage.xaml, FloorPlanCanvas.xaml, DevicePinOverlay.xaml
+        - ViewModels: StructureEditorViewModel mit Commands (Add/Move/Scale/Toggle/OpenSettings)
+        - Services: FloorPlanService, IntellidriveApiService, NavigationService
+        - Models: DevicePlacementModel mit RelativeX, RelativeY, Scale usw.
+    validations:
+      required: true
+
+  - type: textarea
+    id: technik
+    attributes:
+      label: Technische Hinweise / Verhalten / Berechnung
+      placeholder: |
+        Welche technischen Anforderungen und Umsetzungsdetails sind relevant?
+      value: |
+        - Koordinaten sollen relativ zum Planbild gespeichert werden (0.0–1.0)
+        - Widget-Skalierung nur visuell, nicht positionsrelevant
+        - Zoom/Pan-Verhalten stabilisieren über zentrale Transform
+        - API-Integration (Tür auf/zu) mit bestehendem IntellidriveApiService
+        - Navigation zur DeviceSettingsTabbedPage über NavigationService
+    validations:
+      required: true
+
+  - type: textarea
+    id: dod
+    attributes:
+      label: DoD – Definition of Done
+      description: Wann gilt dieses Feature als vollständig?
+      placeholder: |
+        - Welche Tests oder manuellen Prüfungen sind nötig?
+        - Welche Dokumentation muss aktualisiert werden?
+      value: |
+        - DevicePlacementModel eingeführt & serialisierbar
+        - Geräte können auf Plan platziert, gespeichert, skaliert und bewegt werden
+        - Türsteuerung & Einstellungen funktionieren aus dem Pin
+        - Zoom/Pan-Verhalten korrekt
+        - STATE.md & ARCHITECTURE.md aktualisiert
+    validations:
+      required: true
+
   - type: checkboxes
-    id: constraints
+    id: rahmen
     attributes:
       label: Rahmenbedingungen
       options:
-        - label: MVVM einhalten (keine Logik in Code‑Behind)
+        - label: MVVM-Konformität einhalten (keine Logik im Code-Behind)
           required: true
-        - label: Navigation & DI korrekt verdrahten
+        - label: Vorhandene Models/Services verwenden (z. B. SavedDeviceModel, IntellidriveApiService)
           required: true
-        - label: Tests hinzufügen/aktualisieren
+        - label: Tests ergänzen (z. B. Persistenz, Koordinaten, API-Aufrufe)
           required: true
+        - label: Responsives Verhalten prüfen (Zoom, Restart)
+          required: true
+        - label: CI muss grün sein (Build, Tests, Lint)
+          required: true
+
+  - type: textarea
+    id: hinweis_copilot
+    attributes:
+      label: Hinweis an Copilot (optional)
+      description: Was soll Copilot beim Umsetzen besonders beachten?
+      placeholder: |
+        z. B.: Bitte relative Koordinaten verwenden und Zoom/Pan stabil halten.
+        Kein direktes Manipulieren von LayoutBounds im Code-Behind.
