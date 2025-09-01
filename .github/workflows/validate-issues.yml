@@ -1,0 +1,19 @@
+name: Validate Issues
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate body fields
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || "";
+            const required = ["Given", "When", "Then"];
+            const missing = required.filter(k => !body.toLowerCase().includes(k.toLowerCase()));
+            if (missing.length > 0) {
+              core.setFailed(`Issue unvollständig. Fehlt: ${missing.join(", ")}`);
+            }
