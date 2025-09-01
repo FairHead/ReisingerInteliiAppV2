@@ -91,6 +91,8 @@ public partial class MainPage : ContentPage
                     it.IsSelected = it.Id == item.Id;
                 // Auto-switch to Levels to show floors of the selected building
                 _viewModel.TabTappedCommand.Execute("Levels");
+                // Clear device selection when switching structures
+                _viewModel.SelectedDeviceItem = null;
             }
             else if (_viewModel.CurrentActiveTab == "Levels")
             {
@@ -98,9 +100,74 @@ public partial class MainPage : ContentPage
                 _viewModel.SelectedLevelName = item.Id;
                 foreach (var it in _viewModel.DropdownItems)
                     it.IsSelected = it.Id == item.Id;
+                // Clear device selection when switching levels
+                _viewModel.SelectedDeviceItem = null;
+            }
+            else if (_viewModel.CurrentActiveTab == "WifiDev" || _viewModel.CurrentActiveTab == "LocalDev")
+            {
+                // Update selected device and highlight
+                _viewModel.SelectedDeviceItem = item;
+                foreach (var it in _viewModel.DropdownItems)
+                    it.IsSelected = it.Id == item.Id;
             }
         }
         catch { }
+    }
+
+    /// <summary>
+    /// Handles the "+" button click to add the selected device to the floor plan
+    /// </summary>
+    private async void OnAddDeviceButtonClicked(object sender, EventArgs e)
+    {
+        if (_viewModel?.SelectedDeviceItem == null || _viewModel?.StructuresVM == null) return;
+
+        try
+        {
+            // For now, place the device at a default center position (0.5, 0.5)
+            // TODO: Could be enhanced to let user tap on the floor plan to choose position
+            var centerX = 0.5;
+            var centerY = 0.5;
+
+            bool success = false;
+
+            if (_viewModel.CurrentActiveTab == "WifiDev")
+            {
+                // Find the saved device
+                var deviceService = ServiceHelper.GetService<IDeviceService>();
+                var savedDevices = await deviceService.GetSavedWifiDevicesAsync();
+                var device = savedDevices.FirstOrDefault(d => d.DeviceId == _viewModel.SelectedDeviceItem.Id);
+                if (device != null)
+                {
+                    success = await _viewModel.StructuresVM.AddSavedDevicePinAsync(device, centerX, centerY);
+                }
+            }
+            else if (_viewModel.CurrentActiveTab == "LocalDev")
+            {
+                // Find the local device
+                var deviceService = ServiceHelper.GetService<IDeviceService>();
+                var localDevices = await deviceService.GetSavedLocalDevicesAsync();
+                var device = localDevices.FirstOrDefault(d => d.DeviceId == _viewModel.SelectedDeviceItem.Id);
+                if (device != null)
+                {
+                    success = await _viewModel.StructuresVM.AddLocalDevicePinAsync(device, centerX, centerY);
+                }
+            }
+
+            if (success)
+            {
+                await DisplayAlert("Success", $"Added '{_viewModel.SelectedDeviceItem.Text.Split('\n')[0]}' to floor plan", "OK");
+                // Clear selection after adding
+                _viewModel.SelectedDeviceItem = null;
+            }
+            else
+            {
+                await DisplayAlert("Error", "Failed to add device to floor plan", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to add device: {ex.Message}", "OK");
+        }
     }
 
     private void SetActiveTab(string tabName)

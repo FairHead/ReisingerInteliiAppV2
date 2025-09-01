@@ -150,9 +150,34 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             if (SetProperty(ref _selectedLevelName, value))
             {
                 _ = ApplyStructureSelectionAsync(_selectedBuildingName, _selectedLevelName);
+                OnPropertyChanged(nameof(CanAddSelectedDevice));
             }
         }
     }
+
+    private DropdownItemModel? _selectedDeviceItem;
+    public DropdownItemModel? SelectedDeviceItem
+    {
+        get => _selectedDeviceItem;
+        set
+        {
+            if (SetProperty(ref _selectedDeviceItem, value))
+            {
+                OnPropertyChanged(nameof(CanAddSelectedDevice));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Indicates whether a device can be added to the current floor plan
+    /// </summary>
+    public bool CanAddSelectedDevice =>
+        SelectedDeviceItem != null &&
+        SelectedDeviceItem.HasActions &&
+        StructuresVM.HasPlan &&
+        !string.IsNullOrEmpty(SelectedBuildingName) &&
+        !string.IsNullOrEmpty(SelectedLevelName) &&
+        (CurrentActiveTab == "WifiDev" || CurrentActiveTab == "LocalDev");
 
     // Event to notify the View about tab changes
     public event EventHandler<string>? TabActivated;
@@ -221,6 +246,12 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private void ShowDropdownForTab(string tabName)
     {
         CurrentActiveTab = tabName;
+        
+        // Clear device selection when changing tabs (unless staying on device tabs)
+        if (tabName != "WifiDev" && tabName != "LocalDev")
+        {
+            SelectedDeviceItem = null;
+        }
         
     if (tabName == "WifiDev")
         {
@@ -520,6 +551,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         CurrentActiveTab = null;
         ShowScanButton = false;
         DropdownItems.Clear();
+        SelectedDeviceItem = null; // Clear device selection when closing dropdown
         
         // Stop WiFi monitoring when dropdown is closed
         StopWifiStatusMonitoring();

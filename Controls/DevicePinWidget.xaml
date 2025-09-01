@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="ReisingerIntelliApp_V4.Controls.DevicePinWidget"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:models="clr-namespace:ReisingerIntelliApp_V4.Models"
+    x:DataType="models:PlacedDeviceModel">
+
+    <Border
+        x:Name="PinBorder"
+        BackgroundColor="{Binding IsOnline, Converter={StaticResource BoolToDeviceStatusColorConverter}}"
+        Stroke="#FFFFFF"
+        StrokeThickness="2"
+        StrokeShape="RoundRectangle 8"
+        WidthRequest="{Binding Size}"
+        HeightRequest="{Binding Size}"
+        InputTransparent="False">
+
+        <!-- Main pin content -->
+        <Grid>
+            <!-- Device icon/status indicator -->
+            <Ellipse
+                x:Name="StatusIndicator"
+                Fill="{Binding IsOnline, Converter={StaticResource BoolToConnectionColorConverter}}"
+                WidthRequest="8"
+                HeightRequest="8"
+                HorizontalOptions="End"
+                VerticalOptions="Start"
+                Margin="2" />
+
+            <!-- Device type icon -->
+            <Image
+                Source="{Binding DeviceType, Converter={StaticResource DeviceTypeToIconConverter}}"
+                WidthRequest="20"
+                HeightRequest="20"
+                HorizontalOptions="Center"
+                VerticalOptions="Center" />
+
+            <!-- Device label (only shown when pin is large enough) -->
+            <Label
+                Text="{Binding DeviceName}"
+                FontSize="8"
+                TextColor="White"
+                HorizontalOptions="Center"
+                VerticalOptions="End"
+                Margin="1,0,1,2"
+                LineBreakMode="TailTruncation">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding Size}" Value="32">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
+        </Grid>
+
+        <!-- Gesture recognizers for interaction -->
+        <Border.GestureRecognizers>
+            <!-- Tap for context menu -->
+            <TapGestureRecognizer
+                Tapped="OnPinTapped" />
+            
+            <!-- Long press for drag operation -->
+            <!-- Note: Drag will be handled by the parent overlay container -->
+        </Border.GestureRecognizers>
+    </Border>
+
+</ContentView>

@@ -304,22 +304,57 @@
                 </Label>
 
                 <!-- PNG fallback viewer with pinch/zoom using PanPinchContainer -->
-                <controls:PanPinchContainer>
-                    <Image
-                        x:Name="PlanImage"
-                        Aspect="AspectFit">
-                        <Image.Triggers>
-                            <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="True">
-                                <Setter Property="IsVisible" Value="False" />
-                            </DataTrigger>
-                            <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPngPath}" Value="{x:Null}">
-                                <Setter Property="IsVisible" Value="False" />
-                            </DataTrigger>
-                        </Image.Triggers>
-                        <Image.Source>
-                            <Binding Source="{x:Reference Root}" Path="BindingContext.StructuresVM.CurrentPngPath" />
-                        </Image.Source>
-                    </Image>
+                <controls:PanPinchContainer x:Name="FloorPlanContainer">
+                    <Grid>
+                        <!-- Floor plan image -->
+                        <Image
+                            x:Name="PlanImage"
+                            Aspect="AspectFit">
+                            <Image.Triggers>
+                                <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="True">
+                                    <Setter Property="IsVisible" Value="False" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPngPath}" Value="{x:Null}">
+                                    <Setter Property="IsVisible" Value="False" />
+                                </DataTrigger>
+                            </Image.Triggers>
+                            <Image.Source>
+                                <Binding Source="{x:Reference Root}" Path="BindingContext.StructuresVM.CurrentPngPath" />
+                            </Image.Source>
+                        </Image>
+
+                        <!-- Device pin overlay -->
+                        <controls:DevicePinOverlay
+                            x:Name="PinOverlay"
+                            PlacedDevices="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentFloorPins}"
+                            PinTappedCommand="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.PinTappedCommand}"
+                            PinDraggedCommand="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.PinDraggedCommand}"
+                            InputTransparent="False">
+                            <controls:DevicePinOverlay.Triggers>
+                                <DataTrigger TargetType="controls:DevicePinOverlay" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.HasPlan}" Value="False">
+                                    <Setter Property="IsVisible" Value="False" />
+                                </DataTrigger>
+                            </controls:DevicePinOverlay.Triggers>
+                        </controls:DevicePinOverlay>
+
+                        <!-- Add Device Button (floating action button) -->
+                        <Button
+                            x:Name="AddDeviceButton"
+                            Text="+"
+                            FontSize="24"
+                            FontAttributes="Bold"
+                            WidthRequest="56"
+                            HeightRequest="56"
+                            CornerRadius="28"
+                            BackgroundColor="#007AFF"
+                            TextColor="White"
+                            HorizontalOptions="End"
+                            VerticalOptions="End"
+                            Margin="20"
+                            Clicked="OnAddDeviceButtonClicked"
+                            IsVisible="{Binding CanAddSelectedDevice}"
+                            InputTransparent="False" />
+                    </Grid>
                 </controls:PanPinchContainer>
 
                 <!-- PDF viewer placeholder; bind to CurrentPdfPath. Replace with an actual PDF control if added. -->

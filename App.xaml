@@ -14,6 +14,11 @@
             <conv:BoolToStrokeThicknessConverter x:Key="BoolToThicknessConverter" TrueThickness="2" FalseThickness="0" />
             <!-- Reuse existing BoolToColorConverter for stroke if desired; if not ideal, consider a dedicated converter -->
             <conv:BoolToColorConverter x:Key="BoolToColorConverter" />
+            
+            <!-- Device Pin Converters -->
+            <conv:DeviceTypeToIconConverter x:Key="DeviceTypeToIconConverter" />
+            <conv:BoolToDeviceStatusColorConverter x:Key="BoolToDeviceStatusColorConverter" />
+            <conv:BoolToConnectionColorConverter x:Key="BoolToConnectionColorConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

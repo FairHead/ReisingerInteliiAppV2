@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="ReisingerIntelliApp_V4.Controls.DevicePinOverlay"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:ReisingerIntelliApp_V4.Controls"
+    xmlns:models="clr-namespace:ReisingerIntelliApp_V4.Models"
+    x:Name="Root"
+    InputTransparent="False">
+
+    <!-- AbsoluteLayout for precise pin positioning -->
+    <AbsoluteLayout x:Name="PinContainer" InputTransparent="False">
+        
+        <!-- Pins will be added programmatically as DevicePinWidget controls -->
+        <!-- Each pin will be positioned using AbsoluteLayout.LayoutBounds -->
+        
+    </AbsoluteLayout>
+
+</ContentView>

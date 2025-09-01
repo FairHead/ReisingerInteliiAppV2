@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<WiFiManagerService>();
     services.AddSingleton<PdfConversionService>();
     services.AddSingleton<PdfStorageService>();
+    services.AddSingleton<FloorPlanService>();
 
         // Register ViewModels
         services.AddTransient<MainPageViewModel>();
