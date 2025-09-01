@@ -1,64 +1,64 @@
-# Reisinger IntelliApp V4
+# ReisingerIntelliApp_V4 – .NET MAUI (MVVM)
 
-**.NET MAUI** App (net9.0) zur Verwaltung und Ansteuerung von **Intellidrive**-Geräten – inkl. **WiFi-Scan**, **lokalem Netzwerkscan**, **Gerätespeicherung**, **Struktur-/Gebäudeverwaltung** und **PDF/Floorplan**-Funktionen.
+ReisingerIntelliApp_V4 ist eine .NET MAUI App im MVVM‑Stil zur Konfiguration und Steuerung von IntelliDrive‑Geräten (RS‑485‑basierte Antriebe). 
+Sie bietet u. a. WLAN‑Scan, lokalen Gerätescan, Struktur-/Gebäudeeditor, PDF‑/Bauplan‑Integration, sowie eine dynamische Tab‑Navigation für Geräteeinstellungen.
 
-## Inhalt
-- [Funktionen](#funktionen)
-- [Architektur](#architektur)
-- [Schnellstart](#schnellstart)
-- [Wichtige Pfade](#wichtige-pfade)
-- [Entwicklung & Tests](#entwicklung--tests)
-- [Roadmap](#roadmap)
+## Features (Auszug)
+- **WifiScanPage**: WLANs scannen, verbinden, speichern
+- **LocalDevicesScanPage**: lokales Subnetz scannen (Start/End‑IP), Geräte speichern
+- **MainPage**: Auswahl gespeicherter Geräte (Dropdown „Local Devices“ & „Saved Devices“)
+- **StructureEditorPage**: Gebäude/Stockwerke/Zuordnung von PDF‑Plänen
+- **PDF‑Integration**: PDFs anzeigen (Vitvov.Maui.PDFView) oder PNG‑Konvertierung (Magick.NET) für Overlays/Buttons
+- **Floor‑Plan‑Overlay**: Geräte auf Plan positionieren/verschieben/speichern, Open/Close‑Aktionen
+- **DeviceSettingsTabbedPage**: dynamische Tabs (Time/Speed/IO/Protocol/DoorFunction) mit sauberem Tab‑Lifecycle
+- **Intellidrive API**: `/intellidrive/parameters/set` u. a. Endpunkte, JSON‑basierte Konfiguration
 
-## Funktionen
-- **Start/Tab-Navigation**: MainPage mit 4 Tabs (Structures, Levels, Wifi Dev, Local Dev)
-- **WiFi-Scan (Android)**: Netzwerke scannen, verbundenes SSID markieren, Geräte speichern
-- **Lokaler Netzwerkscan**: IP-Bereiche scannen, Intellidrive-Geräte erkennen/validieren
-- **Gerätespeicher**: Persistente Liste (Preferences/SecureStorage)
-- **Struktur-/Gebäudemanagement**: Buildings/Floors speichern & laden
-- **PDF → PNG (Android)**: Erste Seite rendern; Zoom/Pan via `PanPinchContainer`
+## Architektur (Kurzüberblick)
+- **Views**: `*Page.xaml` + minimale Code‑Behind (UI‑Glue)
+- **ViewModels**: `*ViewModel.cs` (INotifyPropertyChanged, Commands, State)
+- **Services**: `DeviceService`, `NavigationService`, `IntellidriveApiService`, `PdfService`, `FloorPlanService`, `WifiService`, `LocalScanService`
+- **Controls**: Custom Controls (z. B. ZoomableImage/FloorPlanCanvas)
+- **DI**: Registrierung in `MauiProgram.cs`
+- **Navigation**: Shell + gezielte `Navigation.PushAsync()` für Tabbed‑Flows
+- **Persistence**: Preferences/Local DB (z. B. für gespeicherte Geräte/Strukturen)
 
-## Architektur
-- **MVVM** (CommunityToolkit.MVVM), **DI** in `Helpers/ServiceCollectionExtensions.cs`
-- Services: `DeviceService`, `IntellidriveApiService`, `WiFiManagerService`, `PdfConversionService`, `PdfStorageService`, `BuildingStorageService`, `NavigationService`
-- **Navigation**: `AppShell → MainPage`; Detailseiten via `Navigation.PushAsync(...)`
-- Details siehe **[ARCHITECTURE.md](ARCHITECTURE.md)**
+Siehe **ARCHITECTURE.md** für detaillierte Struktur, Naming‑Konventionen und Datenflüsse.
 
-## Schnellstart
-### Voraussetzungen
-- Windows 11 / macOS (aktuelle Xcode-Version für iOS)
-- **Visual Studio 2022 17.10+** mit MAUI-Workload und .NET **9** SDK
-- Android SDKs und Emulator bzw. Gerät (für WiFi-Funktionen)
-
-### Build & Run
+## Entwicklung
 ```bash
 dotnet restore
 dotnet build -c Debug
-# Android
-dotnet build -f net9.0-android -c Debug
+dotnet test
 ```
 
-In Visual Studio: Startprojekt `ReisingerIntelliApp_V4`, Ziel `Android` wählen und ausführen.
+MAUI‑Projekt(e) kompilieren (Smoke‑Build):
+```bash
+dotnet build -c Release
+```
 
-## Wichtige Pfade
-- **Views**: `Views/` (XAML + Code-Behind, keine Business-Logik)
-- **ViewModels**: `ViewModels/` (Commands/State)
-- **Services**: `Services/`
-- **DI**: `Helpers/ServiceCollectionExtensions.cs`
-- **Ressourcen**: `Resources/` (Styles, Fonts, Images)
-- **Plattform-Code**: `Platforms/Android` (WiFi/PDF-spezifisch)
+## Ordnerstruktur (empfohlen)
+```
+/ReisingerIntelliApp_V4
+  /Resources
+  /Views
+  /ViewModels
+  /Services
+  /Models
+  /Controls
+  /Platforms
+  /Assets
+  /docs
+  ARCHITECTURE.md
+  STATE.md
+  README.md
+  .github/
+```
 
-## Entwicklung & Tests
-- **Coding-Guidelines**: MVVM strikt, `x:DataType`, asynchron, Exceptions im Service-Layer abfangen.
-- **Tests** (Empfehlung):
-  - xUnit + FluentAssertions
-  - Fakes für `HttpMessageHandler`
-  - ViewModel-Tests (Commands, IsBusy, Validation)
-- **Copilot-Workflow**: siehe **[.github/copilot.md](.github/copilot.md)**  
-- **Issues**: Feature Template vorhanden → **[.github/ISSUE_TEMPLATE/feature_request.yml](.github/ISSUE_TEMPLATE/feature_request.yml)**
+## Definition of Done (DoD)
+- Feature vollständig (Navigation, Bindings, DI)
+- CI grün (Build + Tests)
+- Manuelles Smoke‑Testing (Android/iOS/Windows) dokumentiert
+- Doku aktualisiert (README/STATE/ARCHITECTURE falls nötig)
 
-## Roadmap
-- Gerätekonfiguration (Parameter lesen/schreiben)
-- Erweiterte Fehler-UI & Telemetrie
-- Persistenz verbessern (z. B. SQLite)
-- CI: GitHub Actions (Build/Test/Artifacts)
+## Lizenz / Sicherheit
+Keine Secrets ins Repo. App‑Keys lokal verwalten.

@@ -1,171 +1,80 @@
-# Reisinger IntelliApp V4 – Architektur & technische Leitlinien
+# ARCHITECTURE.md – ReisingerIntelliApp_V4
 
-> Stand: 1. September 2025 • Zielplattformen: **net9.0-android / ios / maccatalyst / windows**  
-> Projekt: `ReisingerIntelliApp_V4` (MAUI, MVVM, Dependency Injection, CommunityToolkit.MVVM)
+## 1. Überblick
+Ziel ist eine robuste MAUI‑App (MVVM) zur Verwaltung/Steuerung von IntelliDrive‑Antrieben. Schwerpunkt:
+- Netzwerk‑Scans (WLAN & lokal)
+- Gerätemanagement (Saved/Local Devices)
+- PDF/Floor‑Plan‑Ansicht mit interaktiven Overlays (Geräte‑Pins)
+- Dynamische Tabbed‑Settings pro Gerät
+- API‑Kommunikation (RS‑485/REST‑Bridge, JSON)
 
-## 1) Übersicht
+## 2. Schichtenmodell
+- **Views (`/Views`)**: XAML‑Pages (z. B. `WifiScanPage.xaml`, `LocalDevicesScanPage.xaml`, `MainPage.xaml`, `StructureEditorPage.xaml`, `DeviceSettingsTabbedPage.xaml`)
+- **ViewModels (`/ViewModels`)**: Zustandsverwaltung, Commands, Validierung (z. B. `WifiScanViewModel`, `LocalScanViewModel`, `MainViewModel`, `StructureEditorViewModel`, `DeviceSettingsViewModel`)
+- **Services (`/Services`)**:
+  - `WifiService`: Scan/Connect/Save
+  - `LocalScanService`: IP‑Range‑Scan über aktuelles Subnetz
+  - `DeviceService`: CRUD für Geräte, Saved/Local Listen, Dropdown‑Daten
+  - `IntellidriveApiService`: HTTP/RS‑485‑Bridge, `/intellidrive/parameters/set`, Status‑Polling
+  - `PdfService`: Laden/Rendern (Vitvov.Maui.PDFView) oder PNG‑Konvertierung (Magick.NET)
+  - `FloorPlanService`: Positionen/Layouts persistent speichern, Transformierung (Zoom/Pan/Scale)
+  - `NavigationService`: Routen/Navi‑Flows, Übergabe von Parametern (z. B. selected Device)
+- **Models (`/Models`)**: `Device`, `FloorPlan`, `Building`, `Level`, `DevicePin`, `ApiParameterSet`, etc.
+- **Controls (`/Controls`)**: `ZoomableImage`, `FloorPlanCanvas`, ggf. `PinButton`
+- **Resources (`/Resources`)**: Styles, Colors, Templates
+- **DI**: `MauiProgram.cs` registriert alle Services & ViewModels (Singleton/Scoped je nach Bedarf)
 
-Die App ist eine .NET MAUI Anwendung mit **MVVM-Pattern**, **Dependency Injection**, eigener **Tab- und Seitenlogik** und Services für **Gerätescans (WiFi/Local Network)**, **Intellidrive-API**, **PDF-Konvertierung/-Speicherung** sowie **Struktur-/Gebäudemanagement**.
+## 3. Navigation
+- **Shell** definiert High‑Level Tabs/Pages (z. B. Wifi, Local Devices, Structure, Main)
+- **Geräte‑Settings**: `DeviceSettingsTabbedPage` wird per `Navigation.PushAsync()` geöffnet, um flüssige Tab‑Wechsel zu erlauben. Jede Tab‑Child‑Page erhält ihr eigenes ViewModel (z. B. `TimeSettingsViewModel`, `SpeedSettingsViewModel`, `IoSettingsViewModel`, `ProtocolSettingsViewModel`, `DoorFunctionViewModel`).
 
-### Ziele
-- Intuitives UI (Dark Theme mit Header/Footer, Tabs)
-- Stabile Netzwerkscans (WiFi + lokales Subnetz)
-- Persistenz von Geräten und Gebäudestrukturen
-- Konsistente Navigation (AppShell + interne Tabs)
-- Klare Erweiterbarkeit (Services, ViewModels, Views)
+## 4. Datenflüsse (Beispiele)
+### 4.1 Local Device Scan
+`LocalDevicesScanPage` → `LocalScanViewModel.ScanCommand` → `LocalScanService.ScanSubnet(startIp, endIp, iface)`  
+Ergebnis → `DeviceService.UpsertLocalDevices()` → Anzeige in Liste + persistente Speicherung → Dropdown in `MainPage` via `MainViewModel` aktualisiert.
 
-## 2) Projektstruktur (vereinfacht)
+### 4.2 PDF/Floor‑Plan
+`StructureEditorPage` lädt `FloorPlan` (PDF/PNG).  
+`FloorPlanService` liefert Geräte‑Pins; `ZoomableImage/FloorPlanCanvas` transformiert Koordinaten mit aktuellem Zoom/Pan.  
+Pin‑Interaktion triggert Commands (Open/Close/Config) → `IntellidriveApiService`.
 
-```
-ReisingerIntelliApp_V4/
-├─ App.xaml, App.xaml.cs
-├─ AppShell.xaml, AppShell.xaml.cs
-├─ MauiProgram.cs
-├─ ReisingerIntelliApp_V4.csproj    # net9.0-… TFMs
-│
-├─ Components/                      # Wiederverwendbare UI-Bausteine
-│  ├─ AppHeader.xaml(.cs)
-│  ├─ AppFooter.xaml(.cs)
-│  └─ BackgroundLogo.xaml(.cs)
-│
-├─ Controls/
-│  └─ PanPinchContainer.cs          # Gesten/Zoom-Container
-│
-├─ Converters/                      # XAML Value Converters
-│  ├─ BoolToColorConverter.cs
-│  ├─ BoolToStatusConverter.cs
-│  ├─ BoolToStrokeThicknessConverter.cs
-│  ├─ IntToBoolConverter.cs
-│  ├─ PercentageToProgressConverter.cs
-│  ├─ SavedDeviceOpacityConverter.cs
-│  └─ StringToBoolConverter.cs (… WifiConverters.cs)
-│
-├─ Helpers/
-│  └─ ServiceCollectionExtensions.cs # DI-Registrierung (Services/VM/Pages)
-│
-├─ Models/
-│  ├─ DeviceModel.cs
-│  ├─ LocalNetworkDeviceModel.cs
-│  ├─ NetworkDataModel.cs
-│  ├─ IntellidriveApiModels.cs / IntellidriveVersionResponse.cs
-│  ├─ Building.cs, Floor.cs
-│  └─ TabItemModel.cs
-│
-├─ Services/
-│  ├─ DeviceService.cs               # Scant IP-Ranges, WiFi/LAN Devices
-│  ├─ IntellidriveApiService.cs      # REST-Aufrufe zu Intellidrive
-│  ├─ WiFiManagerService.cs          # (Android) WLAN-Scan & Status
-│  ├─ BuildingStorageService.cs / IBuildingStorageService.cs
-│  ├─ PdfConversionService.cs        # (Android) PDF→PNG, sonst Stub
-│  ├─ PdfStorageService.cs           # Pfade/Cache-Management
-│  ├─ AuthenticationService.cs       # (Platzhalter für Auth)
-│  └─ NavigationService.cs           # Optionale Navigationskapsel
-│
-├─ ViewModels/
-│  ├─ BaseViewModel.cs               # IsBusy, Title, Messaging
-│  ├─ MainPageViewModel.cs(.Fixed)   # Hauptlogik, Tab-Steuerung
-│  ├─ WifiScanPageViewModel.cs(.WifiScanViewModel.cs)
-│  ├─ LocalDevicesScanPageViewModel.cs
-│  ├─ SaveDevicePageViewModel.cs, SaveLocalDevicePageViewModel.cs
-│  ├─ StructuresViewModel.cs, StructureEditorViewModel.cs
-│
-└─ Views/
-   ├─ MainPage.xaml(.cs)             # App Einstieg (AppShell → MainPage)
-   ├─ WifiScanPage.xaml(.cs)         # WLAN-Gerätesuche, Speichern
-   ├─ LocalDevicesScanPage.xaml(.cs) # IP-Bereich scannen, Speichern
-   ├─ SaveDevicePage.xaml(.cs), SaveLocalDevicePage.xaml(.cs)
-   ├─ StructureEditorPage.xaml(.cs)
-   └─ (weitere: z. B. künftige DeviceConfig-Seiten)
-```
+### 4.3 Parameter‑Set übertragen
+`DeviceSettings*ViewModel.SaveCommand` sammelt alle Parameterwerte aus allen Tab‑Pages → `IntellidriveApiService.SetParametersAsync(json)` → Validierung & Rückmeldung.  
+Fehler werden geloggt und als UI‑State (Toast/Dialog) gemeldet.
 
-## 3) Lebenszyklus & Navigation
+## 5. MVVM‑Konventionen
+- **Keine Logik** in Code‑Behind, außer UI‑Bindings/Events
+- **INotifyPropertyChanged** via BaseViewModel
+- **Async Commands** (CancellationToken wo sinnvoll)
+- **Validation** vor API‑Calls
+- **State immutability** wo möglich; ObservableCollection für Listen
 
-- **AppShell** ruft **MainPage** auf (`Route="MainPage"`). AppBar/Tab-Bar werden **custom** in XAML umgesetzt (nicht Shell-Tabs).  
-- **Navigation**:
-  - Innerhalb von **MainPage** werden Tabs gesteuert (z. B. „Structures“, „Levels“, „Wifi Dev“, „Local Dev“).
-  - Für Detailseiten (z. B. `SaveDevicePage`, `StructureEditorPage`) wird via `INavigation`/`Navigation.PushAsync` navigiert (siehe `NavigationService` oder direkt aus ViewModels via DI-injizierte Services).
-- **ViewModel-Bindings**: Jede View setzt `x:DataType` für **starke Bindungen**. Business-Logik ist **nicht** im Code-Behind, sondern im zugehörigen ViewModel.
+## 6. Naming & Struktur
+- Pages: `*Page.xaml` (+ `.xaml.cs`)
+- ViewModels: `*ViewModel.cs`
+- Services: `*Service.cs`
+- Models: `*.cs` (Subfolder je Domain: Device, FloorPlan, Api)
+- Commands: `<Verb>Command` (z. B. `ScanCommand`, `SaveCommand`)
+- Ressourcen: `Resources/Styles.xaml`, `Resources/Colors.xaml`, `Resources/ControlTemplates.xaml`
 
-## 4) MVVM-Datenfluss
+## 7. Fehlerbehandlung & Logging
+- Zentrales `ILogger<T>` oder `AppTrace`‑Helper
+- RS‑485/HTTP‑Kommunikation mit Retry/Timeout
+- UI‑Fehler: freundliche Meldungen, Logs ohne sensitive Daten
+- Optional: Telemetrie‑Hook (AppCenter/own endpoint)
 
-1. **View** (XAML) bindet an **ViewModel** (DI-registriert).  
-2. ViewModel nutzt **Services** (HTTP, Storage, Scans).  
-3. **Models** repräsentieren Daten (z. B. `DeviceModel`, `Building`, `Floor`).  
-4. **Converters** formatieren Werte für die View.  
-5. **Commands** (CommunityToolkit.MVVM `[RelayCommand]`) triggern Aktionen, berücksichtigen **CancellationToken** & **IsBusy**.
+## 8. Tests
+- Unit‑Tests (ViewModels/Services) mit Mocks (HTTP/Storage)
+- UI‑Smoke (Starten, Navigation, elementare Aktionen)
+- Ziel: deterministische Tests ohne Netzwerkabhängigkeit (Use Fakes)
 
-**Beispiel Flows**
+## 9. Build/CI
+- .NET 8
+- Windows Runner (MAUI‑Build‑Smoke)
+- Pipelines: Restore → Build → Test → (optional) Artifacts
 
-- **WiFi-Scan**: `WifiScanPageViewModel` → `WiFiManagerService` (Android-Only) → `DeviceService` (Mapping/Erweiterung) → Anzeige/Save.
-- **Lokaler Netzwerkscan**: `LocalDevicesScanPageViewModel` generiert IP-Liste → `DeviceService.ScanForLocalNetworkDevicesAsync` → parallelisierte Probe → `IntellidriveApiService.VerifyDeviceAsync` → Ergebnisliste + Persistenz.
-- **PDF/Floor-Plan**: `PdfStorageService` verwaltet Pfade; `PdfConversionService` rendert erste Seite als PNG (Android via `PdfRenderer`). UI nutzt `PanPinchContainer` für Zoom/Pan.
-
-## 5) Services & Querschnittsthemen
-
-- **IntellidriveApiService**
-  - Basiskommunikation (HTTP, JSON, Fehlerbehandlung, Timeouts).
-  - Default IP **192.168.4.100** für WiFi-Devices; Local-LAN-IPs variabel.
-  - Validierung via `IntellidriveVersionResponse`.
-- **DeviceService**
-  - Erzeugt IP-Ranges (Start/Ende).
-  - Führt parallele Pings/HTTP-Probes aus (Throttling beachten).
-  - Mapt Antworten → `LocalNetworkDeviceModel` / `DeviceModel`.
-  - Persistiert (Preferences/SecureStorage) via JSON (siehe `GetSavedDevicesAsync`, `SaveDeviceAsync`, …).
-- **BuildingStorageService**
-  - Serialisierung von `Building`/`Floor`-Strukturen in App-Storage.
-- **WiFiManagerService** *(nur Android)*
-  - Scant Netzwerke, markiert **aktuelles SSID** als verbunden.
-- **PdfConversionService**
-  - Android: echte Konvertierung; andere Plattformen: Stub, liefert Zielpfad zurück.
-
-## 6) Fehlerbehandlung & Logging
-
-- Verwenden von `try/catch` im Service-Layer (z. B. `HttpRequestException`, `JsonException`).  
-- `Debug.WriteLine` als Baselogging (in DEBUG via `builder.Logging.AddDebug()` aktiv).  
-- ViewModels setzen `HasValidationError`, `ValidationMessage`, `ScanStatusMessage` etc.
-
-## 7) Konfiguration & DI
-
-- **`Helpers/ServiceCollectionExtensions.cs`** registriert:
-  - **HttpClient** (ggf. mit Handler für Timeouts/Headers).
-  - Alle **Services** (Transient/Singleton sinnvoll wählen).
-  - **ViewModels** und **Views**.
-- **`MauiProgram.cs`**: ruft `RegisterServices()` auf und aktiviert Debug-Logging.
-  - Hinweis: Aktuell werden `Preferences.Default.Clear()` und `SecureStorage.Remove("SavedDevices")` im Startup ausgeführt (nur in DEV sinnvoll).
-
-## 8) Persistenz
-
-- **Preferences/SecureStorage** für leichtgewichtige Daten (z. B. gespeicherte Geräte, zuletzt verbundene SSID).  
-- **Dateisystem** (Cache/AppData) für PDFs & abgeleitete PNGs.  
-- Erweiterbar Richtung SQLite/EF Core bei wachsender Komplexität.
-
-## 9) UI-/UX-Richtlinien
-
-- **Dark Theme** als Standard, Typografie: *SpaceMono*.
-- **Header/Footer** + **Tab-Bar** (4 Tabs).
-- Feedback über **Status-Labels**, **Progress**, **Badges**.
-- **x:DataType** in XAML für compile-time Binding Checks.
-- **Keine Business-Logik** im Code-Behind.
-- **Asynchronität**: UI immer responsive halten (IsBusy, Cancellation).
-
-## 10) Tests (Empfehlung)
-
-- **Unit Tests** (xUnit + FluentAssertions):
-  - `IntellidriveApiService` mit **Fake `HttpMessageHandler`**.
-  - `DeviceService` IP-Range-Generator & Parallel-Scan-Logik (Throttling, Cancellation).
-  - `BuildingStorageService` Serialisierung/Deserialisierung.
-- **ViewModel-Tests**: Commands/State-Transitions (über DI gemockte Services).
-- **UI-Tests** (optional): .NET MAUI UITest/Playwright für kritische Flows.
-
-## 11) Build & CI (Empfehlung)
-
-- .NET 9 SDK, VS 2022 17.10+.
-- Pipeline (GitHub Actions) mit:
-  - `dotnet restore/build`
-  - `dotnet test`
-  - Lint/format (z. B. `dotnet format`)
-  - Artifacts (Android .aab/.apk in Release)
-
----
-
-**Erweiterungen**: Device-Konfiguration, strukturierte Logs (ILogger), robuste Fehler-UI, echte Auth, Offline-Cache, Diagnostics/Telemetry.
+## 10. Erweiterungen (Roadmap‑Ideen)
+- Geräte‑Discovery via mDNS/UDP‑Broadcast
+- Persistenz via SQLite
+- Echte E2E‑UI‑Tests auf Emulator
+- Offline‑Queues für API‑Calls

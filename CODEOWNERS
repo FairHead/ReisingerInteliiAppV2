@@ -1,0 +1,7 @@
+# CODEOWNERS – Reviewer-Zuständigkeiten
+# Syntax: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+*       @FairHead
+/Views/ @FairHead
+/ViewModels/ @FairHead
+/Services/ @FairHead
+/Controls/ @FairHead
