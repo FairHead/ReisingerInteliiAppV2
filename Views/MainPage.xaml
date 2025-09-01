@@ -7,6 +7,7 @@
     xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
     xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
     xmlns:controls="clr-namespace:ReisingerIntelliApp_V4.Controls"
+    xmlns:views="clr-namespace:ReisingerIntelliApp_V4.Views"
     BackgroundColor="#1E1E1E"
     Shell.NavBarIsVisible="False">
 
@@ -227,11 +228,11 @@
                                         HorizontalOptions="Center"
                                         IsVisible="{Binding HasActions}"
                                         Spacing="25">
-                                        <!--  Configure Button  -->
+                                        <!--  Add to Floor Plan Button (+ Button)  -->
                                         <ImageButton
                                             Padding="0"
                                             BackgroundColor="Transparent"
-                                            Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.ShowDeviceOptionsCommand}"
+                                            Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.AddDeviceToFloorPlanCommand}"
                                             CommandParameter="{Binding .}"
                                             HeightRequest="32"
                                             Source="configuredevicebutton.svg"
@@ -338,6 +339,26 @@
                         <Label Text="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}" FontSize="10" TextColor="#808080" />
                     </VerticalStackLayout>
                 </ContentView>
+
+                <!-- Device Pin Overlay -->
+                <views:DevicePinOverlay 
+                    x:Name="DevicePinOverlay"
+                    PlacedDevices="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.SelectedLevel.PlacedDevices}"
+                    ScaleUpCommand="{Binding Source={x:Reference Root}, Path=BindingContext.ScaleUpDeviceCommand}"
+                    ScaleDownCommand="{Binding Source={x:Reference Root}, Path=BindingContext.ScaleDownDeviceCommand}"
+                    ToggleDoorCommand="{Binding Source={x:Reference Root}, Path=BindingContext.ToggleDoorCommand}"
+                    UpdatePositionCommand="{Binding Source={x:Reference Root}, Path=BindingContext.UpdateDevicePositionCommand}"
+                    ZIndex="10"
+                    InputTransparent="False">
+                    <views:DevicePinOverlay.Triggers>
+                        <DataTrigger TargetType="views:DevicePinOverlay" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.HasPlan}" Value="False">
+                            <Setter Property="IsVisible" Value="False" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="views:DevicePinOverlay" Binding="{Binding IsDropdownVisible}" Value="True">
+                            <Setter Property="InputTransparent" Value="True" />
+                        </DataTrigger>
+                    </views:DevicePinOverlay.Triggers>
+                </views:DevicePinOverlay>
             </Grid>
         </Grid>
 
