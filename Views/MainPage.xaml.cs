@@ -2,6 +2,7 @@ using Microsoft.Maui.Controls.Shapes;
 using ReisingerIntelliApp_V4.ViewModels;
 using ReisingerIntelliApp_V4.Helpers;
 using ReisingerIntelliApp_V4.Services;
+using ReisingerIntelliApp_V4.Models;
 using System.Linq;
 
 namespace ReisingerIntelliApp_V4.Views;
@@ -167,5 +168,101 @@ public partial class MainPage : ContentPage
         LocalDevLabel.TextColor = grayColor;
         LocalDevUnderline.BackgroundColor = transparent;
         LocalDevTabBackground.Background = null;
+    }
+
+    // Device Pin Event Handlers
+    private async void OnDoorControlRequested(object? sender, PlacedDeviceModel device)
+    {
+        if (_viewModel == null) return;
+
+        try
+        {
+            // Create a DeviceModel for API call
+            var deviceModel = new DeviceModel
+            {
+                DeviceId = device.DeviceId,
+                Name = device.DeviceName,
+                Ip = device.DeviceIp,
+                Username = device.Username,
+                Password = device.Password,
+                Type = device.DeviceType == DeviceType.WifiDevice ? AppDeviceType.WifiDevice : AppDeviceType.LocalDevice
+            };
+
+            await _viewModel.ToggleDoorAsync(deviceModel);
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Door control failed: {ex.Message}", "OK");
+        }
+    }
+
+    private async void OnSettingsRequested(object? sender, PlacedDeviceModel device)
+    {
+        if (_viewModel == null) return;
+
+        try
+        {
+            // Create a DeviceModel for navigation
+            var deviceModel = new DeviceModel
+            {
+                DeviceId = device.DeviceId,
+                Name = device.DeviceName,
+                Ip = device.DeviceIp,
+                Username = device.Username,
+                Password = device.Password,
+                Type = device.DeviceType == DeviceType.WifiDevice ? AppDeviceType.WifiDevice : AppDeviceType.LocalDevice
+            };
+
+            await _viewModel.OpenDeviceSettingsAsync(deviceModel);
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Settings navigation failed: {ex.Message}", "OK");
+        }
+    }
+
+    private async void OnDeviceDeleted(object? sender, PlacedDeviceModel device)
+    {
+        if (_viewModel?.StructuresVM?.SelectedLevel == null) return;
+
+        try
+        {
+            // Save the updated floor plan
+            await _viewModel.SaveCurrentFloorPlanAsync();
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Save failed: {ex.Message}", "OK");
+        }
+    }
+
+    private async void OnDevicePositionChanged(object? sender, PlacedDeviceModel device)
+    {
+        if (_viewModel?.StructuresVM?.SelectedLevel == null) return;
+
+        try
+        {
+            // Save the updated floor plan
+            await _viewModel.SaveCurrentFloorPlanAsync();
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Save failed: {ex.Message}", "OK");
+        }
+    }
+
+    private async void OnDevicePlacementRequested(object? sender, (double X, double Y) position)
+    {
+        if (_viewModel == null) return;
+
+        try
+        {
+            // Complete device placement at the specified position
+            await _viewModel.CompleteDevicePlacementAsync(position.X, position.Y);
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Device placement failed: {ex.Message}", "OK");
+        }
     }
 }

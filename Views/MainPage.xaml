@@ -303,41 +303,61 @@
                     </Label.Triggers>
                 </Label>
 
-                <!-- PNG fallback viewer with pinch/zoom using PanPinchContainer -->
-                <controls:PanPinchContainer>
-                    <Image
-                        x:Name="PlanImage"
-                        Aspect="AspectFit">
-                        <Image.Triggers>
-                            <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="True">
-                                <Setter Property="IsVisible" Value="False" />
-                            </DataTrigger>
-                            <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPngPath}" Value="{x:Null}">
-                                <Setter Property="IsVisible" Value="False" />
-                            </DataTrigger>
-                        </Image.Triggers>
-                        <Image.Source>
-                            <Binding Source="{x:Reference Root}" Path="BindingContext.StructuresVM.CurrentPngPath" />
-                        </Image.Source>
-                    </Image>
-                </controls:PanPinchContainer>
+                <!-- Floor plan with device pins overlay -->
+                <Grid x:Name="FloorPlanContainer">
+                    <Grid.Triggers>
+                        <DataTrigger TargetType="Grid" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.HasPlan}" Value="False">
+                            <Setter Property="IsVisible" Value="False" />
+                        </DataTrigger>
+                    </Grid.Triggers>
+                    
+                    <!-- PNG fallback viewer with pinch/zoom using PanPinchContainer -->
+                    <controls:PanPinchContainer x:Name="PlanPinchContainer">
+                        <Image
+                            x:Name="PlanImage"
+                            Aspect="AspectFit">
+                            <Image.Triggers>
+                                <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="True">
+                                    <Setter Property="IsVisible" Value="False" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPngPath}" Value="{x:Null}">
+                                    <Setter Property="IsVisible" Value="False" />
+                                </DataTrigger>
+                            </Image.Triggers>
+                            <Image.Source>
+                                <Binding Source="{x:Reference Root}" Path="BindingContext.StructuresVM.CurrentPngPath" />
+                            </Image.Source>
+                        </Image>
+                    </controls:PanPinchContainer>
 
-                <!-- PDF viewer placeholder; bind to CurrentPdfPath. Replace with an actual PDF control if added. -->
-                <ContentView x:Name="PdfViewerHost">
-                    <ContentView.Triggers>
-                        <DataTrigger TargetType="ContentView" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="False">
-                            <Setter Property="IsVisible" Value="False" />
-                        </DataTrigger>
-                        <DataTrigger TargetType="ContentView" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}" Value="{x:Null}">
-                            <Setter Property="IsVisible" Value="False" />
-                        </DataTrigger>
-                    </ContentView.Triggers>
-                    <VerticalStackLayout Spacing="6" HorizontalOptions="Center" VerticalOptions="Center">
-                        <Image Source="pdf_icon.svg" WidthRequest="48" HeightRequest="48" />
-                        <Label Text="PDF viewer not installed. Showing placeholder." TextColor="#B0B0B0" />
-                        <Label Text="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}" FontSize="10" TextColor="#808080" />
-                    </VerticalStackLayout>
-                </ContentView>
+                    <!-- Device Pins Overlay -->
+                    <controls:DevicePinOverlay 
+                        x:Name="DevicePinOverlay"
+                        PlacedDevices="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.SelectedLevel.PlacedDevices}"
+                        IsPlacementMode="{Binding Source={x:Reference Root}, Path=BindingContext.IsDevicePlacementMode}"
+                        DoorControlRequested="OnDoorControlRequested"
+                        SettingsRequested="OnSettingsRequested"
+                        DeviceDeleted="OnDeviceDeleted"
+                        DevicePositionChanged="OnDevicePositionChanged"
+                        DevicePlacementRequested="OnDevicePlacementRequested" />
+
+                    <!-- PDF viewer placeholder; bind to CurrentPdfPath. Replace with an actual PDF control if added. -->
+                    <ContentView x:Name="PdfViewerHost">
+                        <ContentView.Triggers>
+                            <DataTrigger TargetType="ContentView" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="False">
+                                <Setter Property="IsVisible" Value="False" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="ContentView" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}" Value="{x:Null}">
+                                <Setter Property="IsVisible" Value="False" />
+                            </DataTrigger>
+                        </ContentView.Triggers>
+                        <VerticalStackLayout Spacing="6" HorizontalOptions="Center" VerticalOptions="Center">
+                            <Image Source="pdf_icon.svg" WidthRequest="48" HeightRequest="48" />
+                            <Label Text="PDF viewer not installed. Showing placeholder." TextColor="#B0B0B0" />
+                            <Label Text="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}" FontSize="10" TextColor="#808080" />
+                        </VerticalStackLayout>
+                    </ContentView>
+                </Grid>
             </Grid>
         </Grid>
 

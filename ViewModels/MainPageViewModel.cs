@@ -535,13 +535,33 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
     private async void OnCenterButtonTapped()
     {
-        if (CurrentActiveTab == "Structures")
+        // Handle the "+" button tap for device placement
+        if (CurrentActiveTab == "WifiDev" || CurrentActiveTab == "LocalDev")
         {
-            await Shell.Current.GoToAsync("structureeditor");
-            return;
+            // Check if a device is selected
+            var selectedDevice = GetSelectedDevice();
+            if (selectedDevice != null && StructuresVM?.HasPlan == true)
+            {
+                StartDevicePlacement(selectedDevice);
+            }
+            else if (selectedDevice == null)
+            {
+                await Application.Current.MainPage.DisplayAlert("No Device Selected", "Please select a device from the dropdown first.", "OK");
+            }
+            else if (StructuresVM?.HasPlan != true)
+            {
+                await Application.Current.MainPage.DisplayAlert("No Floor Plan", "Please select a building and floor with a floor plan first.", "OK");
+            }
         }
-        if (Application.Current?.Windows?.FirstOrDefault()?.Page is Page page)
-            await page.DisplayAlert("Action", "Add button tapped", "OK");
+        else if (CurrentActiveTab == "Structures")
+        {
+            // Original functionality - add new building
+            await Shell.Current.GoToAsync("structureeditor");
+        }
+        else
+        {
+            await Application.Current.MainPage.DisplayAlert("Info", "Select a device from WiFi or Local devices to place it on the floor plan.", "OK");
+        }
     }
 
     private async void OnRightSectionTapped()
@@ -781,6 +801,180 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 "OK");
         }
     }
+
+    #region Device Pin Management
+
+    private DeviceModel? _pendingDeviceForPlacement;
+    private bool _isDevicePlacementMode;
+
+    public DeviceModel? PendingDeviceForPlacement
+    {
+        get => _pendingDeviceForPlacement;
+        private set => SetProperty(ref _pendingDeviceForPlacement, value);
+    }
+
+    public bool IsDevicePlacementMode
+    {
+        get => _isDevicePlacementMode;
+        private set => SetProperty(ref _isDevicePlacementMode, value);
+    }
+
+    public async Task ToggleDoorAsync(DeviceModel device)
+    {
+        try
+        {
+            // Check if device is currently connected
+            var isConnected = CurrentActiveTab == "WifiDev" 
+                ? await TestDeviceConnectivity(device)
+                : await TestLocalDeviceConnectivity(device);
+
+            if (!isConnected)
+            {
+                await Application.Current.MainPage.DisplayAlert(
+                    "Device Offline", 
+                    $"Cannot control {device.Name} - device is not connected.", 
+                    "OK");
+                return;
+            }
+
+            // Get current door state first
+            var doorState = await _apiService.GetDoorStateAsync(device);
+            
+            // Toggle based on current state
+            if (doorState.Contains("open", StringComparison.OrdinalIgnoreCase))
+            {
+                await _apiService.CloseDoorAsync(device);
+                await Application.Current.MainPage.DisplayAlert("Door Control", $"Closing door for {device.Name}", "OK");
+            }
+            else
+            {
+                await _apiService.OpenDoorAsync(device);
+                await Application.Current.MainPage.DisplayAlert("Door Control", $"Opening door for {device.Name}", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.MainPage.DisplayAlert("Error", $"Door control failed: {ex.Message}", "OK");
+        }
+    }
+
+    public async Task OpenDeviceSettingsAsync(DeviceModel device)
+    {
+        try
+        {
+            // Navigate to DeviceSettingsTabbedPage
+            // This will need to be implemented based on existing navigation structure
+            await Application.Current.MainPage.DisplayAlert(
+                "Settings", 
+                $"Opening settings for {device.Name}. (This will navigate to DeviceSettingsTabbedPage in final implementation)", 
+                "OK");
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.MainPage.DisplayAlert("Error", $"Settings navigation failed: {ex.Message}", "OK");
+        }
+    }
+
+    public async Task SaveCurrentFloorPlanAsync()
+    {
+        if (StructuresVM?.SelectedBuilding == null || StructuresVM?.SelectedLevel == null)
+            return;
+
+        try
+        {
+            var buildings = await _buildingStorage.LoadAsync();
+            var building = buildings.FirstOrDefault(b => 
+                b.BuildingName.Equals(StructuresVM.SelectedBuilding.BuildingName, StringComparison.OrdinalIgnoreCase));
+            
+            if (building != null)
+            {
+                var floor = building.Floors.FirstOrDefault(f => 
+                    f.FloorName.Equals(StructuresVM.SelectedLevel.FloorName, StringComparison.OrdinalIgnoreCase));
+                
+                if (floor != null)
+                {
+                    // Update the floor's PlacedDevices collection
+                    floor.PlacedDevices.Clear();
+                    foreach (var device in StructuresVM.SelectedLevel.PlacedDevices)
+                    {
+                        floor.PlacedDevices.Add(device);
+                    }
+                }
+                
+                await _buildingStorage.SaveAsync(buildings);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error saving floor plan: {ex.Message}");
+        }
+    }
+
+    public async Task CompleteDevicePlacementAsync(double x, double y)
+    {
+        if (PendingDeviceForPlacement == null || StructuresVM?.SelectedLevel == null)
+            return;
+
+        try
+        {
+            var placedDevice = new PlacedDeviceModel
+            {
+                DeviceId = PendingDeviceForPlacement.DeviceId,
+                DeviceName = PendingDeviceForPlacement.Name,
+                X = x,
+                Y = y,
+                Scale = 1.0,
+                DeviceType = PendingDeviceForPlacement.Type == AppDeviceType.WifiDevice ? DeviceType.WifiDevice : DeviceType.LocalDevice,
+                DeviceIp = PendingDeviceForPlacement.Ip,
+                Username = PendingDeviceForPlacement.Username,
+                Password = PendingDeviceForPlacement.Password,
+                PlacedAt = DateTime.Now
+            };
+
+            StructuresVM.SelectedLevel.PlacedDevices.Add(placedDevice);
+            await SaveCurrentFloorPlanAsync();
+
+            // Clear placement mode
+            PendingDeviceForPlacement = null;
+            IsDevicePlacementMode = false;
+            
+            await Application.Current.MainPage.DisplayAlert(
+                "Device Placed", 
+                $"{placedDevice.DeviceName} has been placed on the floor plan.", 
+                "OK");
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.MainPage.DisplayAlert("Error", $"Device placement failed: {ex.Message}", "OK");
+        }
+    }
+
+    private async Task<bool> TestLocalDeviceConnectivity(DeviceModel device)
+    {
+        try
+        {
+            var (success, _, _) = await _apiService.TestIntellidriveConnectionAsync(device.Ip);
+            return success;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void StartDevicePlacement(DeviceModel device)
+    {
+        PendingDeviceForPlacement = device;
+        IsDevicePlacementMode = true;
+    }
+
+    public void CancelDevicePlacement()
+    {
+        PendingDeviceForPlacement = null;
+        IsDevicePlacementMode = false;
+    }
+
+    #endregion
 
     #region WiFi Status Monitoring
 
