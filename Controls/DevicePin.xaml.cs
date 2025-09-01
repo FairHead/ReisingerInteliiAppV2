@@ -9,7 +9,7 @@ public partial class DevicePin : ContentView
         nameof(PlacedDevice), typeof(PlacedDeviceModel), typeof(DevicePin), propertyChanged: OnPlacedDeviceChanged);
 
     public static readonly BindableProperty DeviceIconSourceProperty = BindableProperty.Create(
-        nameof(DeviceIconSource), typeof(string), typeof(DevicePin), "device_icon.svg");
+        nameof(DeviceIconSource), typeof(string), typeof(DevicePin), "doordrive.svg");
 
     public PlacedDeviceModel? PlacedDevice
     {
@@ -48,9 +48,30 @@ public partial class DevicePin : ContentView
             // Apply scale
             pin.PinBorder.Scale = device.Scale;
             
-            // Position the pin
-            pin.TranslationX = device.X;
-            pin.TranslationY = device.Y;
+            // Position will be updated when the parent container size changes
+            pin.UpdatePosition();
+        }
+    }
+
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+        UpdatePosition();
+    }
+
+    private void UpdatePosition()
+    {
+        if (PlacedDevice == null || Parent == null) return;
+
+        // Get parent container size
+        if (Parent is View parentView && parentView.Width > 0 && parentView.Height > 0)
+        {
+            // Convert relative coordinates (0-1) to absolute position
+            var absoluteX = PlacedDevice.X * parentView.Width;
+            var absoluteY = PlacedDevice.Y * parentView.Height;
+            
+            TranslationX = absoluteX;
+            TranslationY = absoluteY;
         }
     }
 
@@ -90,15 +111,25 @@ public partial class DevicePin : ContentView
                     _isDragging = false;
                     ZIndex = 0;
                     
-                    // Update the model with new position
-                    var deltaX = TranslationX - PlacedDevice.X;
-                    var deltaY = TranslationY - PlacedDevice.Y;
-                    
-                    PlacedDevice.X = TranslationX;
-                    PlacedDevice.Y = TranslationY;
-                    
-                    // Notify parent of position change
-                    PositionChanged?.Invoke(this, (PlacedDevice, deltaX, deltaY));
+                    // Convert new absolute position back to relative coordinates
+                    if (Parent is View parentView && parentView.Width > 0 && parentView.Height > 0)
+                    {
+                        var newRelativeX = TranslationX / parentView.Width;
+                        var newRelativeY = TranslationY / parentView.Height;
+                        
+                        // Clamp to valid range
+                        newRelativeX = Math.Clamp(newRelativeX, 0, 1);
+                        newRelativeY = Math.Clamp(newRelativeY, 0, 1);
+                        
+                        var deltaX = newRelativeX - PlacedDevice.X;
+                        var deltaY = newRelativeY - PlacedDevice.Y;
+                        
+                        PlacedDevice.X = newRelativeX;
+                        PlacedDevice.Y = newRelativeY;
+                        
+                        // Notify parent of position change
+                        PositionChanged?.Invoke(this, (PlacedDevice, deltaX, deltaY));
+                    }
                 }
                 break;
 
@@ -108,8 +139,7 @@ public partial class DevicePin : ContentView
                     _isDragging = false;
                     ZIndex = 0;
                     // Restore original position
-                    TranslationX = _startX;
-                    TranslationY = _startY;
+                    UpdatePosition();
                 }
                 break;
         }

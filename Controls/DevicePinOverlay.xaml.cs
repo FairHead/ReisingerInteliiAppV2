@@ -34,7 +34,6 @@ public partial class DevicePinOverlay : ContentView
     public event EventHandler<(double X, double Y)>? DevicePlacementRequested;
 
     private readonly Dictionary<PlacedDeviceModel, DevicePin> _pinMap = new();
-    private DeviceModel? _pendingDevice; // Device waiting to be placed
 
     public DevicePinOverlay()
     {
@@ -149,37 +148,38 @@ public partial class DevicePinOverlay : ContentView
         var position = e.GetPosition(this);
         if (position.HasValue)
         {
-            DevicePlacementRequested?.Invoke(this, (position.Value.X, position.Value.Y));
+            // Convert the position to relative coordinates (0-1 range) 
+            // so they work regardless of current zoom/pan state
+            var relativeX = position.Value.X / Width;
+            var relativeY = position.Value.Y / Height;
+            
+            DevicePlacementRequested?.Invoke(this, (relativeX, relativeY));
         }
     }
 
     public void StartDevicePlacement(DeviceModel device)
     {
-        _pendingDevice = device;
         IsPlacementMode = true;
     }
 
-    public void CompleteDevicePlacement(double x, double y)
+    public void CompleteDevicePlacement(double relativeX, double relativeY, DeviceModel device)
     {
-        if (_pendingDevice == null) return;
-
+        // Store coordinates as relative values (0-1) for zoom independence
         var placedDevice = new PlacedDeviceModel
         {
-            DeviceId = _pendingDevice.DeviceId,
-            DeviceName = _pendingDevice.Name,
-            X = x,
-            Y = y,
+            DeviceId = device.DeviceId,
+            DeviceName = device.Name,
+            X = relativeX,
+            Y = relativeY,
             Scale = 1.0,
-            DeviceType = _pendingDevice.Type == AppDeviceType.WifiDevice ? DeviceType.WifiDevice : DeviceType.LocalDevice,
-            DeviceIp = _pendingDevice.Ip,
-            Username = _pendingDevice.Username,
-            Password = _pendingDevice.Password,
+            DeviceType = device.Type == AppDeviceType.WifiDevice ? DeviceType.WifiDevice : DeviceType.LocalDevice,
+            DeviceIp = device.Ip,
+            Username = device.Username,
+            Password = device.Password,
             PlacedAt = DateTime.Now
         };
 
         PlacedDevices?.Add(placedDevice);
-        
-        _pendingDevice = null;
         IsPlacementMode = false;
     }
 

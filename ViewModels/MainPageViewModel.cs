@@ -917,21 +917,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
         try
         {
-            var placedDevice = new PlacedDeviceModel
-            {
-                DeviceId = PendingDeviceForPlacement.DeviceId,
-                DeviceName = PendingDeviceForPlacement.Name,
-                X = x,
-                Y = y,
-                Scale = 1.0,
-                DeviceType = PendingDeviceForPlacement.Type == AppDeviceType.WifiDevice ? DeviceType.WifiDevice : DeviceType.LocalDevice,
-                DeviceIp = PendingDeviceForPlacement.Ip,
-                Username = PendingDeviceForPlacement.Username,
-                Password = PendingDeviceForPlacement.Password,
-                PlacedAt = DateTime.Now
-            };
-
-            StructuresVM.SelectedLevel.PlacedDevices.Add(placedDevice);
+            // The device has already been added to the collection by DevicePinOverlay
+            // Just save the floor plan and clear placement mode
             await SaveCurrentFloorPlanAsync();
 
             // Clear placement mode
@@ -940,7 +927,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             
             await Application.Current.MainPage.DisplayAlert(
                 "Device Placed", 
-                $"{placedDevice.DeviceName} has been placed on the floor plan.", 
+                $"Device has been placed on the floor plan.", 
                 "OK");
         }
         catch (Exception ex)

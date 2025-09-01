@@ -253,11 +253,14 @@ public partial class MainPage : ContentPage
 
     private async void OnDevicePlacementRequested(object? sender, (double X, double Y) position)
     {
-        if (_viewModel == null) return;
+        if (_viewModel?.PendingDeviceForPlacement == null) return;
 
         try
         {
             // Complete device placement at the specified position
+            DevicePinOverlay.CompleteDevicePlacement(position.X, position.Y, _viewModel.PendingDeviceForPlacement);
+            
+            // Clear the pending device in the view model
             await _viewModel.CompleteDevicePlacementAsync(position.X, position.Y);
         }
         catch (Exception ex)

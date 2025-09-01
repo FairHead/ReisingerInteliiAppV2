@@ -39,7 +39,7 @@
                         StrokeThickness="0"
                         WidthRequest="24"
                         HeightRequest="24">
-                    <Image Source="door_icon.svg"
+                    <Image Source="doordrive.svg"
                            WidthRequest="16"
                            HeightRequest="16"
                            HorizontalOptions="Center"
