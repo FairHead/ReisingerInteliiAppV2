@@ -48,6 +48,11 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         ScanButtonTappedCommand = new Command(OnScanButtonTapped);
         DeleteDeviceFromDropdownCommand = new Command<DropdownItemModel>(OnDeleteDeviceFromDropdown);
         ShowDeviceOptionsCommand = new Command<DropdownItemModel>(OnShowDeviceOptions);
+        AddDeviceToFloorPlanCommand = new Command<DropdownItemModel>(OnAddDeviceToFloorPlan);
+        ScaleUpDeviceCommand = new Command<PlacedDeviceModel>(OnScaleUpDevice);
+        ScaleDownDeviceCommand = new Command<PlacedDeviceModel>(OnScaleDownDevice);
+        ToggleDoorCommand = new Command<PlacedDeviceModel>(OnToggleDoor);
+        UpdateDevicePositionCommand = new Command<PlacedDeviceModel>(OnUpdateDevicePosition);
         
         InitializeDropdownData();
         
@@ -91,6 +96,11 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     public ICommand ScanButtonTappedCommand { get; }
     public ICommand DeleteDeviceFromDropdownCommand { get; }
     public ICommand ShowDeviceOptionsCommand { get; }
+    public ICommand AddDeviceToFloorPlanCommand { get; }
+    public ICommand ScaleUpDeviceCommand { get; }
+    public ICommand ScaleDownDeviceCommand { get; }
+    public ICommand ToggleDoorCommand { get; }
+    public ICommand UpdateDevicePositionCommand { get; }
 
     public string? CurrentActiveTab
     {
@@ -781,6 +791,175 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 "OK");
         }
     }
+
+    #region Device Placement on Floor Plan
+
+    private async void OnAddDeviceToFloorPlan(DropdownItemModel? device)
+    {
+        if (device == null || StructuresVM.SelectedLevel == null) 
+        {
+            await Application.Current.MainPage.DisplayAlert("Info", "Please select a floor first.", "OK");
+            return;
+        }
+
+        try
+        {
+            // Extract device information from dropdown item
+            var deviceName = device.Text.Split('\n')[0];
+            var deviceType = CurrentActiveTab == "WifiDev" ? "WiFi" : "Local";
+            var deviceIp = ExtractDeviceIp(device, deviceType);
+
+            // Check if device already placed on this floor
+            var existingDevice = StructuresVM.SelectedLevel.PlacedDevices
+                .FirstOrDefault(d => d.DeviceId == device.Id);
+            
+            if (existingDevice != null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Info", 
+                    $"Device '{deviceName}' is already placed on this floor.", "OK");
+                return;
+            }
+
+            // Create new placed device at center position (0.5, 0.5)
+            var placedDevice = new PlacedDeviceModel
+            {
+                DeviceId = device.Id,
+                DeviceName = deviceName,
+                DeviceIp = deviceIp,
+                DeviceType = deviceType,
+                X = 0.5,
+                Y = 0.5,
+                Scale = 1.0
+            };
+
+            // Add to floor and persist
+            StructuresVM.SelectedLevel.PlacedDevices.Add(placedDevice);
+            await PersistFloorChangesAsync();
+
+            // Close dropdown to show floor plan
+            IsDropdownVisible = false;
+
+            await Application.Current.MainPage.DisplayAlert("Success", 
+                $"Device '{deviceName}' added to floor plan.", "OK");
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.MainPage.DisplayAlert("Error", 
+                $"Failed to add device to floor plan: {ex.Message}", "OK");
+        }
+    }
+
+    private async void OnScaleUpDevice(PlacedDeviceModel? device)
+    {
+        if (device == null) return;
+
+        device.Scale = Math.Min(2.0, device.Scale + 0.2);
+        await PersistFloorChangesAsync();
+    }
+
+    private async void OnScaleDownDevice(PlacedDeviceModel? device)
+    {
+        if (device == null) return;
+
+        device.Scale = Math.Max(0.5, device.Scale - 0.2);
+        await PersistFloorChangesAsync();
+    }
+
+    private async void OnToggleDoor(PlacedDeviceModel? device)
+    {
+        if (device == null || string.IsNullOrWhiteSpace(device.DeviceIp)) return;
+
+        try
+        {
+            // Create DeviceModel for API call
+            var deviceModel = new DeviceModel
+            {
+                DeviceId = device.DeviceId,
+                Name = device.DeviceName,
+                Ip = device.DeviceIp,
+                Username = "admin", // Default values - could be made configurable
+                Password = "admin"
+            };
+
+            // For simplicity, always try to open door
+            // In a full implementation, you might want to check door status first
+            var result = await _apiService.OpenDoorAsync(deviceModel);
+            
+            await Application.Current.MainPage.DisplayAlert("Door Control", 
+                $"Door command sent to {device.DeviceName}", "OK");
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.MainPage.DisplayAlert("Error", 
+                $"Failed to control door: {ex.Message}", "OK");
+        }
+    }
+
+    private async void OnUpdateDevicePosition(PlacedDeviceModel? device)
+    {
+        if (device == null) return;
+        await PersistFloorChangesAsync();
+    }
+
+    private async Task PersistFloorChangesAsync()
+    {
+        if (StructuresVM.SelectedBuilding == null || StructuresVM.SelectedLevel == null) return;
+
+        try
+        {
+            var buildings = await _buildingStorage.LoadAsync();
+            var building = buildings.FirstOrDefault(b => 
+                b.BuildingName.Equals(StructuresVM.SelectedBuilding.BuildingName, StringComparison.OrdinalIgnoreCase));
+            
+            if (building != null)
+            {
+                var floor = building.Floors.FirstOrDefault(f => 
+                    f.FloorName.Equals(StructuresVM.SelectedLevel.FloorName, StringComparison.OrdinalIgnoreCase));
+                
+                if (floor != null)
+                {
+                    // Update the persistent floor with current placed devices
+                    floor.PlacedDevices.Clear();
+                    foreach (var device in StructuresVM.SelectedLevel.PlacedDevices)
+                    {
+                        floor.PlacedDevices.Add(device);
+                    }
+                    
+                    await _buildingStorage.SaveAsync(buildings);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ Error persisting floor changes: {ex.Message}");
+        }
+    }
+
+    private string ExtractDeviceIp(DropdownItemModel device, string deviceType)
+    {
+        if (deviceType == "WiFi")
+        {
+            return "192.168.4.100"; // Standard WiFi device IP
+        }
+        else
+        {
+            // Extract IP from Local device text (format: "Device Name\n192.168.x.x")
+            var lines = device.Text.Split('\n');
+            if (lines.Length >= 2)
+            {
+                var secondLine = lines[1];
+                var beforeSeparator = secondLine.Split('•')[0];
+                var match = Regex.Match(beforeSeparator, "\\b((25[0-5]|2[0-4]\\d|[0-1]?\\d?\\d)(\\.)){3}(25[0-5]|2[0-4]\\d|[0-1]?\\d?\\d)\\b");
+                if (match.Success)
+                {
+                    return match.Value;
+                }
+            }
+            return "192.168.1.100"; // Fallback IP
+        }
+    }
+
+    #endregion
 
     #region WiFi Status Monitoring
 

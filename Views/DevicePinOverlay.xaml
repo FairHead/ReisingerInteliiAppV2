@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView x:Class="ReisingerIntelliApp_V4.Views.DevicePinOverlay"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:ReisingerIntelliApp_V4.Models">
+    
+    <!-- Simple overlay that positions device pins absolutely -->
+    <AbsoluteLayout>
+        <CollectionView ItemsSource="{Binding PlacedDevices}" 
+                        BackgroundColor="Transparent"
+                        SelectionMode="None"
+                        AbsoluteLayout.LayoutBounds="0,0,1,1"
+                        AbsoluteLayout.LayoutFlags="All">
+            
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:PlacedDeviceModel">
+                    <AbsoluteLayout>
+                        <Border x:Name="DevicePin"
+                                BackgroundColor="#2A2A2A"
+                                StrokeShape="RoundRectangle 8"
+                                Stroke="#007AFF"
+                                StrokeThickness="2"
+                                Padding="8,6"
+                                Scale="{Binding Scale}"
+                                AbsoluteLayout.LayoutBounds="0.5,0.5,AutoSize,AutoSize"
+                                AbsoluteLayout.LayoutFlags="PositionProportional">
+                            
+                            <StackLayout Spacing="4" Orientation="Vertical">
+                                <!-- Device Name -->
+                                <Label Text="{Binding DeviceName}"
+                                       FontSize="10"
+                                       FontAttributes="Bold"
+                                       TextColor="White"
+                                       HorizontalOptions="Center"
+                                       LineBreakMode="TailTruncation"
+                                       MaxLines="1" />
+                                
+                                <!-- Type indicator -->
+                                <Label Text="{Binding DeviceType}"
+                                       FontSize="8"
+                                       TextColor="#B0B0B0"
+                                       HorizontalOptions="Center" />
+                                
+                                <!-- Control Buttons Row -->
+                                <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+                                    <!-- Scale Down Button -->
+                                    <Button Text="−"
+                                            FontSize="12"
+                                            FontAttributes="Bold"
+                                            BackgroundColor="#FF6B6B"
+                                            TextColor="White"
+                                            WidthRequest="24"
+                                            HeightRequest="24"
+                                            CornerRadius="12"
+                                            Padding="0"
+                                            Command="{Binding Source={x:RelativeSource AncestorType={x:Type ContentView}}, Path=BindingContext.ScaleDownCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    
+                                    <!-- Door Open/Close Button -->
+                                    <Button Text="🚪"
+                                            FontSize="12"
+                                            BackgroundColor="#4ECDC4"
+                                            TextColor="White"
+                                            WidthRequest="30"
+                                            HeightRequest="24"
+                                            CornerRadius="12"
+                                            Padding="0"
+                                            Command="{Binding Source={x:RelativeSource AncestorType={x:Type ContentView}}, Path=BindingContext.ToggleDoorCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    
+                                    <!-- Scale Up Button -->
+                                    <Button Text="+"
+                                            FontSize="12"
+                                            FontAttributes="Bold"
+                                            BackgroundColor="#51CF66"
+                                            TextColor="White"
+                                            WidthRequest="24"
+                                            HeightRequest="24"
+                                            CornerRadius="12"
+                                            Padding="0"
+                                            Command="{Binding Source={x:RelativeSource AncestorType={x:Type ContentView}}, Path=BindingContext.ScaleUpCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </HorizontalStackLayout>
+                            </StackLayout>
+                            
+                            <!-- Long Press for Drag -->
+                            <Border.GestureRecognizers>
+                                <PanGestureRecognizer PanUpdated="OnPanUpdated" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                    </AbsoluteLayout>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </AbsoluteLayout>
+</ContentView>
