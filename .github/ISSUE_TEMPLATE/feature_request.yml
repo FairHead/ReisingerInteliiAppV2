@@ -1,0 +1,45 @@
+name: "Feature request"
+description: "Neues Feature für die .NET MAUI App vorschlagen"
+title: "[Feature]: "
+labels: ["feature", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Bitte so konkret wie möglich ausfüllen."
+  - type: input
+    id: summary
+    attributes:
+      label: Kurzbeschreibung
+      placeholder: "z. B. Drag&Drop von Geräten auf Floor‑Plan speichern"
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Nutzen / Motivation
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Akzeptanzkriterien (Given/When/Then)
+      placeholder: |
+        Given ...
+        When  ...
+        Then  ...
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope & Komponenten
+      description: "Betroffene Pages, ViewModels, Services, API-Endpunkte"
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Rahmenbedingungen
+      options:
+        - label: MVVM einhalten (keine Logik in Code‑Behind)
+          required: true
+        - label: Navigation & DI korrekt verdrahten
+          required: true
+        - label: Tests hinzufügen/aktualisieren
+          required: true
