@@ -228,20 +228,11 @@
                                         HorizontalOptions="Center"
                                         IsVisible="{Binding HasActions}"
                                         Spacing="25">
-                                        <!--  Add to Floor Plan Button  -->
+                                        <!--  Add to Floor Plan Button (+ Button)  -->
                                         <ImageButton
                                             Padding="0"
                                             BackgroundColor="Transparent"
                                             Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.AddDeviceToFloorPlanCommand}"
-                                            CommandParameter="{Binding .}"
-                                            HeightRequest="32"
-                                            Source="configuredevicebutton.svg"
-                                            WidthRequest="32" />
-                                        <!--  Configure Button  -->
-                                        <ImageButton
-                                            Padding="0"
-                                            BackgroundColor="Transparent"
-                                            Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.ShowDeviceOptionsCommand}"
                                             CommandParameter="{Binding .}"
                                             HeightRequest="32"
                                             Source="configuredevicebutton.svg"
