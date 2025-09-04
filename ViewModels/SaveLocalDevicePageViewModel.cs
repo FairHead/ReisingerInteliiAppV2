@@ -28,6 +28,10 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
     [ObservableProperty]
     private string deviceData = string.Empty;
 
+    // Preserve the discovered deviceId so we save with the same ID and can match in scan results
+    [ObservableProperty]
+    private string deviceId = string.Empty;
+
     [ObservableProperty]
     private string deviceName = string.Empty;
 
@@ -83,6 +87,7 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
             var payload = JsonSerializer.Deserialize<Payload>(json);
             if (payload != null)
             {
+                DeviceId = payload.deviceId ?? string.Empty;
                 DeviceName = string.IsNullOrWhiteSpace(payload.name) ? "Local Device" : payload.name;
                 IpAddress = payload.ip ?? string.Empty;
                 FirmwareVersion = payload.firmware ?? string.Empty;
@@ -160,7 +165,8 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
         {
             var model = new DeviceModel
             {
-                DeviceId = Guid.NewGuid().ToString(),
+                // Use the discovered DeviceId so the scan list can match and grey out the correct row
+                DeviceId = string.IsNullOrWhiteSpace(DeviceId) ? Guid.NewGuid().ToString() : DeviceId,
                 Name = DeviceName,
                 IpAddress = IpAddress,
                 FirmwareVersion = FirmwareVersion,
@@ -175,9 +181,10 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
             };
 
             await _deviceService.SaveDeviceAsync(model);
-            // Notify listeners that a new local device was added
-            MessagingCenter.Send(this, "LocalDeviceAdded");
-            await Shell.Current.GoToAsync("../..");
+            // Notify listeners that a new local device was added (send DeviceId so scanners can mark the right row)
+            MessagingCenter.Send(this, "LocalDeviceAdded", model.DeviceId);
+            // Return to the scan list so the user can add more without restarting the scan
+            await Shell.Current.GoToAsync("..");
         }
         catch (Exception ex)
         {

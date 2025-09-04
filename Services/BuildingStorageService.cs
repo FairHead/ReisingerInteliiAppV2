@@ -24,10 +24,6 @@ public class BuildingStorageService : IBuildingStorageService
             foreach (var b in list)
             {
                 b.Floors ??= new();
-                foreach (var f in b.Floors)
-                {
-                    f.PlacedDevices ??= new();
-                }
             }
             return list;
         }

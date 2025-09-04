@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="ReisingerIntelliApp_V4.Views.FloorPlanDemoPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             Title="Floor Plan Demo">
+    
+    <Grid>
+        <ScrollView>
+            <StackLayout Padding="20" Spacing="20">
+                
+                <Label Text="Floor Plan Demo"
+                       FontSize="24"
+                       FontFamily="SpaceMonoBold"
+                       TextColor="{StaticResource LightText}"
+                       HorizontalOptions="Center" />
+                
+                <Label Text="This is a demonstration page for floor plan functionality."
+                       FontSize="16"
+                       FontFamily="SpaceMonoRegular"
+                       TextColor="{StaticResource MediumText}"
+                       HorizontalOptions="Center" />
+                
+                <!-- Simple floor plan representation -->
+                <Frame BackgroundColor="#1E1E1E"
+                       HasShadow="False"
+                       Padding="20"
+                       CornerRadius="8">
+                    
+                    <Grid RowDefinitions="300,*"
+                          ColumnDefinitions="*">
+                        
+                        <!-- Floor plan area -->
+                        <Border Grid.Row="0"
+                                BackgroundColor="#2D2D2D"
+                                Stroke="#404040"
+                                StrokeThickness="2"
+                                Padding="20">
+                            
+                            <Grid>
+                                <!-- Room outline -->
+                                <Border WidthRequest="200"
+                                        HeightRequest="150"
+                                        BackgroundColor="Transparent"
+                                        Stroke="#666666"
+                                        StrokeThickness="2"
+                                        HorizontalOptions="Center"
+                                        VerticalOptions="Center">
+                                    
+                                    <Label Text="Sample Room"
+                                           FontFamily="SpaceMonoRegular"
+                                           FontSize="12"
+                                           TextColor="#999999"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Info panel -->
+                        <Border Grid.Row="1"
+                                BackgroundColor="#2D2D2D"
+                                Padding="15"
+                                Stroke="#404040"
+                                StrokeThickness="1">
+                            <StackLayout Spacing="5">
+                                <Label Text="Floor Plan Information"
+                                       FontFamily="SpaceMonoBold"
+                                       FontSize="14"
+                                       TextColor="{StaticResource LightText}" />
+                                
+                                <Label Text="• Demo floor plan layout"
+                                       FontFamily="SpaceMonoRegular"
+                                       FontSize="12"
+                                       TextColor="{StaticResource MediumText}" />
+                            </StackLayout>
+                        </Border>
+                    </Grid>
+                </Frame>
+                
+            </StackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

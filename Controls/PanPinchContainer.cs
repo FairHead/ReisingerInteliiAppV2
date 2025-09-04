@@ -18,19 +18,20 @@ public class PanPinchContainer : ContentView
     private double _panX;
     private double _panY;
     private double _startScale = 1;
+    private bool _isProcessingGesture = false;
 
     public PanPinchContainer()
     {
         _panGestureRecognizer = new PanGestureRecognizer();
-        _panGestureRecognizer.PanUpdated += OnPanUpdatedAsync;
+        _panGestureRecognizer.PanUpdated += OnPanUpdated;
         GestureRecognizers.Add(_panGestureRecognizer);
 
         _pinchGestureRecognizer = new PinchGestureRecognizer();
-        _pinchGestureRecognizer.PinchUpdated += OnPinchUpdatedAsync;
+        _pinchGestureRecognizer.PinchUpdated += OnPinchUpdated;
         GestureRecognizers.Add(_pinchGestureRecognizer);
 
         _doubleTapGestureRecognizer = new TapGestureRecognizer { NumberOfTapsRequired = 2 };
-        _doubleTapGestureRecognizer.Tapped += DoubleTappedAsync;
+        _doubleTapGestureRecognizer.Tapped += OnDoubleTapped;
         GestureRecognizers.Add(_doubleTapGestureRecognizer);
     }
 
@@ -119,7 +120,25 @@ public class PanPinchContainer : ContentView
         await ClampTranslationAsync(targetX, targetY, animate);
     }
 
-    private async void DoubleTappedAsync(object? sender, TappedEventArgs e)
+    private void OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_isProcessingGesture || Content is null) return;
+        
+        _ = MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            try
+            {
+                _isProcessingGesture = true;
+                await DoubleTappedAsync(sender, e);
+            }
+            finally
+            {
+                _isProcessingGesture = false;
+            }
+        });
+    }
+
+    private async Task DoubleTappedAsync(object? sender, TappedEventArgs e)
     {
         if (Content is null) return;
 
@@ -145,7 +164,25 @@ public class PanPinchContainer : ContentView
         _panY = Content.TranslationY;
     }
 
-    private async void OnPanUpdatedAsync(object? sender, PanUpdatedEventArgs e)
+    private void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
+    {
+        if (_isProcessingGesture) return;
+        
+        _ = MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            try
+            {
+                _isProcessingGesture = true;
+                await OnPanUpdatedAsync(sender, e);
+            }
+            finally
+            {
+                _isProcessingGesture = false;
+            }
+        });
+    }
+
+    private async Task OnPanUpdatedAsync(object? sender, PanUpdatedEventArgs e)
     {
         if (!_isPanEnabled || Content is null)
             return;
@@ -176,7 +213,25 @@ public class PanPinchContainer : ContentView
         }
     }
 
-    private async void OnPinchUpdatedAsync(object? sender, PinchGestureUpdatedEventArgs e)
+    private void OnPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e)
+    {
+        if (_isProcessingGesture) return;
+        
+        _ = MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            try
+            {
+                _isProcessingGesture = true;
+                await OnPinchUpdatedAsync(sender, e);
+            }
+            finally
+            {
+                _isProcessingGesture = false;
+            }
+        });
+    }
+
+    private async Task OnPinchUpdatedAsync(object? sender, PinchGestureUpdatedEventArgs e)
     {
         if (Content is null) return;
 

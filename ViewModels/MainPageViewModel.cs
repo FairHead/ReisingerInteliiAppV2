@@ -4,6 +4,8 @@ using System.Linq;
 using ReisingerIntelliApp_V4.Models;
 using ReisingerIntelliApp_V4.Services;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
+using CommunityToolkit.Mvvm.Input;
 
 namespace ReisingerIntelliApp_V4.ViewModels;
 
@@ -15,6 +17,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private readonly PdfStorageService _pdfStorageService;
     private readonly WiFiManagerService _wifiService;
     private readonly IntellidriveApiService _apiService;
+    private IPlanViewportService? _viewport; // optional, provided by view
     private string? _currentActiveTab;
     private DateTime _lastTabTapTime = DateTime.MinValue;
     private const int TAB_DEBOUNCE_MS = 300;
@@ -31,7 +34,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private string? _selectedLevelName;
     public StructuresViewModel StructuresVM { get; }
 
-    public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService, IntellidriveApiService apiService, IBuildingStorageService buildingStorage, StructuresViewModel structuresVM, PdfStorageService pdfStorage)
+    public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService, IntellidriveApiService apiService, IBuildingStorageService buildingStorage, StructuresViewModel structuresVM, PdfStorageService pdfStorage, IPlanViewportService? viewport = null)
     {
         _deviceService = deviceService;
         _authService = authService;
@@ -39,7 +42,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         _apiService = apiService;
     _buildingStorage = buildingStorage;
     _pdfStorageService = pdfStorage;
-        StructuresVM = structuresVM;
+    StructuresVM = structuresVM;
+    _viewport = viewport;
         Title = "Reisinger App";
         TabTappedCommand = new Command<string>(OnTabTapped);
         LeftSectionTappedCommand = new Command(OnLeftSectionTapped);
@@ -47,12 +51,23 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         RightSectionTappedCommand = new Command(OnRightSectionTapped);
         ScanButtonTappedCommand = new Command(OnScanButtonTapped);
         DeleteDeviceFromDropdownCommand = new Command<DropdownItemModel>(OnDeleteDeviceFromDropdown);
-        ShowDeviceOptionsCommand = new Command<DropdownItemModel>(OnShowDeviceOptions);
+    ShowDeviceOptionsCommand = new Command<DropdownItemModel>(OnShowDeviceOptions);
+    AddDeviceToFloorPlanCommand = new AsyncRelayCommand<DropdownItemModel>(AddDeviceToCurrentFloorAsync);
+    IncreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, +0.1));
+    DecreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, -0.1));
         
         InitializeDropdownData();
         
         // Subscribe to device added messages
         MessagingCenter.Subscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded", async (sender) =>
+        {
+            if (CurrentActiveTab == "LocalDev")
+            {
+                await LoadLocalDevicesAsync();
+            }
+        });
+        // Also handle message sent from SaveLocalDevicePageViewModel (with payload deviceId)
+        MessagingCenter.Subscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded", async (sender, deviceId) =>
         {
             if (CurrentActiveTab == "LocalDev")
             {
@@ -91,6 +106,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     public ICommand ScanButtonTappedCommand { get; }
     public ICommand DeleteDeviceFromDropdownCommand { get; }
     public ICommand ShowDeviceOptionsCommand { get; }
+    public IAsyncRelayCommand<DropdownItemModel> AddDeviceToFloorPlanCommand { get; }
+    public IAsyncRelayCommand<PlacedDeviceModel> IncreaseDeviceScaleCommand { get; }
+    public IAsyncRelayCommand<PlacedDeviceModel> DecreaseDeviceScaleCommand { get; }
 
     public string? CurrentActiveTab
     {
@@ -315,6 +333,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 // Ensure any previous default card is removed
                 RemoveDefaultNoDeviceCard();
 
+                // Determine which devices are already placed on the currently selected floor
+                var placedIds = new HashSet<string>(StructuresVM.SelectedLevel?.PlacedDevices?.Select(pd => pd.DeviceInfo.DeviceId) ?? Enumerable.Empty<string>());
+
                 foreach (var device in savedDevices)
                 {
                     var lastSeenText = device.LastSeen != default(DateTime) 
@@ -328,7 +349,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         Text = $"{device.Name}\n{device.Ssid} • {lastSeenText}",
                         HasActions = true,
                         ShowStatus = true,
-                        IsConnected = false // Start with disconnected, will be updated immediately by monitoring
+                        IsConnected = false, // Start with disconnected, will be updated immediately by monitoring
+                        IsPlacedOnCurrentFloor = placedIds.Contains(device.DeviceId),
+                        IsActionEnabled = !placedIds.Contains(device.DeviceId)
                     };
                     
                     DropdownItems.Add(dropdownItem);
@@ -399,6 +422,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 // Ensure any previous default card is removed
                 RemoveDefaultNoDeviceCard();
 
+                // Determine which devices are already placed on the currently selected floor
+                var placedIds = new HashSet<string>(StructuresVM.SelectedLevel?.PlacedDevices?.Select(pd => pd.DeviceInfo.DeviceId) ?? Enumerable.Empty<string>());
+
                 foreach (var device in savedDevices)
                 {
                     var lastSeenText = device.LastSeen != default(DateTime) 
@@ -412,7 +438,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         Text = $"{device.Name}\n{device.IpAddress} • {lastSeenText}",
                         HasActions = true,
                         ShowStatus = true,
-                        IsConnected = false // Start with disconnected, will be updated immediately by monitoring
+                        IsConnected = false, // Start with disconnected, will be updated immediately by monitoring
+                        IsPlacedOnCurrentFloor = placedIds.Contains(device.DeviceId),
+                        IsActionEnabled = !placedIds.Contains(device.DeviceId)
                     };
                     
                     DropdownItems.Add(dropdownItem);
@@ -472,7 +500,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
         foreach (var b in buildings)
         {
-            DropdownItems.Add(new DropdownItemModel { Id = b.BuildingName, Icon = "home.svg", Text = b.BuildingName, HasActions = true, ShowStatus = false, IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) });
+            DropdownItems.Add(new DropdownItemModel { Id = b.BuildingName, Icon = "home.svg", Text = b.BuildingName, HasActions = false, ShowStatus = false, IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) });
         }
     }
 
@@ -501,7 +529,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
         foreach (var f in selected.Floors)
         {
-            DropdownItems.Add(new DropdownItemModel { Id = f.FloorName, Icon = "levels.svg", Text = f.FloorName, HasActions = true, ShowStatus = false, IsSelected = string.Equals(SelectedLevelName, f.FloorName, StringComparison.OrdinalIgnoreCase) });
+            DropdownItems.Add(new DropdownItemModel { Id = f.FloorName, Icon = "levels.svg", Text = f.FloorName, HasActions = false, ShowStatus = false, IsSelected = string.Equals(SelectedLevelName, f.FloorName, StringComparison.OrdinalIgnoreCase) });
         }
     }
 
@@ -529,19 +557,33 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
     private async void OnLeftSectionTapped()
     {
-        if (Application.Current?.Windows?.FirstOrDefault()?.Page is Page page)
-            await page.DisplayAlert("Navigation", "My Place tapped", "OK");
+        // Reset MainPage to default state - close all dropdowns and clear selections
+        CloseDropdown();
+        
+        // Clear any selected building/level to reset the view completely
+        SelectedBuildingName = null;
+        SelectedLevelName = null;
+        
+        // Reset StructuresVM to clean state
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await StructuresVM.LoadAsync(null);
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    StructuresVM.SelectedBuilding = null;
+                    StructuresVM.SelectedLevel = null;
+                });
+            }
+            catch { }
+        });
     }
 
     private async void OnCenterButtonTapped()
     {
-        if (CurrentActiveTab == "Structures")
-        {
-            await Shell.Current.GoToAsync("structureeditor");
-            return;
-        }
-        if (Application.Current?.Windows?.FirstOrDefault()?.Page is Page page)
-            await page.DisplayAlert("Action", "Add button tapped", "OK");
+        // Always navigate to structure editor for adding/editing buildings and floors
+        await Shell.Current.GoToAsync("structureeditor");
     }
 
     private async void OnRightSectionTapped()
@@ -782,6 +824,141 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
     }
 
+    #region Device placement and scaling
+
+    private async Task AddDeviceToCurrentFloorAsync(DropdownItemModel? item)
+    {
+        try
+        {
+            // Preconditions
+            if (StructuresVM.SelectedBuilding is null || StructuresVM.SelectedLevel is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Info", "Select building and level first.", "OK");
+                return;
+            }
+            if (_viewport is null || !_viewport.IsPlanReady)
+            {
+                await Application.Current.MainPage.DisplayAlert("Info", "Floor plan not ready.", "OK");
+                return;
+            }
+
+            // Resolve device info from saved lists by id
+            if (item == null || string.IsNullOrWhiteSpace(item.Id)) return;
+            DeviceModel? source = null;
+            if (CurrentActiveTab == "WifiDev")
+            {
+                var saved = await _deviceService.GetSavedWifiDevicesAsync();
+                source = saved.FirstOrDefault(d => d.DeviceId == item.Id);
+            }
+            else if (CurrentActiveTab == "LocalDev")
+            {
+                var saved = await _deviceService.GetSavedLocalDevicesAsync();
+                source = saved.FirstOrDefault(d => d.DeviceId == item.Id);
+            }
+            if (source == null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Error", "Device not found.", "OK");
+                return;
+            }
+
+            // Prevent duplicates per floor: check if a device with same DeviceId already exists on this floor
+            var alreadyPlaced = StructuresVM.SelectedLevel.PlacedDevices.Any(pd => pd.DeviceInfo?.DeviceId == source.DeviceId);
+            if (alreadyPlaced)
+            {
+                await Application.Current.MainPage.DisplayAlert("Info", "This device is already placed on the selected floor.", "OK");
+                // Update dropdown item to reflect disabled state
+                var dropdownMatch = DropdownItems.FirstOrDefault(d => d.Id == source.DeviceId);
+                if (dropdownMatch != null)
+                {
+                    dropdownMatch.IsPlacedOnCurrentFloor = true;
+                    dropdownMatch.IsActionEnabled = false;
+                }
+                return;
+            }
+
+            // Place exactly at the center of the plan (normalized coordinates)
+            // Using plan center ensures the device lands visually in the middle of the displayed floor plan
+            // regardless of current zoom/pan state or letterboxing from AspectFit.
+            var xNorm = 0.5;
+            var yNorm = 0.5;
+
+            var placed = new PlacedDeviceModel(source)
+            {
+                PlacedDeviceId = Guid.NewGuid().ToString("N"),
+                XCenterNorm = xNorm,
+                YCenterNorm = yNorm,
+                BaseWidthNorm = 0.15, // Use new larger default
+                BaseHeightNorm = 0.18, // Use new larger default
+                Scale = 1.0,
+                BuildingId = 0,
+                FloorId = 0,
+            };
+
+            // Persist to selected floor
+            StructuresVM.SelectedLevel.PlacedDevices.Add(placed);
+
+            // Save all buildings
+            await PersistBuildingsAsync();
+
+            // Notify plan to refresh rendering if needed - IMMEDIATE refresh even with dropdown open
+            await StructuresVM.RefreshCurrentFloorPlanAsync();
+            
+            // Force immediate layout refresh via MessagingCenter to ensure devices appear right away
+            MessagingCenter.Send(this, "ForceDeviceLayoutRefresh");
+
+            // Update dropdown item state after successful placement
+            var placedItem = DropdownItems.FirstOrDefault(d => d.Id == source.DeviceId);
+            if (placedItem != null)
+            {
+                placedItem.IsPlacedOnCurrentFloor = true;
+                placedItem.IsActionEnabled = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.MainPage.DisplayAlert("Error", ex.Message, "OK");
+        }
+    }
+
+    private async Task ChangeDeviceScaleAsync(PlacedDeviceModel? device, double delta)
+    {
+        if (device == null) return;
+        const double min = 0.2, max = 2.5;
+        var newScale = Math.Clamp(device.Scale + delta, min, max);
+        if (Math.Abs(newScale - device.Scale) < 0.0001) return;
+        device.Scale = newScale;
+        await PersistBuildingsAsync();
+    }
+
+    private async Task PersistBuildingsAsync()
+    {
+        // Save entire building list preserving floors and placed devices
+        var list = await _buildingStorage.LoadAsync();
+        var b = list.FirstOrDefault(x => x.BuildingName.Equals(StructuresVM.SelectedBuilding?.BuildingName ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+        if (b != null)
+        {
+            var f = b.Floors.FirstOrDefault(x => x.FloorName.Equals(StructuresVM.SelectedLevel?.FloorName ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+            if (f != null)
+            {
+                // Replace PlacedDevices with current instance
+                f.PlacedDevices = StructuresVM.SelectedLevel!.PlacedDevices;
+            }
+        }
+        await _buildingStorage.SaveAsync(list);
+    }
+
+    #endregion
+
+    public void AttachViewport(IPlanViewportService viewport)
+    {
+        _viewport = viewport;
+    }
+
+    public async Task SaveCurrentFloorAsync()
+    {
+        await PersistBuildingsAsync();
+    }
+
     #region WiFi Status Monitoring
 
     private void StartWifiStatusMonitoring()
@@ -963,11 +1140,15 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
     }
 
+    /// <summary>
+    /// Saves changes to placed devices (scale, position, etc.) to persistent storage
+    /// </summary>
     // Dispose method to clean up timer
     public void Dispose()
     {
         StopWifiStatusMonitoring();
-        MessagingCenter.Unsubscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded");
+    MessagingCenter.Unsubscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded");
+    MessagingCenter.Unsubscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded");
     }
 
     #endregion

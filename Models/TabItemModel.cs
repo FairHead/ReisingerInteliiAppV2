@@ -29,6 +29,14 @@ public partial class DropdownItemModel : ObservableObject
     
     [ObservableProperty]
     private bool isConnected = false;
+
+    // If false, UI should disable action buttons (e.g., Add to Floor Plan) and optionally grey out the card
+    [ObservableProperty]
+    private bool isActionEnabled = true;
+
+    // Mark when this device is already placed on the currently selected floor (used to compute isActionEnabled/visuals)
+    [ObservableProperty]
+    private bool isPlacedOnCurrentFloor = false;
     
     // Computed properties that automatically notify when IsConnected changes
     public string ConnectionStatus => IsConnected ? "Connected" : "Disconnected";

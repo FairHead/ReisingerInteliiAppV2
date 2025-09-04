@@ -1,19 +1,30 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
 
 namespace ReisingerIntelliApp_V4.Models;
 
-public class Floor
+public partial class Floor : ObservableObject
 {
-    public string FloorName { get; set; } = string.Empty;
-    public string? PdfPath { get; set; } = string.Empty;
-    public string? PngPath { get; set; }
-    public ObservableCollection<PlacedDeviceModel> PlacedDevices { get; set; } = new();
-}
+    [ObservableProperty]
+    private string floorName = string.Empty;
+    
+    [ObservableProperty]
+    private string? pdfPath = null;
+    
+    [ObservableProperty]
+    private string? pngPath = null;
 
-// Minimal placeholder; can be expanded later to match V3
-public class PlacedDeviceModel
-{
-    public string DeviceId { get; set; } = string.Empty;
-    public double X { get; set; }
-    public double Y { get; set; }
+    // Placed devices for this floor (persisted). Keep as collection for per-floor separation.
+    [ObservableProperty]
+    private ObservableCollection<PlacedDeviceModel> placedDevices = new();
+
+    // Optional viewport persistence per floor (PanPinchContainer state)
+    [ObservableProperty]
+    private double? viewScale;
+
+    [ObservableProperty]
+    private double? viewTranslationX;
+
+    [ObservableProperty]
+    private double? viewTranslationY;
 }

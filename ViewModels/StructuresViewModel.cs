@@ -77,6 +77,22 @@ public partial class StructuresViewModel : ObservableObject
     public async Task RefreshCurrentFloorPlanAsync()
     {
         if (SelectedLevel == null) return;
+        
+        // Reload the building and floor data to get updated PlacedDevices
+        var list = await _storage.LoadAsync();
+        var currentBuilding = list.FirstOrDefault(x => x.BuildingName.Equals(SelectedBuilding?.BuildingName ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+        if (currentBuilding != null)
+        {
+            var currentFloor = currentBuilding.Floors.FirstOrDefault(x => x.FloorName.Equals(SelectedLevel.FloorName, StringComparison.OrdinalIgnoreCase));
+            if (currentFloor != null)
+            {
+                // Force complete refresh by setting SelectedLevel to the fresh data
+                var oldLevelName = SelectedLevel.FloorName;
+                SelectedLevel = currentFloor;
+                OnPropertyChanged(nameof(SelectedLevel));
+            }
+        }
+        
         var changed = false;
         if (!string.IsNullOrWhiteSpace(SelectedLevel.PdfPath) && !File.Exists(SelectedLevel.PdfPath))
         {
@@ -91,7 +107,6 @@ public partial class StructuresViewModel : ObservableObject
         if (changed)
         {
             // Persist updated buildings
-            var list = await _storage.LoadAsync();
             var b = list.FirstOrDefault(x => x.BuildingName.Equals(SelectedBuilding?.BuildingName ?? string.Empty, StringComparison.OrdinalIgnoreCase));
             if (b != null)
             {

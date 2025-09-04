@@ -28,6 +28,20 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
         // Set default IP range for most common local networks
         StartIp = "192.168.1.1";
         EndIp = "192.168.1.254";
+
+        // When a device is saved from SaveLocalDevicePage, mark it as saved here so user can continue adding others
+    MessagingCenter.Subscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded", (sender, savedDeviceId) =>
+        {
+            try
+            {
+        var match = LocalDevices.FirstOrDefault(d => d.DeviceId == savedDeviceId);
+                if (match != null)
+                {
+                    match.IsAlreadySaved = true;
+                }
+            }
+            catch { }
+        });
     }
 
     [ObservableProperty]
@@ -178,6 +192,16 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
                 var device = await TestSingleIpForIntellidriveAsync(ip, cancellationToken);
                 if (device != null)
                 {
+                    // Ensure we mark already-saved devices by comparing with saved list
+                    try
+                    {
+                        var saved = await _deviceService.GetSavedLocalDevicesAsync();
+                        if (saved.Any(d => d.DeviceId == device.DeviceId))
+                        {
+                            device.IsAlreadySaved = true;
+                        }
+                    }
+                    catch { }
                     // UI-Update auf Main Thread - Sofortiges Hinzufügen zur Liste
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
@@ -320,7 +344,7 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
                 }
             }
 
-            return new LocalNetworkDeviceModel
+            var model = new LocalNetworkDeviceModel
             {
                 Id = deviceId,
                 DeviceId = deviceId,
@@ -334,6 +358,16 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
                 ResponseTime = DateTime.Now,
                 DiscoveredAt = DateTime.Now
             };
+            try
+            {
+                var saved = await _deviceService.GetSavedLocalDevicesAsync();
+                if (saved.Any(d => d.DeviceId == model.DeviceId))
+                {
+                    model.IsAlreadySaved = true;
+                }
+            }
+            catch { }
+            return model;
         }
         catch (OperationCanceledException)
         {
@@ -343,7 +377,7 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
         {
             Debug.WriteLine($"⚠️ Error creating device model for {ipAddress}: {ex.Message}");
             
-            return new LocalNetworkDeviceModel
+            var fallback = new LocalNetworkDeviceModel
             {
                 Id = Guid.NewGuid().ToString(),
                 DeviceId = Guid.NewGuid().ToString(),
@@ -357,6 +391,16 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
                 ResponseTime = DateTime.Now,
                 DiscoveredAt = DateTime.Now
             };
+            try
+            {
+                var saved = await _deviceService.GetSavedLocalDevicesAsync();
+                if (saved.Any(d => d.DeviceId == fallback.DeviceId))
+                {
+                    fallback.IsAlreadySaved = true;
+                }
+            }
+            catch { }
+            return fallback;
         }
     }
 
