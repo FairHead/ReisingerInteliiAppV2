@@ -22,7 +22,11 @@
         WidthRequest="160">
 
         <!--  Device Display Grid  -->
-    <Grid x:Name="DeviceGrid" BackgroundColor="Transparent" ZIndex="3">
+        <Grid
+            x:Name="DeviceGrid"
+            BackgroundColor="Transparent"
+            ZIndex="5"
+            InputTransparent="False">
 
             <!--  Scale Plus Button (Top Left)  -->
             <ImageButton
@@ -36,7 +40,9 @@
                 MaximumHeightRequest="25"
                 MaximumWidthRequest="25"
                 Source="plus.svg"
-                VerticalOptions="Start" />
+                VerticalOptions="Start" 
+                InputTransparent="False"
+                IsEnabled="True" />
 
             <!--  Scale Minus Button (Top Right)  -->
             <ImageButton
@@ -50,7 +56,9 @@
                 MaximumHeightRequest="25"
                 MaximumWidthRequest="25"
                 Source="minus.svg"
-                VerticalOptions="Start" />
+                VerticalOptions="Start" 
+                InputTransparent="False"
+                IsEnabled="True" />
 
             <!--  Move Device Button (Bottom Right)  -->
             <ImageButton
@@ -63,12 +71,18 @@
                 MaximumHeightRequest="25"
                 MaximumWidthRequest="25"
                 Source="move.svg"
-                VerticalOptions="End" />
+                VerticalOptions="End" 
+                InputTransparent="False"
+                IsEnabled="True" />
 
         </Grid>
 
         <!--  Move Buttons Container (Hidden by default)  -->
-    <Grid x:Name="ArrowButtonsContainer" IsVisible="False" ZIndex="2">
+        <Grid
+            x:Name="ArrowButtonsContainer"
+            IsVisible="False"
+            ZIndex="10"
+            InputTransparent="False">
 
             <!--  Move Up Button  -->
             <ImageButton
@@ -77,10 +91,12 @@
                 Clicked="OnMoveUpClicked"
                 CornerRadius="12"
                 HorizontalOptions="Center"
-                MaximumHeightRequest="20"
-                MaximumWidthRequest="20"
+                MaximumHeightRequest="35"
+                MaximumWidthRequest="35"
                 Source="arrow_up.svg"
-                VerticalOptions="Start" />
+                VerticalOptions="Start" 
+                InputTransparent="False"
+                IsEnabled="True" />
 
             <!--  Move Down Button  -->
             <ImageButton
@@ -89,10 +105,12 @@
                 Clicked="OnMoveDownClicked"
                 CornerRadius="12"
                 HorizontalOptions="Center"
-                MaximumHeightRequest="20"
-                MaximumWidthRequest="20"
+                MaximumHeightRequest="35"
+                MaximumWidthRequest="35"
                 Source="arrow_down.svg"
-                VerticalOptions="End" />
+                VerticalOptions="End" 
+                InputTransparent="False"
+                IsEnabled="True" />
 
             <!--  Move Left Button  -->
             <ImageButton
@@ -101,10 +119,12 @@
                 Clicked="OnMoveLeftClicked"
                 CornerRadius="12"
                 HorizontalOptions="Start"
-                MaximumHeightRequest="20"
-                MaximumWidthRequest="20"
+                MaximumHeightRequest="35"
+                MaximumWidthRequest="35"
                 Source="arrow_left.svg"
-                VerticalOptions="Center" />
+                VerticalOptions="Center" 
+                InputTransparent="False"
+                IsEnabled="True" />
 
             <!--  Move Right Button  -->
             <ImageButton
@@ -113,10 +133,12 @@
                 Clicked="OnMoveRightClicked"
                 CornerRadius="12"
                 HorizontalOptions="End"
-                MaximumHeightRequest="20"
-                MaximumWidthRequest="20"
+                MaximumHeightRequest="35"
+                MaximumWidthRequest="35"
                 Source="arrow_right.svg"
-                VerticalOptions="Center" />
+                VerticalOptions="Center" 
+                InputTransparent="False"
+                IsEnabled="True" />
 
         </Grid>
 
@@ -126,12 +148,13 @@
             HeightRequest="156"
             HorizontalOptions="Fill"
             VerticalOptions="End"
-            ZIndex="1">
+            ZIndex="3"
+            InputTransparent="False">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="16" />
             </Border.StrokeShape>
 
-            <Grid RowDefinitions="Auto,*,Auto">
+            <Grid RowDefinitions="Auto,*,Auto" InputTransparent="False">
 
                 <!--  Device Info Container (Top)  -->
                 <StackLayout
@@ -213,7 +236,7 @@
                         </ImageButton.Source>
                     </ImageButton>
 
-                    <!--  Move Device Button (Right)  -->
+                    <!--  Move Device Button (Right) - Now with selection functionality  -->
                     <ImageButton
                         Grid.Row="2"
                         Grid.RowSpan="1"
@@ -226,24 +249,27 @@
                         MinimumHeightRequest="35"
                         MinimumWidthRequest="35"
                         Source="move.svg"
-                        VerticalOptions="Center" />
+                        VerticalOptions="Center">
+                        <!--  Selection indicator as border around the move button  -->
+                        <ImageButton.Triggers>
+                            <DataTrigger
+                                Binding="{Binding IsSelected}"
+                                TargetType="ImageButton"
+                                Value="True">
+                                <Setter Property="BorderColor" Value="Yellow" />
+                                <Setter Property="BorderWidth" Value="3" />
+                            </DataTrigger>
+                            <DataTrigger
+                                Binding="{Binding IsSelected}"
+                                TargetType="ImageButton"
+                                Value="False">
+                                <Setter Property="BorderColor" Value="Transparent" />
+                                <Setter Property="BorderWidth" Value="0" />
+                            </DataTrigger>
+                        </ImageButton.Triggers>
+                    </ImageButton>
                 </Grid>
             </Grid>
-        </Border>
-
-        <!--  Selection indicator  -->
-        <Border
-            BackgroundColor="Transparent"
-            HorizontalOptions="Fill"
-            IsVisible="{Binding IsSelected}"
-            Stroke="Yellow"
-            StrokeThickness="3"
-            VerticalOptions="Fill"
-            InputTransparent="True"
-            ZIndex="4">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="18" />
-            </Border.StrokeShape>
         </Border>
 
     </Grid>

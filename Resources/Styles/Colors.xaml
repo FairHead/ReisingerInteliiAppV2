@@ -41,16 +41,16 @@
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}" />
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}" />
 
-    <!-- PlacedDeviceControl color resources -->
-    <!-- Small control buttons on the device card (plus/minus/arrows) -->
+    <!--  PlacedDeviceControl color resources  -->
+    <!--  Small control buttons on the device card (plus/minus/arrows)  -->
     <Color x:Key="PlacedDeviceAddButton">#333333</Color>
-    <!-- Delete (bin) button background -->
+    <!--  Delete (bin) button background  -->
     <Color x:Key="PlacedDeviceDeleteButton">#FF3B30</Color>
-    <!-- Center open/close (config) button background -->
+    <!--  Center open/close (config) button background  -->
     <Color x:Key="PlacedDeviceConfigButton">#FFD60A</Color>
-    <!-- Move button background -->
+    <!--  Move button background  -->
     <Color x:Key="PlacedDeviceMoveButton">#0A84FF</Color>
-    <!-- Text colors on device card -->
+    <!--  Text colors on device card  -->
     <Color x:Key="PlacedDeviceText">#FFFFFF</Color>
     <Color x:Key="PlacedDeviceTextSecondary">#B0B0B0</Color>
 </ResourceDictionary>

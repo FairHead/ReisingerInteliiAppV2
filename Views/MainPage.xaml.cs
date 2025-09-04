@@ -1,4 +1,4 @@
-using Microsoft.Maui.Controls.Shapes;
+﻿using Microsoft.Maui.Controls.Shapes;
 using ReisingerIntelliApp_V4.ViewModels;
 using ReisingerIntelliApp_V4.Helpers;
 using ReisingerIntelliApp_V4.Services;
@@ -30,7 +30,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                Debug.WriteLine("?? Force device layout refresh requested");
+                Debug.WriteLine("🔄 Force device layout refresh requested");
                 InvalidateDevicesLayout();
             });
         });
@@ -250,114 +250,172 @@ public partial class MainPage : ContentPage, IPlanViewportService
         {
             if (DevicesOverlay == null || _viewModel?.StructuresVM?.SelectedLevel?.PlacedDevices == null) return;
 
+            Debug.WriteLine($"🔄 InvalidateDevicesLayout - Processing {DevicesOverlay.Children.Count} visual children");
+
             // Iterate through visual children and position them based on the bound model
             foreach (var child in DevicesOverlay.Children.OfType<Components.PlacedDeviceControl>())
             {
                 if (child.BindingContext is not PlacedDeviceModel pd) continue;
-        // Wire +/- events once per child
-        child.AddDeviceRequested -= OnDeviceIncreaseRequested;
-        child.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
-    child.DeleteDeviceRequested -= OnDeviceDeleteRequested;
-    child.MoveDeviceRequested -= OnDeviceMoveRequested;
-        child.AddDeviceRequested += OnDeviceIncreaseRequested;
-        child.RemoveDeviceRequested += OnDeviceDecreaseRequested;
-    child.DeleteDeviceRequested += OnDeviceDeleteRequested;
-    child.MoveDeviceRequested += OnDeviceMoveRequested;
+                
+                Debug.WriteLine($"🔄 Processing device: {pd.Name}, Scale: {pd.Scale:F3}");
+                
+                // Wire events only once - remove first to prevent duplicates
+                child.AddDeviceRequested -= OnDeviceIncreaseRequested;
+                child.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
+                child.DeleteDeviceRequested -= OnDeviceDeleteRequested;
+                child.MoveDeviceRequested -= OnDeviceMoveRequested;
+                
+                // Then add them back
+                child.AddDeviceRequested += OnDeviceIncreaseRequested;
+                child.RemoveDeviceRequested += OnDeviceDecreaseRequested;
+                child.DeleteDeviceRequested += OnDeviceDeleteRequested;
+                child.MoveDeviceRequested += OnDeviceMoveRequested;
 
-        PositionDeviceView(child, pd);
+                PositionDeviceView(child, pd);
             }
+            
+            Debug.WriteLine($"✅ InvalidateDevicesLayout complete");
         }
 
         private void OnDeviceIncreaseRequested(object? sender, PlacedDeviceModel e)
         {
+            Debug.WriteLine($"🔼 OnDeviceIncreaseRequested - Device: {e.Name}");
+            Debug.WriteLine($"   📊 Current Scale: {e.Scale:F3}");
+            
             // Scale already updated by control; just clamp, persist, and re-layout
-            e.Scale = Math.Clamp(e.Scale, 0.1, 3.0);
-            Debug.WriteLine($"?? OnDeviceIncreaseRequested - Device: {e.Name}, Scale: {e.Scale:F3}");
+            var originalScale = e.Scale;
+            e.Scale = Math.Clamp(e.Scale, 0.05, 3.0); // Reduced min from 0.1 to 0.05
+            
+            Debug.WriteLine($"   📊 After Clamp: {e.Scale:F3}");
+            Debug.WriteLine($"   📊 Scale Changed: {(originalScale != e.Scale ? "YES" : "NO")}");
+            
             _ = _viewModel?.SaveCurrentFloorAsync();
             // Force immediate layout update for scale changes
             InvalidateDevicesLayout();
+            
+            Debug.WriteLine($"   ✅ OnDeviceIncreaseRequested complete");
         }
 
         private void OnDeviceDecreaseRequested(object? sender, PlacedDeviceModel e)
         {
+            Debug.WriteLine($"🔽 OnDeviceDecreaseRequested - Device: {e.Name}");
+            Debug.WriteLine($"   📊 Current Scale: {e.Scale:F3}");
+            
             // Scale already updated by control; just clamp, persist, and re-layout
-            e.Scale = Math.Clamp(e.Scale, 0.1, 3.0);
-            Debug.WriteLine($"?? OnDeviceDecreaseRequested - Device: {e.Name}, Scale: {e.Scale:F3}");
+            var originalScale = e.Scale;
+            e.Scale = Math.Clamp(e.Scale, 0.05, 3.0); // Reduced min from 0.1 to 0.05
+            
+            Debug.WriteLine($"   📊 After Clamp: {e.Scale:F3}");
+            Debug.WriteLine($"   📊 Scale Changed: {(originalScale != e.Scale ? "YES" : "NO")}");
+            
             _ = _viewModel?.SaveCurrentFloorAsync();
             // Force immediate layout update for scale changes
             InvalidateDevicesLayout();
+            
+            Debug.WriteLine($"   ✅ OnDeviceDecreaseRequested complete");
         }
 
         private void PositionDeviceView(Components.PlacedDeviceControl view, PlacedDeviceModel pd)
         {
             if (!IsPlanReady) return;
+            
+            // SIMPLIFIED APPROACH for Smart Building: 
+            // DevicesOverlay is INSIDE PanPinchContainer, so it automatically zooms/pans with the plan
+            // We only need to position devices relative to the plan image WITHOUT any transformation
             var (drawnX, drawnY, drawnW, drawnH) = GetImageDrawnRect();
 
-            // Target visual center in overlay coordinates
-            var xCenter = drawnX + pd.XCenterNorm * drawnW;
-            var yCenter = drawnY + pd.YCenterNorm * drawnH;
+            Debug.WriteLine($"");
+            Debug.WriteLine($"🏢 PositionDeviceView - SMART BUILDING SIMPLIFIED - Device: {pd.Name}");
+            Debug.WriteLine($"═══════════════════════════════════════════════════════════════════");
+            
+            Debug.WriteLine($"🖼️ PLAN IMAGE POSITIONING:");
+            Debug.WriteLine($"   📍 drawnX: {drawnX:F2}");
+            Debug.WriteLine($"   📍 drawnY: {drawnY:F2}");
+            Debug.WriteLine($"   📏 drawnW: {drawnW:F2}");
+            Debug.WriteLine($"   📏 drawnH: {drawnH:F2}");
+            
+            Debug.WriteLine($"🔧 DEVICE MODEL STATE:");
+            Debug.WriteLine($"   📍 RelativeX: {pd.RelativeX:F4} (should be [0.0, 1.0])");
+            Debug.WriteLine($"   📍 RelativeY: {pd.RelativeY:F4} (should be [0.0, 1.0])");
+            Debug.WriteLine($"   📊 Device Scale: {pd.Scale:F4}");
+            Debug.WriteLine($"   📏 BaseWidthNorm: {pd.BaseWidthNorm:F4}");
+            Debug.WriteLine($"   📏 BaseHeightNorm: {pd.BaseHeightNorm:F4}");
 
-            // Use intrinsic template size (matches XAML: ~160x180) and scale visually
+            // Calculate device center in plan coordinates (NO transformation needed - PanPinchContainer handles it)
+            var xCenter = drawnX + pd.RelativeX * drawnW;
+            var yCenter = drawnY + pd.RelativeY * drawnH;
+            
+            Debug.WriteLine($"🎯 DEVICE CENTER CALCULATION (plan coordinates):");
+            Debug.WriteLine($"   🔹 xCenter = {drawnX:F2} + {pd.RelativeX:F4} * {drawnW:F2} = {xCenter:F2}");
+            Debug.WriteLine($"   🔹 yCenter = {drawnY:F2} + {pd.RelativeY:F4} * {drawnH:F2} = {yCenter:F2}");
+
+            // Use intrinsic template size and scale for plan size adaptation
             const double intrinsicW = 160.0;
             const double intrinsicH = 180.0;
 
-            // Calculate base scale more reasonably - use a larger base size for better scaling
+            // Calculate scale based on plan size and user preference (NO PlanScale multiplication!)
             var targetWidth = pd.BaseWidthNorm * drawnW;
             var baseScale = intrinsicW > 0 ? (targetWidth / intrinsicW) : 1.0;
             
-            // Apply the user's scale multiplier
+            // Apply user's scale multiplier
             var userScaledSize = baseScale * (pd.Scale <= 0 ? 1.0 : pd.Scale);
 
-            // Keep controls tappable: enforce a minimum visual size, but allow the scale to work above this minimum
-            const double minVisualW = 48.0;
-            const double minVisualH = 48.0;
-            var minScaleByW = minVisualW / intrinsicW;
-            var minScaleByH = minVisualH / intrinsicH;
-            var minScale = Math.Max(minScaleByW, minScaleByH);
-            
-            // Apply minimum scale only if user scale doesn't provide enough range
-            var appliedScale = userScaledSize;
-            if (userScaledSize < minScale)
-            {
-                // If base scale is very small, use a larger base scale that allows meaningful user scaling
-                var adjustedBaseScale = minScale / (pd.Scale <= 0 ? 1.0 : pd.Scale);
-                if (adjustedBaseScale > baseScale)
-                {
-                    appliedScale = adjustedBaseScale * (pd.Scale <= 0 ? 1.0 : pd.Scale);
-                }
-                else
-                {
-                    appliedScale = minScale;
-                }
-            }
+            Debug.WriteLine($"📊 SCALE CALCULATION (plan adaptation only):");
+            Debug.WriteLine($"   🔹 targetWidth = {pd.BaseWidthNorm:F4} * {drawnW:F2} = {targetWidth:F2}");
+            Debug.WriteLine($"   🔹 baseScale = {targetWidth:F2} / {intrinsicW:F1} = {baseScale:F4}");
+            Debug.WriteLine($"   🔹 userScaledSize = {baseScale:F4} * {pd.Scale:F4} = {userScaledSize:F4}");
 
-            // Debug output for scale changes
-            Debug.WriteLine($"?? PositionDeviceView - Device: {pd.Name}");
-            Debug.WriteLine($"   ?? BaseWidthNorm: {pd.BaseWidthNorm:F3}");
-            Debug.WriteLine($"   ?? Drawn Width: {drawnW:F1}px");
-            Debug.WriteLine($"   ?? Model Scale: {pd.Scale:F3}");
-            Debug.WriteLine($"   ?? Base Scale: {baseScale:F3}");
-            Debug.WriteLine($"   ?? User Scaled Size: {userScaledSize:F3}");
-            Debug.WriteLine($"   ?? Min Scale: {minScale:F3}");
-            Debug.WriteLine($"   ? Final Applied Scale: {appliedScale:F3}");
-            Debug.WriteLine($"   ?? Scale Change Effective: {(appliedScale != minScale ? "YES" : "NO - CLAMPED")}");
+            // Enforce minimum size for usability
+            const double minScale = 0.0125; // Minimum 1.25% size
+            var appliedScale = Math.Max(userScaledSize, minScale);
 
-            // Center around the device point and apply scale
+            Debug.WriteLine($"🔒 MINIMUM SIZE PROTECTION:");
+            Debug.WriteLine($"   🔹 appliedScale = Math.Max({userScaledSize:F4}, {minScale:F4}) = {appliedScale:F4}");
+
+            // Position device with center anchor (SIMPLE positioning - no transformation)
             view.AnchorX = 0.5;
             view.AnchorY = 0.5;
             view.Scale = appliedScale;
 
             var xLeft = xCenter - intrinsicW / 2.0;
             var yTop = yCenter - intrinsicH / 2.0;
+            
+            Debug.WriteLine($"📍 FINAL POSITIONING (PanPinchContainer handles zoom/pan automatically):");
+            Debug.WriteLine($"   🔹 view.AnchorX: 0.5, view.AnchorY: 0.5");
+            Debug.WriteLine($"   🔹 view.Scale: {appliedScale:F4}");
+            Debug.WriteLine($"   🔹 xLeft = {xCenter:F2} - {intrinsicW:F1}/2 = {xLeft:F2}");
+            Debug.WriteLine($"   🔹 yTop = {yCenter:F2} - {intrinsicH:F1}/2 = {yTop:F2}");
+            Debug.WriteLine($"   📏 LayoutBounds: ({xLeft:F2}, {yTop:F2}, {intrinsicW:F1}, {intrinsicH:F1})");
+            
+            // SMART BUILDING: Device stays at fixed position on plan, zooms with plan automatically
+            Debug.WriteLine($"🏢 SMART BUILDING BEHAVIOR:");
+            Debug.WriteLine($"   ✅ Device positioned at fixed plan location (door position)");
+            Debug.WriteLine($"   ✅ Will zoom/pan with plan automatically via PanPinchContainer");
+            Debug.WriteLine($"   ✅ Manual movement ONLY changes RelativeX/Y, NOT plan state");
+            Debug.WriteLine($"   ✅ Represents physical door control at building location");
+
             AbsoluteLayout.SetLayoutBounds(view, new Rect(xLeft, yTop, intrinsicW, intrinsicH));
             AbsoluteLayout.SetLayoutFlags(view, Microsoft.Maui.Layouts.AbsoluteLayoutFlags.None);
+            
+            Debug.WriteLine($"✅ PositionDeviceView COMPLETE - SMART BUILDING READY");
+            Debug.WriteLine($"═══════════════════════════════════════════════════════════════════");
+            Debug.WriteLine($"");
         }
 
         private void OnDeviceMoveRequested(object? sender, PlacedDeviceModel e)
         {
+            Debug.WriteLine($"");
+            Debug.WriteLine($"📤 OnDeviceMoveRequested - Device: {e.Name}");
+            Debug.WriteLine($"   📍 Updated Position: X={e.RelativeX:F6}, Y={e.RelativeY:F6}");
+            Debug.WriteLine($"   📊 Current Scale: {e.Scale:F4}");
+            Debug.WriteLine($"   🔄 Triggering save and layout refresh...");
+            
             // Position already updated by control; persist and re-layout
             _ = _viewModel?.SaveCurrentFloorAsync();
             InvalidateDevicesLayout();
+            
+            Debug.WriteLine($"   ✅ Save and layout refresh triggered");
+            Debug.WriteLine($"");
         }
 
         private void OnDeviceDeleteRequested(object? sender, PlacedDeviceModel e)
@@ -391,27 +449,50 @@ public partial class MainPage : ContentPage, IPlanViewportService
         protected override void OnHandlerChanged()
         {
             base.OnHandlerChanged();
-        if (PlanContainer.Content is View content)
+            
+            Debug.WriteLine($"🔄 MainPage.OnHandlerChanged - Setting up PlanContainer monitoring");
+            
+            if (PlanContainer.Content is View content)
             {
+                Debug.WriteLine($"📱 INITIAL PLAN CONTAINER STATE:");
+                Debug.WriteLine($"   📏 Content.Scale: {content.Scale:F4}");
+                Debug.WriteLine($"   🔀 Content.TranslationX: {content.TranslationX:F4}");
+                Debug.WriteLine($"   🔀 Content.TranslationY: {content.TranslationY:F4}");
+                Debug.WriteLine($"   📐 Content.Width: {content.Width:F2}");
+                Debug.WriteLine($"   📐 Content.Height: {content.Height:F2}");
+                
                 content.PropertyChanged += (s, e) =>
                 {
                     if (e.PropertyName is nameof(View.Scale) or nameof(View.TranslationX) or nameof(View.TranslationY))
                     {
+                        Debug.WriteLine($"");
+                        Debug.WriteLine($"🚨 PLAN CONTAINER PROPERTY CHANGED: {e.PropertyName}");
+                        Debug.WriteLine($"   📏 Current Scale: {content.Scale:F4}");
+                        Debug.WriteLine($"   🔀 Current TranslationX: {content.TranslationX:F4}");
+                        Debug.WriteLine($"   🔀 Current TranslationY: {content.TranslationY:F4}");
+                        Debug.WriteLine($"   ⚠️ THIS CHANGE AFFECTS ALL DEVICE POSITIONING!");
+                        Debug.WriteLine($"");
+                        
                         // Debounce viewport state updates to prevent excessive calls
                         _viewportUpdateTimer?.Dispose();
                         _viewportUpdateTimer = new Timer((_) => MainThread.BeginInvokeOnMainThread(() =>
                         {
+                            Debug.WriteLine($"🔄 Triggering InvalidateDevicesLayout due to Plan Container change...");
                             InvalidateDevicesLayout();
                             PersistViewportState();
                         }), null, 100, Timeout.Infinite);
                     }
                 };
 
-        // Try restore viewport state for current floor
-        RestoreViewportState();
+                // Try restore viewport state for current floor
+                RestoreViewportState();
             }
-            PlanContainer.SizeChanged += (s, e) =>
+            
+            PlanContainer.SizeChanged += (s, args) =>
             {
+                Debug.WriteLine($"📐 PLAN CONTAINER SIZE CHANGED:");
+                Debug.WriteLine($"   📏 New Size: {PlanContainer.Width:F2} x {PlanContainer.Height:F2}");
+                
                 UpdatePlanIntrinsicSize();
                 // Don't immediately invalidate layout on size changes
                 _layoutInvalidationTimer?.Dispose();
@@ -422,10 +503,27 @@ public partial class MainPage : ContentPage, IPlanViewportService
             {
                 if (e.PropertyName is nameof(Width) or nameof(Height))
                 {
-                    UpdatePlanIntrinsicSize();
-                    // Don't immediately invalidate layout on image size changes
-                    _layoutInvalidationTimer?.Dispose();
-                    _layoutInvalidationTimer = new Timer((_) => MainThread.BeginInvokeOnMainThread(InvalidateDevicesLayout), null, 100, Timeout.Infinite);
+                    Debug.WriteLine($"🖼️ PLAN IMAGE SIZE CHANGED: {e.PropertyName}");
+                    Debug.WriteLine($"   📏 PlanImage.Width: {PlanImage.Width:F2}");
+                    Debug.WriteLine($"   📏 PlanImage.Height: {PlanImage.Height:F2}");
+                    
+                    var newWidth = PlanImage.Width;
+                    var newHeight = PlanImage.Height;
+                    
+                    // Only update if the change is significant (avoid micro-changes that cause flickering)
+                    if (Math.Abs(newWidth - _planIntrinsicWidth) > 1.0 || Math.Abs(newHeight - _planIntrinsicHeight) > 1.0)
+                    {
+                        Debug.WriteLine($"   🔄 Significant size change detected - updating layout");
+                        UpdatePlanIntrinsicSize();
+                        
+                        // Don't immediately invalidate layout on image size changes
+                        _layoutInvalidationTimer?.Dispose();
+                        _layoutInvalidationTimer = new Timer((_) => MainThread.BeginInvokeOnMainThread(InvalidateDevicesLayout), null, 100, Timeout.Infinite);
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"   ⚠️ Micro size change ignored to prevent layout thrashing");
+                    }
                 }
             };
 

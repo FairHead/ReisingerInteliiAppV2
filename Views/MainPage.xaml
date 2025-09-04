@@ -183,7 +183,7 @@
                             </Image.Source>
                         </Image>
 
-                        <!-- Devices overlay; simple ItemsControl-like repeat via BindableLayout -->
+                        <!-- Devices overlay - BACK INSIDE PanPinchContainer for proper zoom/pan behavior -->
                         <!-- HIGHEST Z-INDEX to ensure devices are always clickable -->
                         <AbsoluteLayout x:Name="DevicesOverlay" InputTransparent="False" IsEnabled="True" ZIndex="1000"
                                         BindableLayout.ItemsSource="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.SelectedLevel.PlacedDevices}">
@@ -315,17 +315,29 @@
                                         HorizontalOptions="Center"
                                         IsVisible="{Binding HasActions}"
                                         Spacing="15">
-                                        <!--  Add to Floor Plan Button  -->
+                                        
+                                        <!--  Add to Floor Plan Button (only for devices)  -->
                                         <ImageButton
                                             Padding="0"
                                             BackgroundColor="Transparent"
                                             Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.AddDeviceToFloorPlanCommand}"
                                             CommandParameter="{Binding .}"
-                        IsEnabled="{Binding IsActionEnabled}"
+                                            IsEnabled="{Binding IsActionEnabled}"
                                             HeightRequest="32"
                                             Source="add_to_floorplan.svg"
-                                            WidthRequest="32" />
-                                        <!--  Configure Button  -->
+                                            WidthRequest="32">
+                                            <ImageButton.Triggers>
+                                                <!-- Hide for Structures and Levels tabs -->
+                                                <DataTrigger TargetType="ImageButton" Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}" Value="Structures">
+                                                    <Setter Property="IsVisible" Value="False" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="ImageButton" Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}" Value="Levels">
+                                                    <Setter Property="IsVisible" Value="False" />
+                                                </DataTrigger>
+                                            </ImageButton.Triggers>
+                                        </ImageButton>
+                                        
+                                        <!--  Configure/Edit Button (only for devices and buildings)  -->
                                         <ImageButton
                                             Padding="0"
                                             BackgroundColor="Transparent"
@@ -333,16 +345,24 @@
                                             CommandParameter="{Binding .}"
                                             HeightRequest="32"
                                             Source="configuredevicebutton.svg"
-                                            WidthRequest="32" />
-                                        <!--  Delete Button  -->
+                                            WidthRequest="32">
+                                            <ImageButton.Triggers>
+                                                <!-- Hide for Levels tab as floors are edited through building editor -->
+                                                <DataTrigger TargetType="ImageButton" Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}" Value="Levels">
+                                                    <Setter Property="IsVisible" Value="False" />
+                                                </DataTrigger>
+                                            </ImageButton.Triggers>
+                                        </ImageButton>
+                                        
+                                        <!--  Delete Button (for all items with actions)  -->
                                         <ImageButton
-                                            x:Name="deleteWifiDevButton"
+                                            x:Name="deleteButton"
                                             Padding="0"
                                             BackgroundColor="Transparent"
                                             Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.DeleteDeviceFromDropdownCommand}"
                                             CommandParameter="{Binding .}"
                                             HeightRequest="32"
-                                            Source="deletedevicebutton.svg"
+                                            Source="bin.svg"
                                             WidthRequest="32" />
                                     </HorizontalStackLayout>
                                 </Grid>

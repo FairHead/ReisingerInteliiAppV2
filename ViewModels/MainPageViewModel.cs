@@ -500,7 +500,15 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
         foreach (var b in buildings)
         {
-            DropdownItems.Add(new DropdownItemModel { Id = b.BuildingName, Icon = "home.svg", Text = b.BuildingName, HasActions = false, ShowStatus = false, IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) });
+            DropdownItems.Add(new DropdownItemModel 
+            { 
+                Id = b.BuildingName, 
+                Icon = "home.svg", 
+                Text = b.BuildingName, 
+                HasActions = true, // Enable actions for buildings to show delete button
+                ShowStatus = false, 
+                IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) 
+            });
         }
     }
 
@@ -529,7 +537,15 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
         foreach (var f in selected.Floors)
         {
-            DropdownItems.Add(new DropdownItemModel { Id = f.FloorName, Icon = "levels.svg", Text = f.FloorName, HasActions = false, ShowStatus = false, IsSelected = string.Equals(SelectedLevelName, f.FloorName, StringComparison.OrdinalIgnoreCase) });
+            DropdownItems.Add(new DropdownItemModel 
+            { 
+                Id = f.FloorName, 
+                Icon = "levels.svg", 
+                Text = f.FloorName, 
+                HasActions = true, // Enable actions for floors to show delete button
+                ShowStatus = false, 
+                IsSelected = string.Equals(SelectedLevelName, f.FloorName, StringComparison.OrdinalIgnoreCase) 
+            });
         }
     }
 
@@ -620,35 +636,52 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             if (CurrentActiveTab == "Structures")
             {
                 var confirm = await Application.Current.MainPage.DisplayAlert(
-                    "Delete Building",
-                    $"Delete building '{device.Text}' and all its floors?",
-                    "Delete",
-                    "Cancel");
+                    "Gebäude löschen",
+                    $"Gebäude '{device.Text}' und alle zugehörigen Stockwerke löschen?",
+                    "Löschen",
+                    "Abbrechen");
                 if (!confirm) return;
 
                 var list = await _buildingStorage.LoadAsync();
                 var toRemove = list.FirstOrDefault(b => b.BuildingName.Equals(device.Id, StringComparison.OrdinalIgnoreCase));
                 if (toRemove != null)
                 {
+                    // Also clean up all floor assets (PDF/PNG files) for all floors in this building
+                    foreach (var floor in toRemove.Floors)
+                    {
+                        await _pdfStorageService.DeleteFloorAssetsAsync(toRemove, floor);
+                    }
                     list.Remove(toRemove);
                     await _buildingStorage.SaveAsync(list);
+                    
+                    // Clear selection if deleted building was selected
+                    if (string.Equals(SelectedBuildingName, device.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        SelectedBuildingName = null;
+                        SelectedLevelName = null;
+                    }
                 }
                 // Refresh Structures view
                 await LoadStructuresAsync();
+                
+                await Application.Current.MainPage.DisplayAlert(
+                    "Erfolg", 
+                    $"Gebäude '{device.Text}' wurde erfolgreich gelöscht.", 
+                    "OK");
                 return;
             }
             if (CurrentActiveTab == "Levels")
             {
                 if (string.IsNullOrWhiteSpace(SelectedBuildingName))
                 {
-                    await Application.Current.MainPage.DisplayAlert("Info", "Select a building first.", "OK");
+                    await Application.Current.MainPage.DisplayAlert("Info", "Wählen Sie zuerst ein Gebäude aus.", "OK");
                     return;
                 }
                 var confirm = await Application.Current.MainPage.DisplayAlert(
-                    "Delete Floor",
-                    $"Delete floor '{device.Text}' from '{SelectedBuildingName}'?",
-                    "Delete",
-                    "Cancel");
+                    "Stockwerk löschen",
+                    $"Stockwerk '{device.Text}' aus '{SelectedBuildingName}' löschen?",
+                    "Löschen",
+                    "Abbrechen");
                 if (!confirm) return;
 
                 var list = await _buildingStorage.LoadAsync();
@@ -669,6 +702,11 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 }
                 // Refresh Levels view
                 await LoadLevelsAsync();
+                
+                await Application.Current.MainPage.DisplayAlert(
+                    "Erfolg", 
+                    $"Stockwerk '{device.Text}' wurde erfolgreich gelöscht.", 
+                    "OK");
                 return;
             }
 
@@ -923,7 +961,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private async Task ChangeDeviceScaleAsync(PlacedDeviceModel? device, double delta)
     {
         if (device == null) return;
-        const double min = 0.2, max = 2.5;
+        const double min = 0.05, max = 2.5; // Reduced min from 0.2 to 0.05 for much smaller scaling
         var newScale = Math.Clamp(device.Scale + delta, min, max);
         if (Math.Abs(newScale - device.Scale) < 0.0001) return;
         device.Scale = newScale;

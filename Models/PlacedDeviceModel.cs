@@ -109,13 +109,19 @@ public partial class PlacedDeviceModel : ObservableObject
         get => _scale; 
         set 
         { 
-            if (Math.Abs(_scale - value) > 0.001) // Only log significant changes
+            if (Math.Abs(_scale - value) > 0.001) // Use consistent threshold
             {
                 var oldValue = _scale;
                 _scale = value;
                 Debug.WriteLine($"📊 PlacedDeviceModel.Scale - Device: {Name}");
                 Debug.WriteLine($"   Scale Change: {oldValue:F3} → {value:F3}");
+                Debug.WriteLine($"   Difference: {Math.Abs(oldValue - value):F6}");
+                Debug.WriteLine($"   Threshold: 0.001");
                 OnPropertyChanged();
+            }
+            else
+            {
+                Debug.WriteLine($"📊 PlacedDeviceModel.Scale - Device: {Name} - Change too small: {Math.Abs(_scale - value):F6} (threshold: 0.001)");
             }
         } 
     }

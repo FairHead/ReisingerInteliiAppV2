@@ -26,8 +26,8 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
         LocalDevices = new ObservableCollection<LocalNetworkDeviceModel>();
         
         // Set default IP range for most common local networks
-        StartIp = "192.168.1.1";
-        EndIp = "192.168.1.254";
+        StartIp = "192.168.0.1";
+        EndIp = "192.168.0.254";
 
         // When a device is saved from SaveLocalDevicePage, mark it as saved here so user can continue adding others
     MessagingCenter.Subscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded", (sender, savedDeviceId) =>
