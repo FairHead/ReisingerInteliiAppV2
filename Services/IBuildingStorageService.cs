@@ -6,4 +6,5 @@ public interface IBuildingStorageService
 {
     Task<IList<Building>> LoadAsync();
     Task SaveAsync(IList<Building> buildings);
+    Task ClearAllAsync();
 }

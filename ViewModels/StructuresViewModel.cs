@@ -17,6 +17,29 @@ public partial class StructuresViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<Floor> levels = new();
     [ObservableProperty] private Floor? selectedLevel;
 
+    partial void OnLevelsChanged(ObservableCollection<Floor> value)
+    {
+        System.Diagnostics.Debug.WriteLine($"[StructuresViewModel] Levels changed: Count={value?.Count ?? 0}");
+        if (value != null)
+        {
+            foreach (var floor in value)
+            {
+                System.Diagnostics.Debug.WriteLine($"[StructuresViewModel]   Floor: {floor.FloorName}, PlacedDevices.Count={floor.PlacedDevices.Count}");
+            }
+        }
+    }
+
+    partial void OnSelectedLevelChanged(Floor? value)
+    {
+        System.Diagnostics.Debug.WriteLine($"[StructuresViewModel] SelectedLevel changed: {value?.FloorName}, PlacedDevices.Count={value?.PlacedDevices.Count ?? -1}");
+        // ...existing code from MVVM Toolkit generator...
+        RecomputePlanState();
+        // Notify bindings that depend on derived properties
+        OnPropertyChanged(nameof(CurrentPdfPath));
+        OnPropertyChanged(nameof(CurrentPngPath));
+        OnPropertyChanged(nameof(HasPlan));
+    }
+
     [ObservableProperty] private bool usePdfViewer;
     public string? CurrentPdfPath => SelectedLevel?.PdfPath;
     public string? CurrentPngPath => SelectedLevel?.PngPath;
@@ -59,14 +82,6 @@ public partial class StructuresViewModel : ObservableObject
         RecomputePlanState();
     }
 
-    partial void OnSelectedLevelChanged(Floor? value)
-    {
-        RecomputePlanState();
-        // Notify bindings that depend on derived properties
-        OnPropertyChanged(nameof(CurrentPdfPath));
-        OnPropertyChanged(nameof(CurrentPngPath));
-        OnPropertyChanged(nameof(HasPlan));
-    }
 
     private void RecomputePlanState()
     {
@@ -76,37 +91,51 @@ public partial class StructuresViewModel : ObservableObject
 
     public async Task RefreshCurrentFloorPlanAsync()
     {
-        if (SelectedLevel == null) return;
-        
-        // Reload the building and floor data to get updated PlacedDevices
+        System.Diagnostics.Debug.WriteLine($"[RefreshCurrentFloorPlanAsync] ENTRY: SelectedLevel={SelectedLevel?.FloorName}, SelectedBuilding={SelectedBuilding?.BuildingName}");
+        if (SelectedLevel == null) {
+            System.Diagnostics.Debug.WriteLine("[RefreshCurrentFloorPlanAsync] EXIT: SelectedLevel is null");
+            return;
+        }
         var list = await _storage.LoadAsync();
+        System.Diagnostics.Debug.WriteLine($"[RefreshCurrentFloorPlanAsync] Loaded {list.Count} buildings from storage");
         var currentBuilding = list.FirstOrDefault(x => x.BuildingName.Equals(SelectedBuilding?.BuildingName ?? string.Empty, StringComparison.OrdinalIgnoreCase));
         if (currentBuilding != null)
         {
+            System.Diagnostics.Debug.WriteLine($"[RefreshCurrentFloorPlanAsync] Found building: {currentBuilding.BuildingName}");
             var currentFloor = currentBuilding.Floors.FirstOrDefault(x => x.FloorName.Equals(SelectedLevel.FloorName, StringComparison.OrdinalIgnoreCase));
             if (currentFloor != null)
             {
-                // Force complete refresh by setting SelectedLevel to the fresh data
+                System.Diagnostics.Debug.WriteLine($"[RefreshCurrentFloorPlanAsync] Found floor: {currentFloor.FloorName}, updating SelectedLevel");
                 var oldLevelName = SelectedLevel.FloorName;
+                System.Diagnostics.Debug.WriteLine($"[RefreshCurrentFloorPlanAsync] Old PlacedDevices.Count={SelectedLevel.PlacedDevices.Count}, New PlacedDevices.Count={currentFloor.PlacedDevices.Count}");
                 SelectedLevel = currentFloor;
                 OnPropertyChanged(nameof(SelectedLevel));
             }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[RefreshCurrentFloorPlanAsync] Floor not found!");
+            }
         }
-        
+        else
+        {
+            System.Diagnostics.Debug.WriteLine("[RefreshCurrentFloorPlanAsync] Building not found!");
+        }
         var changed = false;
         if (!string.IsNullOrWhiteSpace(SelectedLevel.PdfPath) && !File.Exists(SelectedLevel.PdfPath))
         {
+            System.Diagnostics.Debug.WriteLine($"[RefreshCurrentFloorPlanAsync] PDF path missing: {SelectedLevel.PdfPath}");
             SelectedLevel.PdfPath = null;
             changed = true;
         }
         if (!string.IsNullOrWhiteSpace(SelectedLevel.PngPath) && !File.Exists(SelectedLevel.PngPath))
         {
+            System.Diagnostics.Debug.WriteLine($"[RefreshCurrentFloorPlanAsync] PNG path missing: {SelectedLevel.PngPath}");
             SelectedLevel.PngPath = null;
             changed = true;
         }
         if (changed)
         {
-            // Persist updated buildings
+            System.Diagnostics.Debug.WriteLine("[RefreshCurrentFloorPlanAsync] Persisting updated building/floor paths");
             var b = list.FirstOrDefault(x => x.BuildingName.Equals(SelectedBuilding?.BuildingName ?? string.Empty, StringComparison.OrdinalIgnoreCase));
             if (b != null)
             {
@@ -117,11 +146,13 @@ public partial class StructuresViewModel : ObservableObject
                     f.PngPath = SelectedLevel.PngPath;
                 }
                 await _storage.SaveAsync(list);
+                System.Diagnostics.Debug.WriteLine("[RefreshCurrentFloorPlanAsync] SaveAsync finished");
             }
         }
         OnPropertyChanged(nameof(CurrentPdfPath));
         OnPropertyChanged(nameof(CurrentPngPath));
         OnPropertyChanged(nameof(HasPlan));
+        System.Diagnostics.Debug.WriteLine("[RefreshCurrentFloorPlanAsync] EXIT");
     }
 
     private async Task AddBuildingAsync()

@@ -3,7 +3,9 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters">
+    xmlns:animations="clr-namespace:ReisingerIntelliApp_V4.Animations"
+    xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit">
 
     <!--  Value Converters  -->
     <converters:SavedDeviceOpacityConverter x:Key="SavedDeviceOpacityConverter" />
@@ -11,6 +13,32 @@
     <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
     <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
     <converters:InverseBoolConverter x:Key="InvertedBoolConverter" />
+
+<Style x:Key="NeonArrowStyle" TargetType="ImageButton">
+    <Setter Property="BackgroundColor" Value="Transparent" />
+    <Setter Property="HeightRequest"   Value="100" />
+    <Setter Property="WidthRequest"    Value="100" />
+    <Setter Property="InputTransparent" Value="False" />
+
+    <!-- <Setter Property="Behaviors">
+        <Setter.Value>
+            <toolkit:AnimationBehavior EventName="Loaded">
+                <toolkit:AnimationBehavior.AnimationType>
+                    <animations:LoopingScaleAnimation
+                        Length="500"
+                        Easing="{x:Static Easing.SinInOut}"
+                        From="1.0"
+                        To="1.08" />
+                </toolkit:AnimationBehavior.AnimationType>
+            </toolkit:AnimationBehavior>
+        </Setter.Value> -->
+    <!-- </Setter> -->
+</Style>
+
+
+
+
+
 
     <Style TargetType="ActivityIndicator">
         <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" />
@@ -140,10 +168,15 @@
         </Setter>
     </Style>
 
-    <Style TargetType="Frame">
-        <Setter Property="HasShadow" Value="False" />
-        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray950}}" />
-        <Setter Property="CornerRadius" Value="8" />
+    <!--  Frame durch Border ersetzt für .NET 9  -->
+    <Style x:Key="FrameStyle" TargetType="Border">
+        <Setter Property="Shadow">
+          <Setter.Value>
+            <Shadow />
+          </Setter.Value>
+        </Setter>
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray950}}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 8" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Black}}" />
     </Style>
 

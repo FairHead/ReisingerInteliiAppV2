@@ -29,6 +29,22 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
         StartIp = "192.168.0.1";
         EndIp = "192.168.0.254";
 
+        // Füge beim Start 3 Dummy-Geräte hinzu, wenn keine echten vorhanden sind
+        if (LocalDevices.Count == 0)
+        {
+            for (int i = 1; i <= 3; i++)
+            {
+                LocalDevices.Add(new LocalNetworkDeviceModel
+                {
+                    DeviceId = $"dummy_local_{i}",
+                    Name = $"Dummy Local Device {i}", // Use Name property, not DisplayName
+                    IpAddress = $"192.168.1.10{i}",
+                    IsOnline = false,
+                    IsAlreadySaved = false
+                });
+            }
+        }
+
         // When a device is saved from SaveLocalDevicePage, mark it as saved here so user can continue adding others
     MessagingCenter.Subscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded", (sender, savedDeviceId) =>
         {

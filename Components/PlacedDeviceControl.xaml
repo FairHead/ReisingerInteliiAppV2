@@ -6,7 +6,8 @@
     xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     x:Name="placedDeviceControl"
-    BackgroundColor="Transparent">
+    BackgroundColor="Transparent"
+    Loaded="OnControlLoaded">
 
     <ContentView.Resources>
         <ResourceDictionary>
@@ -14,147 +15,135 @@
         </ResourceDictionary>
     </ContentView.Resources>
 
-    <!--  Main Container - matches Figma design dimensions  -->
-    <Grid
-        HeightRequest="180"
-        HorizontalOptions="Start"
-        VerticalOptions="Start"
-        WidthRequest="160">
+    <!--  Main Container - AbsoluteLayout for overlay positioning (T032 fix)  -->
+    <AbsoluteLayout
+        x:Name="MainContainer"
+        HeightRequest="400"
+        HorizontalOptions="Center"
+        VerticalOptions="Center"
+        WidthRequest="400">
 
-        <!--  Device Display Grid  -->
         <Grid
-            x:Name="DeviceGrid"
-            BackgroundColor="Transparent"
-            ZIndex="5"
-            InputTransparent="False">
+            AbsoluteLayout.LayoutBounds="0.5,0.165,200,50"
+            AbsoluteLayout.LayoutFlags="PositionProportional"
+            ColumnDefinitions="Auto,*,Auto"
+            HeightRequest="50"
+            VerticalOptions="Start">
 
-            <!--  Scale Plus Button (Top Left)  -->
+            <!--  Links  -->
             <ImageButton
                 x:Name="ScalePlusDeviceButton"
-                Grid.Row="0"
-                Margin="8,0,0,0"
-                BackgroundColor="{StaticResource PlacedDeviceAddButton}"
+                Grid.Column="0"
+                Padding="10"
+                BackgroundColor="LightGrey"
+                BorderColor="Grey"
+                BorderWidth="4"
                 Clicked="OnScalePlusClicked"
-                CornerRadius="14"
-                HorizontalOptions="Start"
-                MaximumHeightRequest="25"
-                MaximumWidthRequest="25"
+                CornerRadius="25"
+                HeightRequest="50"
                 Source="plus.svg"
-                VerticalOptions="Start" 
-                InputTransparent="False"
-                IsEnabled="True" />
+                WidthRequest="50" />
 
-            <!--  Scale Minus Button (Top Right)  -->
+            <!--  Spacer (mittlere Spalte)  -->
+            <BoxView Grid.Column="1" BackgroundColor="Transparent" />
+
+            <!--  Rechts  -->
             <ImageButton
                 x:Name="ScaleMinusDeviceButton"
-                Grid.Row="0"
-                Margin="0,0,8,0"
-                BackgroundColor="{StaticResource PlacedDeviceAddButton}"
+                Grid.Column="2"
+                Padding="10"
+                BackgroundColor="LightGrey"
+                BorderColor="Grey"
+                BorderWidth="4"
                 Clicked="OnScaleMinusClicked"
-                CornerRadius="14"
-                HorizontalOptions="End"
-                MaximumHeightRequest="25"
-                MaximumWidthRequest="25"
+                CornerRadius="25"
+                HeightRequest="50"
                 Source="minus.svg"
-                VerticalOptions="Start" 
-                InputTransparent="False"
-                IsEnabled="True" />
-
-            <!--  Move Device Button (Bottom Right)  -->
-            <ImageButton
-                Grid.Row="0"
-                Margin="0,0,8,8"
-                BackgroundColor="{StaticResource PlacedDeviceAddButton}"
-                Clicked="OnMoveDeviceClicked"
-                CornerRadius="14"
-                HorizontalOptions="End"
-                MaximumHeightRequest="25"
-                MaximumWidthRequest="25"
-                Source="move.svg"
-                VerticalOptions="End" 
-                InputTransparent="False"
-                IsEnabled="True" />
+                WidthRequest="50" />
 
         </Grid>
 
-        <!--  Move Buttons Container (Hidden by default)  -->
-        <Grid
-            x:Name="ArrowButtonsContainer"
-            IsVisible="False"
-            ZIndex="10"
-            InputTransparent="False">
 
-            <!--  Move Up Button  -->
+
+        <!--  Move Buttons Container (T032: Overlay with HaloSpacing, always above Card)  -->
+<AbsoluteLayout
+    x:Name="ArrowButtonsContainer"
+    AbsoluteLayout.LayoutBounds="0,0,400,400"
+    AbsoluteLayout.LayoutFlags="None"
+    HeightRequest="400"
+    WidthRequest="400"
+    InputTransparent="False"
+    IsVisible="False"
+    ZIndex="99">
+
             <ImageButton
-                Margin="0,0,0,0"
-                BackgroundColor="{StaticResource PlacedDeviceAddButton}"
+                x:Name="NeonArrowUp"
+                AbsoluteLayout.LayoutBounds="0.5,0.0,75,65"
+                AbsoluteLayout.LayoutFlags="PositionProportional"
+                BackgroundColor="Transparent"
                 Clicked="OnMoveUpClicked"
-                CornerRadius="12"
-                HorizontalOptions="Center"
-                MaximumHeightRequest="35"
-                MaximumWidthRequest="35"
-                Source="arrow_up.svg"
-                VerticalOptions="Start" 
-                InputTransparent="False"
-                IsEnabled="True" />
+                CommandParameter="Up"
+                HeightRequest="100"
+                Source="placementbuttup.svg"
+                Style="{StaticResource NeonArrowStyle}"
+                WidthRequest="100" />
 
-            <!--  Move Down Button  -->
+
+
+            <!--  Down Button  -->
             <ImageButton
-                Margin="0,0,0,0"
-                BackgroundColor="{StaticResource PlacedDeviceAddButton}"
+                x:Name="NeonArrowDown"
+                AbsoluteLayout.LayoutBounds="0.5,0.9,44,44"
+                AbsoluteLayout.LayoutFlags="PositionProportional"
+                BackgroundColor="Transparent"
                 Clicked="OnMoveDownClicked"
-                CornerRadius="12"
-                HorizontalOptions="Center"
-                MaximumHeightRequest="35"
-                MaximumWidthRequest="35"
-                Source="arrow_down.svg"
-                VerticalOptions="End" 
-                InputTransparent="False"
-                IsEnabled="True" />
+                CommandParameter="Down"
+                HeightRequest="100"
+                Source="placementbuttdown.svg"
+                Style="{StaticResource NeonArrowStyle}"
+                WidthRequest="100" />
 
-            <!--  Move Left Button  -->
+            <!--  Left Button  -->
             <ImageButton
-                Margin="0,0,0,0"
-                BackgroundColor="{StaticResource PlacedDeviceAddButton}"
+                x:Name="NeonArrowLeft"
+                AbsoluteLayout.LayoutBounds="0.1,0.5,44,40"
+                AbsoluteLayout.LayoutFlags="PositionProportional"
+                BackgroundColor="Transparent"
                 Clicked="OnMoveLeftClicked"
-                CornerRadius="12"
-                HorizontalOptions="Start"
-                MaximumHeightRequest="35"
-                MaximumWidthRequest="35"
-                Source="arrow_left.svg"
-                VerticalOptions="Center" 
-                InputTransparent="False"
-                IsEnabled="True" />
-
-            <!--  Move Right Button  -->
+                CommandParameter="Left"
+                HeightRequest="100"
+                Source="placementbuttleft.svg"
+                Style="{StaticResource NeonArrowStyle}"
+                WidthRequest="100" />
+            <!--  Right Button  -->
             <ImageButton
-                Margin="0,0,0,0"
-                BackgroundColor="{StaticResource PlacedDeviceAddButton}"
+                x:Name="NeonArrowRight"
+                AbsoluteLayout.LayoutBounds="0.9,0.5,44,44"
+                AbsoluteLayout.LayoutFlags="PositionProportional"
+                BackgroundColor="Transparent"
                 Clicked="OnMoveRightClicked"
-                CornerRadius="12"
-                HorizontalOptions="End"
-                MaximumHeightRequest="35"
-                MaximumWidthRequest="35"
-                Source="arrow_right.svg"
-                VerticalOptions="Center" 
-                InputTransparent="False"
-                IsEnabled="True" />
+                CommandParameter="Right"
+                HeightRequest="100"
+                Source="placementbuttright.svg"
+                Style="{StaticResource NeonArrowStyle}"
+                WidthRequest="100" />
 
-        </Grid>
+        </AbsoluteLayout>
 
-        <!--  Feature Card (Main Device Info)  -->
+
+        <!--  Feature Card (Main Device Info) - Centered in 400x400 container  -->
         <Border
-            BackgroundColor="#1E1E1E"
-            HeightRequest="156"
-            HorizontalOptions="Fill"
-            VerticalOptions="End"
-            ZIndex="3"
-            InputTransparent="False">
+            AbsoluteLayout.LayoutBounds="100,110,200,180"
+            AbsoluteLayout.LayoutFlags="None"
+            Background="{StaticResource PlacedDeviceAddButton}"
+            HeightRequest="180"
+            InputTransparent="False"
+            ZIndex="3">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="16" />
             </Border.StrokeShape>
 
-            <Grid RowDefinitions="Auto,*,Auto" InputTransparent="False">
+            <Grid InputTransparent="False" RowDefinitions="Auto,*,Auto">
 
                 <!--  Device Info Container (Top)  -->
                 <StackLayout
@@ -192,12 +181,12 @@
 
                 <!--  Button Row at Bottom  -->
                 <Grid
-                    Grid.Row="1"
-                    Margin="10"
-                    ColumnDefinitions="*,Auto,*"
+                    Grid.Row="2"
+                    Margin="0,0,0,9"
+                    ColumnDefinitions="Auto,Auto,Auto"
                     HorizontalOptions="Center"
-                    RowDefinitions="Auto,*,Auto"
-                    VerticalOptions="Center">
+                    RowDefinitions="Auto,Auto,Auto"
+                    VerticalOptions="End">
 
                     <!--  Delete Device Button (Left)  -->
                     <ImageButton
@@ -215,29 +204,45 @@
                         VerticalOptions="Center" />
 
                     <!--  Large Open/Close Button (Center)  -->
-                    <ImageButton
+                    <Border
                         Grid.Row="1"
-                        Grid.RowSpan="1"
+                        Grid.RowSpan="2"
                         Grid.Column="1"
-                        Margin="0,0,0,0"
-                        BackgroundColor="{StaticResource PlacedDeviceConfigButton}"
-                        Clicked="OnToggleDoorClicked"
-                        CornerRadius="30"
-                        HeightRequest="60"
-                        HorizontalOptions="Center"
-                        VerticalOptions="Center"
-                        WidthRequest="60">
-                        <ImageButton.Source>
-                            <FontImageSource
-                                FontFamily="SpaceMonoBold"
-                                Glyph="{Binding IsDoorOpen, Converter={StaticResource BoolToOpenCloseConverter}}"
-                                Size="14"
-                                Color="Black" />
-                        </ImageButton.Source>
-                    </ImageButton>
+                        BackgroundColor="Transparent"
+                        Stroke="Gray"
+                        StrokeThickness="6">
 
-                    <!--  Move Device Button (Right) - Now with selection functionality  -->
+
+
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="50" />
+                        </Border.StrokeShape>
+
+                        <ImageButton
+                            Padding="10"
+                            BackgroundColor="Green"
+                            BorderColor="DarkGray"
+                            BorderWidth="5"
+                            Clicked="OnToggleDoorClicked"
+                            CornerRadius="50"
+                            HeightRequest="90"
+                            HorizontalOptions="Center"
+                            VerticalOptions="Center"
+                            WidthRequest="90">
+                            <ImageButton.Source>
+                                <FontImageSource
+                                    FontFamily="SpaceMonoBold"
+                                    Glyph="{Binding IsDoorOpen, Converter={StaticResource BoolToOpenCloseConverter}}"
+                                    Size="14"
+                                    Color="Black" />
+                            </ImageButton.Source>
+                        </ImageButton>
+                    </Border>
+
+
+                    <!--  Move Device Button (Right)  -->
                     <ImageButton
+                        x:Name="DevicePlacementModeBtn"
                         Grid.Row="2"
                         Grid.RowSpan="1"
                         Grid.Column="2"
@@ -246,6 +251,8 @@
                         Clicked="OnMoveDeviceClicked"
                         CornerRadius="22"
                         HorizontalOptions="Center"
+                        InputTransparent="False"
+                        IsEnabled="True"
                         MinimumHeightRequest="35"
                         MinimumWidthRequest="35"
                         Source="move.svg"
@@ -271,6 +278,5 @@
                 </Grid>
             </Grid>
         </Border>
-
-    </Grid>
+    </AbsoluteLayout>
 </ContentView>

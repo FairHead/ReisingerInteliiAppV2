@@ -22,6 +22,10 @@ public interface IDeviceService
     Task<bool> DeviceExistsAsync(string deviceId);
     Task<bool> DeviceExistsBySsidAsync(string ssid);
     Task<(bool IsSuccessful, bool IsEmpty, List<DeviceModel> Devices)> LoadDeviceListAsync();
+
+    // Neue Methoden für komplettes Speichern
+    Task SaveLocalDevicesAsync(List<DeviceModel> devices);
+    Task SaveWifiDevicesAsync(List<DeviceModel> devices);
 }
 
 public class DeviceService : IDeviceService
@@ -350,4 +354,24 @@ public class DeviceService : IDeviceService
             System.Diagnostics.Debug.WriteLine($"❌ Error saving device list: {ex.Message}");
         }
     }
+
+    // --- Neue Methoden für komplettes Speichern ---
+    public async Task SaveLocalDevicesAsync(List<DeviceModel> devices)
+    {
+        var (success, _, allDevices) = await LoadDeviceListAsync();
+        if (!success) allDevices = new List<DeviceModel>();
+        allDevices.RemoveAll(d => d.ConnectionType == ConnectionType.Local);
+        allDevices.AddRange(devices);
+        await SaveDeviceListToSecureStoreAsync(allDevices);
+    }
+
+    public async Task SaveWifiDevicesAsync(List<DeviceModel> devices)
+    {
+        var (success, _, allDevices) = await LoadDeviceListAsync();
+        if (!success) allDevices = new List<DeviceModel>();
+        allDevices.RemoveAll(d => d.ConnectionType == ConnectionType.Wifi);
+        allDevices.AddRange(devices);
+        await SaveDeviceListToSecureStoreAsync(allDevices);
+    }
+
 }

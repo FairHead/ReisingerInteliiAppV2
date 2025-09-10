@@ -8,7 +8,10 @@ public partial class PlacedDeviceControl : ContentView
     private const double ScaleMin = 0.01; // Reduced from 0.20 to 0.0 for much smaller scaling
     private const double ScaleMax = 2.50;
     private const double ScaleStep = 0.05;
-
+private void OnControlLoaded(object sender, EventArgs e)
+{
+    // Optional: Debug-Ausgabe oder Initialisierung
+}
     public static readonly BindableProperty PlacedDeviceProperty =
         BindableProperty.Create(nameof(PlacedDevice), typeof(PlacedDeviceModel), typeof(PlacedDeviceControl), null, propertyChanged: OnPlacedDeviceChanged);
 
@@ -145,16 +148,20 @@ public partial class PlacedDeviceControl : ContentView
     private void ToggleMoveButtons(bool show)
     {
         // Toggle visibility of move arrow buttons
-        var moveButtonsContainer = this.FindByName<Grid>("ArrowButtonsContainer");
+        var moveButtonsContainer = this.FindByName<AbsoluteLayout>("ArrowButtonsContainer");
         if (moveButtonsContainer != null)
         {
             moveButtonsContainer.IsVisible = show;
             Debug.WriteLine($"🔲 PlacedDeviceControl.ToggleMoveButtons - Visibility: {show}");
         }
+        else
+        {
+            Debug.WriteLine($"❌ PlacedDeviceControl.ToggleMoveButtons - ArrowButtonsContainer not found!");
+        }
     }
 
     // Movement methods for arrow buttons - with strict bounds checking to prevent PanPinchContainer conflicts
-    private async void OnMoveUpClicked(object sender, EventArgs e)
+    private void OnMoveUpClicked(object sender, EventArgs e)
     {
         var model = GetModel();
         if (model != null)
@@ -184,7 +191,7 @@ public partial class PlacedDeviceControl : ContentView
         }
     }
 
-    private async void OnMoveDownClicked(object sender, EventArgs e)
+    private void OnMoveDownClicked(object sender, EventArgs e)
     {
         var model = GetModel();
         if (model != null)
@@ -255,7 +262,7 @@ public partial class PlacedDeviceControl : ContentView
         }
     }
 
-    private async void OnMoveLeftClicked(object sender, EventArgs e)
+    private void OnMoveLeftClicked(object sender, EventArgs e)
     {
         var model = GetModel();
         if (model != null)
@@ -326,7 +333,7 @@ public partial class PlacedDeviceControl : ContentView
         }
     }
 
-    private async void OnMoveRightClicked(object sender, EventArgs e)
+    private void OnMoveRightClicked(object sender, EventArgs e)
     {
         var model = GetModel();
         if (model != null)

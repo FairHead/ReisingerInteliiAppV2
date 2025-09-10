@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     x:Class="ReisingerIntelliApp_V4.Views.MainPage"
-    x:Name="Root"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
-    xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
     xmlns:controls="clr-namespace:ReisingerIntelliApp_V4.Controls"
+    xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
+    x:Name="Root"
     BackgroundColor="#1E1E1E"
     Shell.NavBarIsVisible="False">
 
@@ -135,117 +135,151 @@
             </Grid>
         </Border>
 
-    <!--  Main Content Area with Dropdown and Floorplan viewer  -->
-    <Grid Grid.Row="2" BackgroundColor="Transparent" IsClippedToBounds="True">
+        <!--  Main Content Area with Dropdown and Floorplan viewer  -->
+        <Grid
+            Grid.Row="2"
+            BackgroundColor="Transparent"
+            IsClippedToBounds="True">
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnBackgroundTapped" />
             </Grid.GestureRecognizers>
 
-            <!-- Floorplan display host - moved before dropdown so dropdown is on top -->
+            <!--  Floorplan display host - moved before dropdown so dropdown is on top  -->
             <Grid
                 x:Name="PlanHost"
-                Padding="10"
+                HorizontalOptions="FillAndExpand"
+                InputTransparent="False"
+                IsClippedToBounds="True"
                 IsVisible="True"
                 RowDefinitions="*"
-                ZIndex="1"
-                InputTransparent="False"
-                IsClippedToBounds="True">
-                <!-- Placeholder when no plan -->
+                VerticalOptions="FillAndExpand"
+                ZIndex="1">
+                <!--  Placeholder when no plan  -->
                 <Label
-                    Text="No floor plan available"
                     HorizontalOptions="Center"
-                    VerticalOptions="Center"
-                    TextColor="#B0B0B0">
+                    Text="No floor plan available"
+                    TextColor="#B0B0B0"
+                    VerticalOptions="Center">
                     <Label.Triggers>
-                        <DataTrigger TargetType="Label" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.HasPlan}" Value="True">
+                        <DataTrigger
+                            Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.HasPlan}"
+                            TargetType="Label"
+                            Value="True">
                             <Setter Property="IsVisible" Value="False" />
                         </DataTrigger>
                     </Label.Triggers>
                 </Label>
 
-                <!-- PNG fallback viewer with pinch/zoom using PanPinchContainer -->
-                <controls:PanPinchContainer x:Name="PlanContainer">
+                <!--  PNG fallback viewer with pinch/zoom using PanPinchContainer  -->
+                <controls:PanPinchContainer
+                    x:Name="PlanContainer"
+                    HorizontalOptions="Fill"
+                    VerticalOptions="Fill">
                     <Grid>
-                        <!-- Floor plan image -->
-                        <Image
-                            x:Name="PlanImage"
-                            Aspect="AspectFit">
+                        <!--  Floor plan image  -->
+                        <Image x:Name="PlanImage" Aspect="AspectFit">
                             <Image.Triggers>
-                                <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="True">
+                                <DataTrigger
+                                    Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}"
+                                    TargetType="Image"
+                                    Value="True">
                                     <Setter Property="IsVisible" Value="False" />
                                 </DataTrigger>
-                                <DataTrigger TargetType="Image" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPngPath}" Value="{x:Null}">
+                                <DataTrigger
+                                    Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPngPath}"
+                                    TargetType="Image"
+                                    Value="{x:Null}">
                                     <Setter Property="IsVisible" Value="False" />
                                 </DataTrigger>
                             </Image.Triggers>
                             <Image.Source>
-                                <Binding Source="{x:Reference Root}" Path="BindingContext.StructuresVM.CurrentPngPath" />
+                                <Binding Path="BindingContext.StructuresVM.CurrentPngPath" Source="{x:Reference Root}" />
                             </Image.Source>
                         </Image>
 
-                        <!-- Devices overlay - BACK INSIDE PanPinchContainer for proper zoom/pan behavior -->
-                        <!-- HIGHEST Z-INDEX to ensure devices are always clickable -->
-                        <AbsoluteLayout x:Name="DevicesOverlay" InputTransparent="False" IsEnabled="True" ZIndex="1000"
-                                        BindableLayout.ItemsSource="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.SelectedLevel.PlacedDevices}">
+                        <!--  Devices overlay - BACK INSIDE PanPinchContainer for proper zoom/pan behavior  -->
+                        <!--  HIGHEST Z-INDEX to ensure devices are always clickable  -->
+                        <AbsoluteLayout
+                            x:Name="DevicesOverlay"
+                            AbsoluteLayout.LayoutBounds="0,0,280,280"
+                            AbsoluteLayout.LayoutFlags="None"
+                            BindableLayout.ItemsSource="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.SelectedLevel.PlacedDevices}"
+                            InputTransparent="False"
+                            IsEnabled="True"
+                            ZIndex="1000">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate>
-                                    <components:PlacedDeviceControl PlacedDevice="{Binding .}" ZIndex="1001">
-                                        <components:PlacedDeviceControl.Triggers>
-                                            <!-- When not having a plan, hide overlay items -->
-                                            <DataTrigger TargetType="components:PlacedDeviceControl" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.HasPlan}" Value="False">
-                                                <Setter Property="IsVisible" Value="False" />
-                                            </DataTrigger>
-                                        </components:PlacedDeviceControl.Triggers>
-                                    </components:PlacedDeviceControl>
+                                    <components:PlacedDeviceControl
+                                        HorizontalOptions="Center"
+                                        VerticalOptions="Center" />
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </AbsoluteLayout>
                     </Grid>
                 </controls:PanPinchContainer>
 
-                <!-- PDF viewer placeholder; bind to CurrentPdfPath. Replace with an actual PDF control if added. -->
+                <!--  PDF viewer placeholder; bind to CurrentPdfPath. Replace with an actual PDF control if added.  -->
                 <ContentView x:Name="PdfViewerHost">
                     <ContentView.Triggers>
-                        <DataTrigger TargetType="ContentView" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}" Value="False">
+                        <DataTrigger
+                            Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}"
+                            TargetType="ContentView"
+                            Value="False">
                             <Setter Property="IsVisible" Value="False" />
                         </DataTrigger>
-                        <DataTrigger TargetType="ContentView" Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}" Value="{x:Null}">
+                        <DataTrigger
+                            Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}"
+                            TargetType="ContentView"
+                            Value="{x:Null}">
                             <Setter Property="IsVisible" Value="False" />
                         </DataTrigger>
                     </ContentView.Triggers>
-                    <VerticalStackLayout Spacing="6" HorizontalOptions="Center" VerticalOptions="Center">
-                        <Image Source="pdf_icon.svg" WidthRequest="48" HeightRequest="48" />
+                    <VerticalStackLayout
+                        HorizontalOptions="CenterAndExpand"
+                        Spacing="6"
+                        VerticalOptions="CenterAndExpand">
+                        <Image
+                            HeightRequest="48"
+                            Source="pdf_icon.svg"
+                            WidthRequest="48" />
                         <Label Text="PDF viewer not installed. Showing placeholder." TextColor="#B0B0B0" />
-                        <Label Text="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}" FontSize="10" TextColor="#808080" />
+                        <Label
+                            FontSize="10"
+                            Text="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}"
+                            TextColor="#808080" />
                     </VerticalStackLayout>
                 </ContentView>
             </Grid>
 
-            <!--  Dropdown content grid - moved after plan so it overlays properly -->
+            <!--  Dropdown content grid - moved after plan so it overlays properly  -->
             <Grid
                 x:Name="DropdownContainer"
-                Padding="20"
+                Padding="10"
+                HorizontalOptions="Fill"
                 IsVisible="{Binding IsDropdownVisible}"
                 RowDefinitions="Auto,*,Auto"
                 ZIndex="100">
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnDropdownContentTapped" />
                 </Grid.GestureRecognizers>
-
-                <Label
-                    x:Name="DropdownTitle"
-                    Grid.Row="0"
-                    FontAttributes="Bold"
-                    FontSize="24"
-                    Text="{Binding DropdownTitle}"
-                    TextColor="White" />
-
+                <Border Margin="0,0,0,0" StrokeThickness="0">
+                    <Label
+                        x:Name="DropdownTitle"
+                        Grid.Row="0"
+                        Padding="5"
+                        Background="{StaticResource PlacedDeviceAddButton}"
+                        FontAttributes="Bold"
+                        FontSize="24"
+                        Text="{Binding DropdownTitle}"
+                        TextColor="White" />
+                </Border>
                 <CollectionView
                     x:Name="DropdownItemsView"
                     Grid.Row="1"
+                    HorizontalOptions="FillAndExpand"
                     ItemsSource="{Binding DropdownItems}"
-                    SelectionMode="Single"
                     SelectionChanged="OnDropdownItemSelected"
+                    SelectionMode="Single"
                     VerticalOptions="FillAndExpand">
                     <CollectionView.ItemsLayout>
                         <GridItemsLayout
@@ -257,12 +291,15 @@
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <Border
+                                Margin="0,5,0,0"
                                 Padding="15"
                                 BackgroundColor="#2A2A2A"
-                                MinimumHeightRequest="175"
+                                HorizontalOptions="Start"
+                                Stroke="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}}"
                                 StrokeShape="RoundRectangle 8"
                                 StrokeThickness="{Binding IsSelected, Converter={StaticResource BoolToThicknessConverter}}"
-                                Stroke="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}}">
+                                VerticalOptions="Center"
+                                WidthRequest="175">
                                 <Grid RowDefinitions="Auto,*,Auto">
                                     <!--  Icon  -->
                                     <Image
@@ -271,6 +308,7 @@
                                         HeightRequest="24"
                                         HorizontalOptions="Center"
                                         Source="{Binding Icon}"
+                                        VerticalOptions="Center"
                                         WidthRequest="24" />
 
                                     <!--  Text  -->
@@ -278,15 +316,15 @@
                                         <Label
                                             FontSize="10"
                                             LineBreakMode="WordWrap"
-                                            Text="{Binding Text}"
+                                            Text="{Binding Text, StringFormat='Name: {0}'}"
                                             TextColor="White" />
 
-                                        <!-- Already placed hint -->
+                                        <!--  Already placed hint  -->
                                         <Label
                                             FontSize="10"
+                                            IsVisible="{Binding IsPlacedOnCurrentFloor}"
                                             Text="Already placed on this floor"
-                                            TextColor="#B0B0B0"
-                                            IsVisible="{Binding IsPlacedOnCurrentFloor}"/>
+                                            TextColor="#B0B0B0" />
 
                                         <!--  Connection Status (only for device tabs; hidden for Structures/Levels)  -->
                                         <StackLayout
@@ -309,34 +347,40 @@
                                     </StackLayout>
 
                                     <!--  Action Buttons (if HasActions is true)  -->
-                    <HorizontalStackLayout
+                                    <HorizontalStackLayout
                                         Grid.Row="2"
                                         Margin="0,12,0,0"
                                         HorizontalOptions="Center"
                                         IsVisible="{Binding HasActions}"
                                         Spacing="15">
-                                        
+
                                         <!--  Add to Floor Plan Button (only for devices)  -->
                                         <ImageButton
                                             Padding="0"
                                             BackgroundColor="Transparent"
                                             Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.AddDeviceToFloorPlanCommand}"
                                             CommandParameter="{Binding .}"
-                                            IsEnabled="{Binding IsActionEnabled}"
                                             HeightRequest="32"
+                                            IsEnabled="{Binding IsActionEnabled}"
                                             Source="add_to_floorplan.svg"
                                             WidthRequest="32">
                                             <ImageButton.Triggers>
-                                                <!-- Hide for Structures and Levels tabs -->
-                                                <DataTrigger TargetType="ImageButton" Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}" Value="Structures">
+                                                <!--  Hide for Structures and Levels tabs  -->
+                                                <DataTrigger
+                                                    Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
+                                                    TargetType="ImageButton"
+                                                    Value="Structures">
                                                     <Setter Property="IsVisible" Value="False" />
                                                 </DataTrigger>
-                                                <DataTrigger TargetType="ImageButton" Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}" Value="Levels">
+                                                <DataTrigger
+                                                    Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
+                                                    TargetType="ImageButton"
+                                                    Value="Levels">
                                                     <Setter Property="IsVisible" Value="False" />
                                                 </DataTrigger>
                                             </ImageButton.Triggers>
                                         </ImageButton>
-                                        
+
                                         <!--  Configure/Edit Button (only for devices and buildings)  -->
                                         <ImageButton
                                             Padding="0"
@@ -347,13 +391,16 @@
                                             Source="configuredevicebutton.svg"
                                             WidthRequest="32">
                                             <ImageButton.Triggers>
-                                                <!-- Hide for Levels tab as floors are edited through building editor -->
-                                                <DataTrigger TargetType="ImageButton" Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}" Value="Levels">
+                                                <!--  Hide for Levels tab as floors are edited through building editor  -->
+                                                <DataTrigger
+                                                    Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
+                                                    TargetType="ImageButton"
+                                                    Value="Levels">
                                                     <Setter Property="IsVisible" Value="False" />
                                                 </DataTrigger>
                                             </ImageButton.Triggers>
                                         </ImageButton>
-                                        
+
                                         <!--  Delete Button (for all items with actions)  -->
                                         <ImageButton
                                             x:Name="deleteButton"
@@ -377,10 +424,10 @@
                     Padding="20,15"
                     BackgroundColor="#007AFF"
                     HorizontalOptions="Center"
+                    InputTransparent="False"
                     IsVisible="{Binding ShowScanButton}"
                     StrokeShape="RoundRectangle 25"
-                    ZIndex="1"
-                    InputTransparent="False">
+                    ZIndex="1">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding ScanButtonTappedCommand}" />
                     </Border.GestureRecognizers>
@@ -397,6 +444,8 @@
 
         <!--  Footer Component  -->
         <components:AppFooter x:Name="Footer" Grid.Row="3" />
+        
     </Grid>
+
 
 </ContentPage>

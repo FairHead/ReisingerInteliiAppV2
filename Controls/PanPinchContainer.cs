@@ -124,12 +124,17 @@ public class PanPinchContainer : ContentView
     {
         if (_isProcessingGesture || Content is null) return;
         
-        _ = MainThread.InvokeOnMainThreadAsync(async () =>
+        // Use fire-and-forget with proper error handling to avoid deadlocks
+        _ = Task.Run(async () =>
         {
             try
             {
                 _isProcessingGesture = true;
                 await DoubleTappedAsync(sender, e);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error in OnDoubleTapped: {ex.Message}");
             }
             finally
             {
@@ -168,12 +173,17 @@ public class PanPinchContainer : ContentView
     {
         if (_isProcessingGesture) return;
         
-        _ = MainThread.InvokeOnMainThreadAsync(async () =>
+        // Use fire-and-forget with proper error handling to avoid deadlocks
+        _ = Task.Run(async () =>
         {
             try
             {
                 _isProcessingGesture = true;
                 await OnPanUpdatedAsync(sender, e);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error in OnPanUpdated: {ex.Message}");
             }
             finally
             {
@@ -217,12 +227,17 @@ public class PanPinchContainer : ContentView
     {
         if (_isProcessingGesture) return;
         
-        _ = MainThread.InvokeOnMainThreadAsync(async () =>
+        // Use fire-and-forget with proper error handling to avoid deadlocks
+        _ = Task.Run(async () =>
         {
             try
             {
                 _isProcessingGesture = true;
                 await OnPinchUpdatedAsync(sender, e);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error in OnPinchUpdated: {ex.Message}");
             }
             finally
             {

@@ -44,6 +44,12 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     _pdfStorageService = pdfStorage;
     StructuresVM = structuresVM;
     _viewport = viewport;
+        // Beim App-Start alle Dropdown-Listen leeren
+        DropdownItems.Clear();
+        _dropdownCache["Structures"] = ("Structures", new List<DropdownItemModel>());
+        _dropdownCache["Levels"] = ("Levels", new List<DropdownItemModel>());
+        _dropdownCache["WifiDev"] = ("Wifi Devices", new List<DropdownItemModel>());
+        _dropdownCache["LocalDev"] = ("Local Devices", new List<DropdownItemModel>());
         Title = "Reisinger App";
         TabTappedCommand = new Command<string>(OnTabTapped);
         LeftSectionTappedCommand = new Command(OnLeftSectionTapped);
@@ -55,8 +61,60 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     AddDeviceToFloorPlanCommand = new AsyncRelayCommand<DropdownItemModel>(AddDeviceToCurrentFloorAsync);
     IncreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, +0.1));
     DecreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, -0.1));
+    DebugClearStorageCommand = new AsyncRelayCommand(DebugClearStorageAsync);
         
         InitializeDropdownData();
+
+        // Dummy-Devices beim App-Start persistieren, falls keine vorhanden
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var local = await _deviceService.GetSavedLocalDevicesAsync();
+                if (local == null || !local.Any())
+                {
+                    var dummyLocal = new List<DeviceModel>();
+                    for (int i = 1; i <= 3; i++)
+                    {
+                        dummyLocal.Add(new DeviceModel
+                        {
+                            DeviceId = $"dummy_local_{i}",
+                            Name = $"Dummy Local Device {i}",
+                            IpAddress = $"192.168.1.10{i}",
+                            LastSeen = DateTime.Now.AddHours(-1),
+                            IsOnline = false,
+                            ConnectionType = ConnectionType.Local
+                        });
+                    }
+                    await _deviceService.SaveLocalDevicesAsync(dummyLocal);
+                    System.Diagnostics.Debug.WriteLine("[Startup] Dummy Local Devices gespeichert.");
+                }
+
+                var wifi = await _deviceService.GetSavedWifiDevicesAsync();
+                if (wifi == null || !wifi.Any())
+                {
+                    var dummyWifi = new List<DeviceModel>();
+                    for (int i = 1; i <= 3; i++)
+                    {
+                        dummyWifi.Add(new DeviceModel
+                        {
+                            DeviceId = $"dummy_wifi_{i}",
+                            Name = $"Dummy WiFi Device {i}",
+                            Ssid = $"SSID{i}",
+                            LastSeen = DateTime.Now.AddHours(-1),
+                            IsOnline = false,
+                            ConnectionType = ConnectionType.Wifi
+                        });
+                    }
+                    await _deviceService.SaveWifiDevicesAsync(dummyWifi);
+                    System.Diagnostics.Debug.WriteLine("[Startup] Dummy WiFi Devices gespeichert.");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Startup] Fehler beim Erstellen der Dummy-Devices: {ex.Message}");
+            }
+        });
         
         // Subscribe to device added messages
         MessagingCenter.Subscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded", async (sender) =>
@@ -109,6 +167,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     public IAsyncRelayCommand<DropdownItemModel> AddDeviceToFloorPlanCommand { get; }
     public IAsyncRelayCommand<PlacedDeviceModel> IncreaseDeviceScaleCommand { get; }
     public IAsyncRelayCommand<PlacedDeviceModel> DecreaseDeviceScaleCommand { get; }
+    public IAsyncRelayCommand DebugClearStorageCommand { get; }
 
     public string? CurrentActiveTab
     {
@@ -181,14 +240,13 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
     private void InitializeDropdownData()
     {
-        // Pre-cache all dropdown data for instant access
-    // Initial placeholders; will be replaced by persisted Buildings/Levels when tabs open
+    // Pre-cache all dropdown data for instant access
+    System.Diagnostics.Debug.WriteLine("[InitializeDropdownData] Pre-caching dropdown data for all tabs");
     _dropdownCache["Structures"] = ("Structures", new List<DropdownItemModel>());
     _dropdownCache["Levels"] = ("Levels", new List<DropdownItemModel>());
-
     _dropdownCache["WifiDev"] = ("Wifi Devices", new List<DropdownItemModel>());
-
     _dropdownCache["LocalDev"] = ("Local Devices", new List<DropdownItemModel>());
+    System.Diagnostics.Debug.WriteLine($"[InitializeDropdownData] Cache keys: {string.Join(", ", _dropdownCache.Keys)}");
     }
 
     public async Task ApplyStructureSelectionAsync(string? buildingName, string? levelName)
@@ -236,70 +294,87 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
     }
 
-    private void ShowDropdownForTab(string tabName)
+    private async void ShowDropdownForTab(string tabName)
     {
-        CurrentActiveTab = tabName;
+    System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] ENTRY: tabName={tabName}");
+    CurrentActiveTab = tabName;
         
-    if (tabName == "WifiDev")
+        try
         {
-            _ = LoadWifiDevicesAsync();
-            // Ensure WiFi status monitoring is active for WifiDev tab
-            if (DropdownItems.Any(item => item.HasActions))
+            System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] Loading data for tab: {tabName}");
+            if (tabName == "WifiDev")
             {
-                StartWifiStatusMonitoring();
+                await LoadWifiDevicesAsync();
+                System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] WifiDev: DropdownItems count after load: {DropdownItems.Count}");
+                if (DropdownItems.Any(item => item.HasActions))
+                {
+                    System.Diagnostics.Debug.WriteLine("[ShowDropdownForTab] Starting WiFi status monitoring");
+                    StartWifiStatusMonitoring();
+                }
+            }
+            else if (tabName == "LocalDev")
+            {
+                await LoadLocalDevicesAsync();
+                System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] LocalDev: DropdownItems count after load: {DropdownItems.Count}");
+                if (DropdownItems.Any(item => item.HasActions))
+                {
+                    System.Diagnostics.Debug.WriteLine("[ShowDropdownForTab] Starting LocalDev status monitoring");
+                    StartLocalDevStatusMonitoring();
+                }
+            }
+            else if (tabName == "Structures")
+            {
+                await LoadStructuresAsync();
+                System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] Structures: DropdownItems count after load: {DropdownItems.Count}");
+            }
+            else if (tabName == "Levels")
+            {
+                await LoadLevelsAsync();
+                System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] Levels: DropdownItems count after load: {DropdownItems.Count}");
+            }
+            else if (_dropdownCache.TryGetValue(tabName, out var cachedData))
+            {
+                System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] Using cached data for tab: {tabName}");
+                DropdownTitle = cachedData.Title;
+                ShowScanButton = tabName == "LocalDev";
+                ScanButtonText = tabName switch
+                {
+                    "LocalDev" => "Scan Local Network for Devices",
+                    _ => string.Empty
+                };
+                DropdownItems.Clear();
+                foreach (var item in cachedData.Items)
+                {
+                    DropdownItems.Add(item);
+                }
+                System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] CachedData.Items count: {cachedData.Items.Count}");
+                IsDropdownVisible = true;
+                if (tabName == "LocalDev" && DropdownItems.Any(item => item.HasActions))
+                {
+                    System.Diagnostics.Debug.WriteLine("[ShowDropdownForTab] Starting LocalDev status monitoring (cached)");
+                    StartLocalDevStatusMonitoring();
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[ShowDropdownForTab] Stopping WiFi status monitoring (cached)");
+                    StopWifiStatusMonitoring();
+                }
             }
         }
-        else if (tabName == "LocalDev")
+        catch (Exception ex)
         {
-            _ = LoadLocalDevicesAsync();
-            // Ensure Local device status monitoring is active for LocalDev tab
-            if (DropdownItems.Any(item => item.HasActions))
-            {
-                StartLocalDevStatusMonitoring();
-            }
-        }
-        else if (tabName == "Structures")
-        {
-            _ = LoadStructuresAsync();
-        }
-        else if (tabName == "Levels")
-        {
-            _ = LoadLevelsAsync();
-        }
-        else if (_dropdownCache.TryGetValue(tabName, out var cachedData))
-        {
-            DropdownTitle = cachedData.Title;
-            // Only show scan button for device tabs; Structures uses the main '+'
-            ShowScanButton = tabName == "LocalDev";
-            
-            // Set scan button text based on tab
-            ScanButtonText = tabName switch
-            {
-                "LocalDev" => "Scan Local Network for Devices",
-                _ => string.Empty
-            };
-            
-            // Clear and add items directly
+            System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] ERROR loading tab data for {tabName}: {ex.Message}");
             DropdownItems.Clear();
-            foreach (var item in cachedData.Items)
-            {
-                DropdownItems.Add(item);
-            }
-            
-            IsDropdownVisible = true;
-            
-            // Start status monitoring for LocalDev as well
-            if (tabName == "LocalDev" && DropdownItems.Any(item => item.HasActions))
-            {
-                StartLocalDevStatusMonitoring();
-            }
-            else
-            {
-                // Stop monitoring when switching away from device tabs
-                StopWifiStatusMonitoring();
-            }
+            DropdownItems.Add(new DropdownItemModel 
+            { 
+                Id = "error", 
+                Icon = "info.svg", 
+                Text = $"Error loading {tabName} data", 
+                HasActions = false 
+            });
         }
 
+        System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] TabActivated event fired for {tabName}");
         TabActivated?.Invoke(this, tabName);
     }
 
@@ -307,80 +382,90 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     {
         try
         {
+            System.Diagnostics.Debug.WriteLine("[LoadWifiDevicesAsync] ENTRY");
             DropdownTitle = "WiFi Devices";
             ShowScanButton = true;
             ScanButtonText = "Scan for Devices in WiFi-Ap Mode";
-            
-            // Show loading state
             DropdownItems.Clear();
-            DropdownItems.Add(new DropdownItemModel 
-            { 
-                Id = "loading", 
-                Icon = "loading.svg", 
-                Text = "Loading saved devices...", 
-                HasActions = false 
+            DropdownItems.Add(new DropdownItemModel
+            {
+                Id = "loading",
+                Icon = "loading.svg",
+                Text = "Loading saved devices...",
+                HasActions = false
             });
             IsDropdownVisible = true;
 
-            // Load saved WiFi devices
             var savedDevices = await _deviceService.GetSavedWifiDevicesAsync();
-            
-            // Clear loading and add real devices
+            System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] Loaded {savedDevices.Count} devices from storage.");
             DropdownItems.Clear();
-            
+
             if (savedDevices.Any())
             {
-                // Ensure any previous default card is removed
                 RemoveDefaultNoDeviceCard();
-
-                // Determine which devices are already placed on the currently selected floor
                 var placedIds = new HashSet<string>(StructuresVM.SelectedLevel?.PlacedDevices?.Select(pd => pd.DeviceInfo.DeviceId) ?? Enumerable.Empty<string>());
-
+                System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] PlacedIds on current floor: {string.Join(", ", placedIds)}");
                 foreach (var device in savedDevices)
                 {
-                    var lastSeenText = device.LastSeen != default(DateTime) 
-                        ? $"Last seen: {device.LastSeen:HH:mm}"
-                        : "Never connected";
-                    
-                    var dropdownItem = new DropdownItemModel
+                    try
                     {
-                        Id = device.DeviceId,
-                        Icon = "wifi_icon.svg",
-                        Text = $"{device.Name}\n{device.Ssid} • {lastSeenText}",
-                        HasActions = true,
-                        ShowStatus = true,
-                        IsConnected = false, // Start with disconnected, will be updated immediately by monitoring
-                        IsPlacedOnCurrentFloor = placedIds.Contains(device.DeviceId),
-                        IsActionEnabled = !placedIds.Contains(device.DeviceId)
-                    };
-                    
-                    DropdownItems.Add(dropdownItem);
+                        var lastSeenText = device.LastSeen != default(DateTime)
+                            ? $"Last seen: {device.LastSeen:HH:mm}"
+                            : "Never connected";
+                        var dropdownItem = new DropdownItemModel
+                        {
+                            Id = device.DeviceId,
+                            Icon = "wifi_icon.svg",
+                            Text = $"{device.Name}\n{device.Ssid} • {lastSeenText}",
+                            HasActions = true,
+                            ShowStatus = true,
+                            IsConnected = false,
+                            IsPlacedOnCurrentFloor = placedIds.Contains(device.DeviceId),
+                            IsActionEnabled = !placedIds.Contains(device.DeviceId)
+                        };
+                        DropdownItems.Add(dropdownItem);
+                        System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] Added device to DropdownItems: {dropdownItem.Id}, PlacedOnCurrentFloor={dropdownItem.IsPlacedOnCurrentFloor}, ActionEnabled={dropdownItem.IsActionEnabled}");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] ERROR adding device: {ex.Message}");
+                    }
                 }
-                
-                // Start monitoring WiFi device status IMMEDIATELY
+                System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] DropdownItems count after adding real devices: {DropdownItems.Count}");
                 StartWifiStatusMonitoring();
-                
-                // Trigger an immediate status check to get current connectivity state
-                _ = Task.Run(async () => 
+                _ = Task.Run(async () =>
                 {
-                    await Task.Delay(100); // Small delay to ensure UI is ready
+                    await Task.Delay(100);
                     await CheckWifiDeviceStatusAsync();
                 });
             }
             else
             {
-                // Only show the default card when there are no saved devices
-                DropdownItems.Add(new DropdownItemModel
+                var placedIds = new HashSet<string>(StructuresVM.SelectedLevel?.PlacedDevices?.Select(pd => pd.DeviceInfo.DeviceId) ?? Enumerable.Empty<string>());
+                System.Diagnostics.Debug.WriteLine("[LoadWifiDevicesAsync] No real devices found, adding dummy devices");
+                for (int i = 1; i <= 3; i++)
                 {
-                    Id = NO_DEVICES_ITEM_ID,
-                    Icon = "info.svg",
-                    Text = "No saved WiFi devices\nUse 'Scan' to add devices",
-                    HasActions = false
-                });
+                    var dropdownItem = new DropdownItemModel
+                    {
+                        Id = $"dummy_wifi_{i}",
+                        Icon = "wifi_icon.svg",
+                        Text = $"Dummy WiFi Device {i}\nSSID{i} • Last seen: 12:00",
+                        HasActions = true,
+                        ShowStatus = true,
+                        IsConnected = false,
+                        IsPlacedOnCurrentFloor = false,
+                        IsActionEnabled = true
+                    };
+                    DropdownItems.Add(dropdownItem);
+                    System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] Added dummy device: {dropdownItem.Id}");
+                }
+                System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] DropdownItems count after adding dummy devices: {DropdownItems.Count}");
+                StartWifiStatusMonitoring();
             }
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] ERROR: {ex.Message}");
             DropdownItems.Clear();
             DropdownItems.Add(new DropdownItemModel
             {
@@ -396,85 +481,103 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     {
         try
         {
+            System.Diagnostics.Debug.WriteLine("[LoadLocalDevicesAsync] ENTRY");
             DropdownTitle = "Local Devices";
             ShowScanButton = true;
             ScanButtonText = "Scan Local Network for Devices";
-            
-            // Show loading state
             DropdownItems.Clear();
-            DropdownItems.Add(new DropdownItemModel 
-            { 
-                Id = "loading", 
-                Icon = "loading.svg", 
-                Text = "Loading saved local devices...", 
-                HasActions = false 
+            DropdownItems.Add(new DropdownItemModel
+            {
+                Id = "loading",
+                Icon = "loading.svg",
+                Text = "Loading saved local devices...",
+                HasActions = false
             });
             IsDropdownVisible = true;
 
-            // Load saved local devices
             var savedDevices = await _deviceService.GetSavedLocalDevicesAsync();
-            
-            // Clear loading and add real devices
+            System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] Loaded {savedDevices.Count} devices from storage.");
+
+            var validDeviceIds = new HashSet<string>(savedDevices.Select(d => d.DeviceId));
+            var staleItems = DropdownItems.Where(d => d.HasActions && !validDeviceIds.Contains(d.Id) && !d.Id.StartsWith("dummy_local_")).ToList();
+            foreach (var stale in staleItems)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] Removing stale device from Dropdown: {stale.Id}");
+                DropdownItems.Remove(stale);
+            }
+
             DropdownItems.Clear();
-            
+
             if (savedDevices.Any())
             {
-                // Ensure any previous default card is removed
                 RemoveDefaultNoDeviceCard();
-
-                // Determine which devices are already placed on the currently selected floor
                 var placedIds = new HashSet<string>(StructuresVM.SelectedLevel?.PlacedDevices?.Select(pd => pd.DeviceInfo.DeviceId) ?? Enumerable.Empty<string>());
-
+                System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] PlacedIds on current floor: {string.Join(", ", placedIds)}");
                 foreach (var device in savedDevices)
                 {
-                    var lastSeenText = device.LastSeen != default(DateTime) 
-                        ? $"Last seen: {device.LastSeen:HH:mm}"
-                        : "Never connected";
-                    
-                    var dropdownItem = new DropdownItemModel
+                    try
                     {
-                        Id = device.DeviceId,
-                        Icon = "local_icon.svg",
-                        Text = $"{device.Name}\n{device.IpAddress} • {lastSeenText}",
-                        HasActions = true,
-                        ShowStatus = true,
-                        IsConnected = false, // Start with disconnected, will be updated immediately by monitoring
-                        IsPlacedOnCurrentFloor = placedIds.Contains(device.DeviceId),
-                        IsActionEnabled = !placedIds.Contains(device.DeviceId)
-                    };
-                    
-                    DropdownItems.Add(dropdownItem);
+                        var lastSeenText = device.LastSeen != default(DateTime)
+                            ? $"Last seen: {device.LastSeen:HH:mm}"
+                            : "Never connected";
+                        var dropdownItem = new DropdownItemModel
+                        {
+                            Id = device.DeviceId,
+                            Icon = "local_icon.svg",
+                            Text = $"{device.Name}\n{device.IpAddress} • {lastSeenText}",
+                            HasActions = true,
+                            ShowStatus = true,
+                            IsConnected = false,
+                            IsPlacedOnCurrentFloor = placedIds.Contains(device.DeviceId),
+                            IsActionEnabled = !placedIds.Contains(device.DeviceId)
+                        };
+                        DropdownItems.Add(dropdownItem);
+                        System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] Added device to DropdownItems: {dropdownItem.Id}, PlacedOnCurrentFloor={dropdownItem.IsPlacedOnCurrentFloor}, ActionEnabled={dropdownItem.IsActionEnabled}");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] ERROR adding device: {ex.Message}");
+                    }
                 }
-                
-                // Start monitoring local device status IMMEDIATELY
+                System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] DropdownItems count after adding real devices: {DropdownItems.Count}");
                 StartLocalDevStatusMonitoring();
-                
-                // Trigger an immediate status check to get current connectivity state
-                _ = Task.Run(async () => 
+                _ = Task.Run(async () =>
                 {
-                    await Task.Delay(100); // Small delay to ensure UI is ready
+                    await Task.Delay(100);
                     await CheckLocalDeviceStatusAsync();
                 });
             }
             else
             {
-                // Only show the default card when there are no saved devices
-                DropdownItems.Add(new DropdownItemModel
+                System.Diagnostics.Debug.WriteLine("[LoadLocalDevicesAsync] No real devices found, adding dummy devices");
+                for (int i = 1; i <= 3; i++)
                 {
-                    Id = NO_DEVICES_ITEM_ID,
-                    Icon = "info.svg",
-                    Text = "No saved local devices\nUse 'Scan' to add devices",
-                    HasActions = false
-                });
+                    var dropdownItem = new DropdownItemModel
+                    {
+                        Id = $"dummy_local_{i}",
+                        Icon = "local_icon.svg",
+                        Text = $"Dummy Local Device {i}\n192.168.1.10{i} • Last seen: 12:00",
+                        HasActions = true,
+                        ShowStatus = true,
+                        IsConnected = false,
+                        IsPlacedOnCurrentFloor = false,
+                        IsActionEnabled = true
+                    };
+                    DropdownItems.Add(dropdownItem);
+                    System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] Added dummy device: {dropdownItem.Id}");
+                }
+                System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] DropdownItems count after adding dummy devices: {DropdownItems.Count}");
+                StartLocalDevStatusMonitoring();
             }
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] ERROR: {ex.Message}");
             DropdownItems.Clear();
             DropdownItems.Add(new DropdownItemModel
             {
                 Id = "error",
-                Icon = "error.svg",
+                Icon = "error",
                 Text = $"Error loading local devices:\n{ex.Message}",
                 HasActions = false
             });
@@ -491,23 +594,50 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         DropdownItems.Add(new DropdownItemModel { Id = "loading", Icon = "loading.svg", Text = "Loading buildings..." });
         IsDropdownVisible = true;
 
-        var buildings = await _buildingStorage.LoadAsync();
-        DropdownItems.Clear();
-        if (buildings.Count == 0)
+        try
         {
-            DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "No buildings yet\nUse '+' to add", HasActions = false });
-            return;
+            // Remove ConfigureAwait(false) to prevent deadlock when accessing UI elements
+            var buildings = await _buildingStorage.LoadAsync();
+            
+            // Use synchronous UI update since we're already on the correct thread
+            DropdownItems.Clear();
+            if (buildings.Count == 0)
+            {
+                DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "No buildings yet\nUse '+' to add", HasActions = false });
+                return;
+            }
+            
+            foreach (var b in buildings)
+            {
+                try
+                {
+                    DropdownItems.Add(new DropdownItemModel 
+                    { 
+                        Id = b.BuildingName, 
+                        Icon = "home.svg", 
+                        Text = b.BuildingName, 
+                        HasActions = true, // Enable actions for buildings to show delete button
+                        ShowStatus = false, 
+                        IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) 
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync] Fehler beim Hinzufügen eines Buildings: {ex.Message}");
+                    // Building nicht anzeigen, einfach überspringen
+                }
+            }
         }
-        foreach (var b in buildings)
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"Error in LoadStructuresAsync: {ex.Message}");
+            DropdownItems.Clear();
             DropdownItems.Add(new DropdownItemModel 
             { 
-                Id = b.BuildingName, 
-                Icon = "home.svg", 
-                Text = b.BuildingName, 
-                HasActions = true, // Enable actions for buildings to show delete button
-                ShowStatus = false, 
-                IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) 
+                Id = "error", 
+                Icon = "info.svg", 
+                Text = "Error loading buildings", 
+                HasActions = false 
             });
         }
     }
@@ -520,31 +650,75 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         DropdownItems.Add(new DropdownItemModel { Id = "loading", Icon = "loading.svg", Text = "Loading floors..." });
         IsDropdownVisible = true;
 
-        var structures = await _buildingStorage.LoadAsync();
-        DropdownItems.Clear();
+        try
+        {
+            // Remove ConfigureAwait(false) to prevent deadlock when accessing UI elements
+            var structures = await _buildingStorage.LoadAsync();
+            // Defensive: handle null/empty structures
+            if (structures == null)
+            {
+                DropdownItems.Clear();
+                DropdownItems.Add(new DropdownItemModel { Id = "error", Icon = "info.svg", Text = "No building data found.", HasActions = false });
+                return;
+            }
 
-        if (string.IsNullOrWhiteSpace(SelectedBuildingName))
-        {
-            DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "Select a building in Structures first" });
-            return;
-        }
+            DropdownItems.Clear();
 
-        var selected = structures.FirstOrDefault(b => b.BuildingName.Equals(SelectedBuildingName, StringComparison.OrdinalIgnoreCase));
-        if (selected == null || selected.Floors.Count == 0)
-        {
-            DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "No floors to display" });
-            return;
+            if (string.IsNullOrWhiteSpace(SelectedBuildingName))
+            {
+                DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "Select a building in Structures first" });
+                return;
+            }
+
+            var selected = structures.FirstOrDefault(b => b?.BuildingName != null && b.BuildingName.Equals(SelectedBuildingName, StringComparison.OrdinalIgnoreCase));
+            if (selected == null)
+            {
+                DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "Building not found or deleted." });
+                return;
+            }
+            if (selected.Floors == null || selected.Floors.Count == 0)
+            {
+                DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "No floors to display" });
+                return;
+            }
+
+            foreach (var f in selected.Floors)
+            {
+                try
+                {
+                    if (f == null || string.IsNullOrWhiteSpace(f.FloorName))
+                        continue;
+                    DropdownItems.Add(new DropdownItemModel
+                    {
+                        Id = f.FloorName,
+                        Icon = "levels.svg",
+                        Text = f.FloorName,
+                        HasActions = true,
+                        ShowStatus = false,
+                        IsSelected = string.Equals(SelectedLevelName, f.FloorName, StringComparison.OrdinalIgnoreCase)
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[LoadLevelsAsync] Fehler beim Hinzufügen eines Floors: {ex.Message}");
+                    // Floor nicht anzeigen, einfach überspringen
+                }
+            }
+            if (DropdownItems.Count == 0)
+            {
+                DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "No valid floors found." });
+            }
         }
-        foreach (var f in selected.Floors)
+        catch (Exception ex)
         {
-            DropdownItems.Add(new DropdownItemModel 
-            { 
-                Id = f.FloorName, 
-                Icon = "levels.svg", 
-                Text = f.FloorName, 
-                HasActions = true, // Enable actions for floors to show delete button
-                ShowStatus = false, 
-                IsSelected = string.Equals(SelectedLevelName, f.FloorName, StringComparison.OrdinalIgnoreCase) 
+            System.Diagnostics.Debug.WriteLine($"Error in LoadLevelsAsync: {ex.Message}");
+            DropdownItems.Clear();
+            DropdownItems.Add(new DropdownItemModel
+            {
+                Id = "error",
+                Icon = "info.svg",
+                Text = $"Error loading floors: {ex.Message}",
+                HasActions = false
             });
         }
     }
@@ -868,43 +1042,106 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     {
         try
         {
-            // Preconditions
-            if (StructuresVM.SelectedBuilding is null || StructuresVM.SelectedLevel is null)
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] ENTRY: item.Id={item?.Id}, CurrentActiveTab={CurrentActiveTab}");
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] StructuresVM={StructuresVM != null}, SelectedBuilding={StructuresVM?.SelectedBuilding?.BuildingName}, SelectedLevel={StructuresVM?.SelectedLevel?.FloorName}");
+            if (StructuresVM?.SelectedLevel?.PlacedDevices != null)
+                System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] PlacedDevices count: {StructuresVM.SelectedLevel.PlacedDevices.Count}");
+
+            if (StructuresVM == null)
             {
-                await Application.Current.MainPage.DisplayAlert("Info", "Select building and level first.", "OK");
+                System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: StructuresVM is null");
+                await Application.Current.MainPage.DisplayAlert("Error", "App state invalid (StructuresVM is null).", "OK");
                 return;
             }
-            if (_viewport is null || !_viewport.IsPlanReady)
+            if (StructuresVM.SelectedBuilding == null)
             {
+                System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: SelectedBuilding is null");
+                await Application.Current.MainPage.DisplayAlert("Info", "Select a building first.", "OK");
+                return;
+            }
+            if (StructuresVM.SelectedLevel == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: SelectedLevel is null");
+            }
+            if (StructuresVM.SelectedLevel?.PlacedDevices == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] PlacedDevices is null! Initialisiere neu.");
+                StructuresVM.SelectedLevel.PlacedDevices = new ObservableCollection<PlacedDeviceModel>();
+            }
+            if (_viewport == null || !_viewport.IsPlanReady)
+            {
+                System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: Viewport not ready");
                 await Application.Current.MainPage.DisplayAlert("Info", "Floor plan not ready.", "OK");
                 return;
             }
 
-            // Resolve device info from saved lists by id
-            if (item == null || string.IsNullOrWhiteSpace(item.Id)) return;
+            if (item == null || string.IsNullOrWhiteSpace(item.Id))
+            {
+                System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: No device selected");
+                await Application.Current.MainPage.DisplayAlert("Error", "No device selected.", "OK");
+                return;
+            }
             DeviceModel? source = null;
-            if (CurrentActiveTab == "WifiDev")
+
+            if (item.Id.StartsWith("dummy_"))
             {
-                var saved = await _deviceService.GetSavedWifiDevicesAsync();
-                source = saved.FirstOrDefault(d => d.DeviceId == item.Id);
+                System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Handling dummy device: {item.Id}");
+                if (CurrentActiveTab == "WifiDev" && item.Id.StartsWith("dummy_wifi_"))
+                {
+                    var deviceNumber = item.Id.Replace("dummy_wifi_", "");
+                    source = new DeviceModel
+                    {
+                        DeviceId = item.Id,
+                        Name = $"Dummy WiFi Device {deviceNumber}",
+                        Ssid = $"SSID{deviceNumber}",
+                        LastSeen = DateTime.Now.AddHours(-1),
+                        IsOnline = false
+                    };
+                }
+                else if (CurrentActiveTab == "LocalDev" && item.Id.StartsWith("dummy_local_"))
+                {
+                    var deviceNumber = item.Id.Replace("dummy_local_", "");
+                    source = new DeviceModel
+                    {
+                        DeviceId = item.Id,
+                        Name = $"Dummy Local Device {deviceNumber}",
+                        IpAddress = $"192.168.1.10{deviceNumber}",
+                        LastSeen = DateTime.Now.AddHours(-1),
+                        IsOnline = false,
+                        ConnectionType = ConnectionType.Local
+                    };
+                }
             }
-            else if (CurrentActiveTab == "LocalDev")
+            else
             {
-                var saved = await _deviceService.GetSavedLocalDevicesAsync();
-                source = saved.FirstOrDefault(d => d.DeviceId == item.Id);
+                System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Loading real device: {item.Id} from {CurrentActiveTab}");
+                if (CurrentActiveTab == "WifiDev")
+                {
+                    var saved = await _deviceService.GetSavedWifiDevicesAsync();
+                    System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Loaded {saved?.Count ?? 0} saved wifi devices");
+                    source = saved?.FirstOrDefault(d => d.DeviceId == item.Id);
+                }
+                else if (CurrentActiveTab == "LocalDev")
+                {
+                    var saved = await _deviceService.GetSavedLocalDevicesAsync();
+                    System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Loaded {saved?.Count ?? 0} saved local devices");
+                    source = saved?.FirstOrDefault(d => d.DeviceId == item.Id);
+                }
             }
+
             if (source == null)
             {
+                System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] ERROR: Device not found for id {item.Id}");
                 await Application.Current.MainPage.DisplayAlert("Error", "Device not found.", "OK");
                 return;
             }
 
-            // Prevent duplicates per floor: check if a device with same DeviceId already exists on this floor
             var alreadyPlaced = StructuresVM.SelectedLevel.PlacedDevices.Any(pd => pd.DeviceInfo?.DeviceId == source.DeviceId);
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] alreadyPlaced={alreadyPlaced}");
             if (alreadyPlaced)
             {
+                System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Device already placed on floor: {source.DeviceId}");
                 await Application.Current.MainPage.DisplayAlert("Info", "This device is already placed on the selected floor.", "OK");
-                // Update dropdown item to reflect disabled state
                 var dropdownMatch = DropdownItems.FirstOrDefault(d => d.Id == source.DeviceId);
                 if (dropdownMatch != null)
                 {
@@ -914,46 +1151,59 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 return;
             }
 
-            // Place exactly at the center of the plan (normalized coordinates)
-            // Using plan center ensures the device lands visually in the middle of the displayed floor plan
-            // regardless of current zoom/pan state or letterboxing from AspectFit.
             var xNorm = 0.5;
             var yNorm = 0.5;
-
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Creating PlacedDeviceModel for {source.DeviceId}");
             var placed = new PlacedDeviceModel(source)
             {
                 PlacedDeviceId = Guid.NewGuid().ToString("N"),
                 XCenterNorm = xNorm,
                 YCenterNorm = yNorm,
-                BaseWidthNorm = 0.15, // Use new larger default
-                BaseHeightNorm = 0.18, // Use new larger default
+                BaseWidthNorm = 0.15,
+                BaseHeightNorm = 0.18,
                 Scale = 1.0,
                 BuildingId = 0,
                 FloorId = 0,
             };
 
-            // Persist to selected floor
+            if (StructuresVM.SelectedLevel == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: SelectedLevel is null after device creation!");
+                await Application.Current.MainPage.DisplayAlert("Error", "SelectedLevel is null!", "OK");
+                return;
+            }
+            if (StructuresVM.SelectedLevel.PlacedDevices == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] PlacedDevices is null after device creation! Initialisiere neue Collection.");
+                StructuresVM.SelectedLevel.PlacedDevices = new System.Collections.ObjectModel.ObservableCollection<PlacedDeviceModel>();
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] >>> VOR Add: {placed?.DeviceId} zu Level: {StructuresVM.SelectedLevel.FloorName}");
             StructuresVM.SelectedLevel.PlacedDevices.Add(placed);
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] <<< NACH Add: {placed?.DeviceId} zu Level: {StructuresVM.SelectedLevel.FloorName}");
 
-            // Save all buildings
+            System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] Calling PersistBuildingsAsync...");
             await PersistBuildingsAsync();
+            System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] PersistBuildingsAsync finished.");
 
-            // Notify plan to refresh rendering if needed - IMMEDIATE refresh even with dropdown open
+            System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] Calling RefreshCurrentFloorPlanAsync...");
             await StructuresVM.RefreshCurrentFloorPlanAsync();
-            
-            // Force immediate layout refresh via MessagingCenter to ensure devices appear right away
+            System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] RefreshCurrentFloorPlanAsync finished.");
+
+            System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] Sending ForceDeviceLayoutRefresh via MessagingCenter...");
             MessagingCenter.Send(this, "ForceDeviceLayoutRefresh");
 
-            // Update dropdown item state after successful placement
             var placedItem = DropdownItems.FirstOrDefault(d => d.Id == source.DeviceId);
             if (placedItem != null)
             {
                 placedItem.IsPlacedOnCurrentFloor = true;
                 placedItem.IsActionEnabled = false;
             }
+            System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] EXIT");
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Exception: {ex}");
             await Application.Current.MainPage.DisplayAlert("Error", ex.Message, "OK");
         }
     }
@@ -971,18 +1221,31 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private async Task PersistBuildingsAsync()
     {
         // Save entire building list preserving floors and placed devices
+        System.Diagnostics.Debug.WriteLine("[PersistBuildingsAsync] ENTRY");
         var list = await _buildingStorage.LoadAsync();
+        System.Diagnostics.Debug.WriteLine($"[PersistBuildingsAsync] Loaded {list.Count} buildings from storage");
         var b = list.FirstOrDefault(x => x.BuildingName.Equals(StructuresVM.SelectedBuilding?.BuildingName ?? string.Empty, StringComparison.OrdinalIgnoreCase));
         if (b != null)
         {
+            System.Diagnostics.Debug.WriteLine($"[PersistBuildingsAsync] Found building: {b.BuildingName}");
             var f = b.Floors.FirstOrDefault(x => x.FloorName.Equals(StructuresVM.SelectedLevel?.FloorName ?? string.Empty, StringComparison.OrdinalIgnoreCase));
             if (f != null)
             {
-                // Replace PlacedDevices with current instance
+                System.Diagnostics.Debug.WriteLine($"[PersistBuildingsAsync] Found floor: {f.FloorName}, replacing PlacedDevices (count: {StructuresVM.SelectedLevel!.PlacedDevices.Count})");
                 f.PlacedDevices = StructuresVM.SelectedLevel!.PlacedDevices;
             }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[PersistBuildingsAsync] Floor not found!");
+            }
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine("[PersistBuildingsAsync] Building not found!");
         }
         await _buildingStorage.SaveAsync(list);
+        System.Diagnostics.Debug.WriteLine("[PersistBuildingsAsync] SaveAsync finished");
+        System.Diagnostics.Debug.WriteLine("[PersistBuildingsAsync] EXIT");
     }
 
     #endregion
@@ -1005,9 +1268,20 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         {
             // Stop existing timer if any
             _wifiStatusTimer?.Dispose();
+            _wifiStatusTimer = null;
             
             // Use the SAME interval as SaveDevicePage (5 seconds) for consistency
-            _wifiStatusTimer = new Timer(async _ => await CheckWifiDeviceStatusAsync(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            _wifiStatusTimer = new Timer(async _ => 
+            {
+                try 
+                { 
+                    await CheckWifiDeviceStatusAsync(); 
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"❌ Error in WiFi status monitoring timer: {ex.Message}");
+                }
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
             
             System.Diagnostics.Debug.WriteLine("🔄 WiFi status monitoring started for MainPage dropdown (5s interval - same as SaveDevicePage)");
         }
@@ -1019,9 +1293,20 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         {
             // Stop existing timer if any
             _wifiStatusTimer?.Dispose();
+            _wifiStatusTimer = null;
             
             // Poll every 3 seconds via /intellidrive/version as requested
-            _wifiStatusTimer = new Timer(async _ => await CheckLocalDeviceStatusAsync(), null, TimeSpan.Zero, TimeSpan.FromSeconds(3));
+            _wifiStatusTimer = new Timer(async _ => 
+            {
+                try 
+                { 
+                    await CheckLocalDeviceStatusAsync(); 
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"❌ Error in local device status monitoring timer: {ex.Message}");
+                }
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(3));
             
             System.Diagnostics.Debug.WriteLine("🔄 Local device status monitoring started for MainPage dropdown (3s interval)");
         }
@@ -1074,15 +1359,11 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 
                 System.Diagnostics.Debug.WriteLine($"🔄 Previous status: {dropdownItem.IsConnected}, New status: {isConnected}");
                 
-                // Update the UI if status changed
+                // Update the UI if status changed - use simpler approach to avoid deadlocks
                 if (dropdownItem.IsConnected != isConnected)
                 {
-                    MainThread.BeginInvokeOnMainThread(() =>
-                    {
-                        dropdownItem.IsConnected = isConnected;
-                        
-                        System.Diagnostics.Debug.WriteLine($"📱 ✅ Updated {device.Name} status: {(isConnected ? "Connected" : "Disconnected")}");
-                    });
+                    dropdownItem.IsConnected = isConnected;
+                    System.Diagnostics.Debug.WriteLine($"📱 ✅ Updated {device.Name} status: {(isConnected ? "Connected" : "Disconnected")}");
                 }
                 else
                 {
@@ -1125,15 +1406,11 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 var (success, _, _) = await _apiService.TestIntellidriveConnectionAsync(ipAddress);
                 var isConnected = success;
                 
-                // Update the UI if status changed
+                // Update the UI if status changed - use simpler approach to avoid deadlocks
                 if (dropdownItem.IsConnected != isConnected)
                 {
-                    MainThread.BeginInvokeOnMainThread(() =>
-                    {
-                        dropdownItem.IsConnected = isConnected;
-                        
-                        System.Diagnostics.Debug.WriteLine($"🏠 Updated local device {lines[0]} ({ipAddress}) status: {(isConnected ? "Connected" : "Disconnected")} (via /intellidrive/version)");
-                    });
+                    dropdownItem.IsConnected = isConnected;
+                    System.Diagnostics.Debug.WriteLine($"🏠 Updated local device {lines[0]} ({ipAddress}) status: {(isConnected ? "Connected" : "Disconnected")} (via /intellidrive/version)");
                 }
             }
         }
@@ -1187,6 +1464,64 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         StopWifiStatusMonitoring();
     MessagingCenter.Unsubscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded");
     MessagingCenter.Unsubscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded");
+    }
+
+    #endregion
+
+    #region Debug Methods
+
+    private async Task DebugClearStorageAsync()
+    {
+        try
+        {
+            Debug.WriteLine("=== DEBUG: Starting storage clear operation ===");
+            
+            // First, let's see what's currently in storage
+            Debug.WriteLine("=== Current storage content BEFORE clear ===");
+            await _buildingStorage.LoadAsync(); // This will trigger our debug output
+            
+            // Show confirmation dialog
+            bool confirm = await Application.Current?.Windows?[0]?.Page?.DisplayAlert(
+                "Debug: Clear Storage", 
+                "This will clear ALL saved buildings, floors, and devices. Continue?", 
+                "Yes, Clear All", 
+                "Cancel") == true;
+                
+            if (confirm)
+            {
+                // Clear storage
+                await _buildingStorage.ClearAllAsync();
+                Debug.WriteLine("=== Storage cleared successfully ===");
+                
+                // Clear UI
+                DropdownItems.Clear();
+                SelectedBuildingName = null;
+                SelectedLevelName = null;
+                CurrentActiveTab = null;
+                
+                // Show success
+                await Application.Current?.Windows?[0]?.Page?.DisplayAlert(
+                    "Debug: Success", 
+                    "Storage cleared successfully! App state reset.", 
+                    "OK");
+                    
+                Debug.WriteLine("=== Storage clear operation completed ===");
+            }
+            else
+            {
+                Debug.WriteLine("=== Storage clear operation cancelled by user ===");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"=== ERROR in DebugClearStorageAsync: {ex.Message} ===");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            
+            await Application.Current?.Windows?[0]?.Page?.DisplayAlert(
+                "Debug: Error", 
+                $"Error clearing storage: {ex.Message}", 
+                "OK");
+        }
     }
 
     #endregion
