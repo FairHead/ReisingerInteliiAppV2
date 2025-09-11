@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 100 100" role="img" aria-label="Rotation gegen Uhrzeigersinn">
+  <title>Rotation gegen Uhrzeigersinn</title>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Bogen: Start ~21:00 (20,50) -> Ende ~13:00 (65,24.02) -->
+    <!-- Schwarzer Rand -->
+    <path d="M20 50 A30 30 0 1 0 65 24.02" stroke="#000" stroke-width="12"/>
+    <!-- Hellblauer Innenbereich -->
+    <path d="M20 50 A30 30 0 1 0 65 24.02" stroke="#00E5FF" stroke-width="8"/>
+
+    <!-- Pfeilspitze am Endpunkt (65,24.02), Ausrichtung links-oben (gegen den Uhrzeigersinn) -->
+    <!-- Rand (etwas größer, unterlegt) -->
+    <polygon points="70.000,19.824 64.500,30.216 51.876,16.020" fill="#000"/>
+    <!-- Innen (hellblau, etwas kleiner) -->
+    <polygon points="67.500,19.690 62.500,28.350 54.608,18.020" fill="#00E5FF"/>
+  </g>
+</svg>

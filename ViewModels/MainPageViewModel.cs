@@ -32,6 +32,13 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private string _scanButtonText = string.Empty;
     private string? _selectedBuildingName;
     private string? _selectedLevelName;
+    
+    // New fields for dropdown improvements
+    private bool _showStructuresEmptyState;
+    private bool _isLevelDropdownEnabled;
+    private bool _isStructuresDropdownOpen;
+    private bool _isLevelsDropdownOpen;
+    private bool _isDevicesDropdownOpen;
     public StructuresViewModel StructuresVM { get; }
 
     public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService, IntellidriveApiService apiService, IBuildingStorageService buildingStorage, StructuresViewModel structuresVM, PdfStorageService pdfStorage, IPlanViewportService? viewport = null)
@@ -205,6 +212,58 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         set => SetProperty(ref _scanButtonText, value);
     }
 
+    // New properties for dropdown improvements
+    
+    /// <summary>
+    /// Shows empty state card when no structures are available
+    /// </summary>
+    public bool ShowStructuresEmptyState
+    {
+        get => _showStructuresEmptyState;
+        set => SetProperty(ref _showStructuresEmptyState, value);
+    }
+
+    /// <summary>
+    /// Controls whether Level dropdown is accessible (disabled when no structure selected)
+    /// </summary>
+    public bool IsLevelDropdownEnabled
+    {
+        get => _isLevelDropdownEnabled;
+        set => SetProperty(ref _isLevelDropdownEnabled, value);
+    }
+
+    /// <summary>
+    /// Indicates if Structures dropdown is currently open for background overlay
+    /// </summary>
+    public bool IsStructuresDropdownOpen
+    {
+        get => _isStructuresDropdownOpen;
+        set => SetProperty(ref _isStructuresDropdownOpen, value);
+    }
+
+    /// <summary>
+    /// Indicates if Levels dropdown is currently open for background overlay
+    /// </summary>
+    public bool IsLevelsDropdownOpen
+    {
+        get => _isLevelsDropdownOpen;
+        set => SetProperty(ref _isLevelsDropdownOpen, value);
+    }
+
+    /// <summary>
+    /// Indicates if Devices dropdown is currently open for background overlay
+    /// </summary>
+    public bool IsDevicesDropdownOpen
+    {
+        get => _isDevicesDropdownOpen;
+        set => SetProperty(ref _isDevicesDropdownOpen, value);
+    }
+
+    /// <summary>
+    /// Command for navigating to StructureEditor (reused from center button)
+    /// </summary>
+    public ICommand NavigateToStructureEditorCommand => CenterButtonTappedCommand;
+
     // Tracks the currently selected building from the Structures tab
     public string? SelectedBuildingName
     {
@@ -213,6 +272,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         {
             if (SetProperty(ref _selectedBuildingName, value))
             {
+                // Update Level dropdown access control
+                IsLevelDropdownEnabled = !string.IsNullOrWhiteSpace(_selectedBuildingName);
+                
                 _ = ApplyStructureSelectionAsync(_selectedBuildingName, _selectedLevelName);
             }
         }
@@ -297,6 +359,17 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private async void ShowDropdownForTab(string tabName)
     {
     System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] ENTRY: tabName={tabName}");
+    
+    // Close all dropdowns first
+    CloseAllDropdowns();
+    
+    // Check Level access control before opening Levels dropdown
+    if (tabName == "Levels" && string.IsNullOrWhiteSpace(SelectedBuildingName))
+    {
+        System.Diagnostics.Debug.WriteLine("[ShowDropdownForTab] Level dropdown access denied - no structure selected");
+        return; // Don't open Levels dropdown if no structure selected
+    }
+    
     CurrentActiveTab = tabName;
         
         try
@@ -349,6 +422,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 }
                 System.Diagnostics.Debug.WriteLine($"[ShowDropdownForTab] CachedData.Items count: {cachedData.Items.Count}");
                 IsDropdownVisible = true;
+                
+                // Update dropdown state for background overlays
+                UpdateDropdownStates(tabName);
                 if (tabName == "LocalDev" && DropdownItems.Any(item => item.HasActions))
                 {
                     System.Diagnostics.Debug.WriteLine("[ShowDropdownForTab] Starting LocalDev status monitoring (cached)");
@@ -601,9 +677,13 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             
             // Use synchronous UI update since we're already on the correct thread
             DropdownItems.Clear();
+            
+            // Update empty state visibility
+            ShowStructuresEmptyState = buildings.Count == 0;
+            
             if (buildings.Count == 0)
             {
-                DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "No buildings yet\nUse '+' to add", HasActions = false });
+                // Don't add the old no-buildings card since we now have a dedicated empty state
                 return;
             }
             
@@ -739,10 +819,47 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         ShowScanButton = false;
         DropdownItems.Clear();
         
+        // Close all dropdown states
+        CloseAllDropdowns();
+        
         // Stop WiFi monitoring when dropdown is closed
         StopWifiStatusMonitoring();
         
         TabDeactivated?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Closes all dropdown overlays by setting their state to false
+    /// </summary>
+    public void CloseAllDropdowns()
+    {
+        IsStructuresDropdownOpen = false;
+        IsLevelsDropdownOpen = false;
+        IsDevicesDropdownOpen = false;
+    }
+
+    /// <summary>
+    /// Updates dropdown state for background overlay visibility
+    /// </summary>
+    private void UpdateDropdownStates(string tabName)
+    {
+        // First close all
+        CloseAllDropdowns();
+        
+        // Then set the active one
+        switch (tabName)
+        {
+            case "Structures":
+                IsStructuresDropdownOpen = true;
+                break;
+            case "Levels":
+                IsLevelsDropdownOpen = true;
+                break;
+            case "WifiDev":
+            case "LocalDev":
+                IsDevicesDropdownOpen = true;
+                break;
+        }
     }
 
     private async void OnLeftSectionTapped()
@@ -865,15 +982,33 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                     var floor = building.Floors.FirstOrDefault(f => f.FloorName.Equals(device.Id, StringComparison.OrdinalIgnoreCase));
                     if (floor != null)
                     {
-                        await _pdfStorageService.DeleteFloorAssetsAsync(building, floor);
-                        building.Floors.Remove(floor);
+                        // Clear StructuresVM selection FIRST to immediately unbind UI from this floor
                         if (string.Equals(SelectedLevelName, device.Id, StringComparison.OrdinalIgnoreCase))
                         {
+                            Console.WriteLine($"[OnDeleteDeviceFromDropdown] Clearing UI selection for floor '{floor.FloorName}' BEFORE deletion");
                             SelectedLevelName = null;
+                            StructuresVM.SelectedLevel = null;
                         }
+                        
+                        // Clear all devices from the floor before deletion
+                        Console.WriteLine($"[OnDeleteDeviceFromDropdown] Clearing {floor.PlacedDevices?.Count ?? 0} devices from floor '{floor.FloorName}'");
+                        floor.PlacedDevices?.Clear();
+                        
+                        // Delete PDF/PNG assets
+                        await _pdfStorageService.DeleteFloorAssetsAsync(building, floor);
+                        
+                        // Remove floor from building
+                        building.Floors.Remove(floor);
+                        
+                        Console.WriteLine($"[OnDeleteDeviceFromDropdown] Floor '{floor.FloorName}' and all its devices successfully deleted");
                     }
                     await _buildingStorage.SaveAsync(list);
                 }
+                
+                // Force immediate UI refresh to hide deleted devices
+                await StructuresVM.RefreshCurrentFloorPlanAsync();
+                MessagingCenter.Send(this, "ForceDeviceLayoutRefresh");
+                
                 // Refresh Levels view
                 await LoadLevelsAsync();
                 

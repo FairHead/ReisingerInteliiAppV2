@@ -89,6 +89,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
     }
 
 
+
     private void SetupViewModelEvents()
     {
         if (_viewModel != null)
@@ -322,13 +323,13 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 // Wire events only once - remove first to prevent duplicates
                 child.AddDeviceRequested -= OnDeviceIncreaseRequested;
                 child.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
-                child.DeleteDeviceRequested -= OnDeviceDeleteRequested;
+                child.DeleteDeviceRequested -= OnDeviceDeleteRequested; // <--- FEHLTE!
                 child.MoveDeviceRequested -= OnDeviceMoveRequested;
                 
                 // Then add them back
                 child.AddDeviceRequested += OnDeviceIncreaseRequested;
                 child.RemoveDeviceRequested += OnDeviceDecreaseRequested;
-        Console.WriteLine("MainPage initialized");
+                child.DeleteDeviceRequested += OnDeviceDeleteRequested; // <--- HINZUFÜGEN!
                 child.MoveDeviceRequested += OnDeviceMoveRequested;
 
                 PositionDeviceView(child, pd);
@@ -480,19 +481,36 @@ public partial class MainPage : ContentPage, IPlanViewportService
 
         private void OnDeviceDeleteRequested(object? sender, PlacedDeviceModel e)
         {
+            Console.WriteLine($"[MainPage] OnDeviceDeleteRequested called for device: {e?.Name ?? "(null)"}");
             try
             {
                 var level = _viewModel?.StructuresVM?.SelectedLevel;
-                if (level?.PlacedDevices == null) return;
-                if (e == null) return;
+                if (level?.PlacedDevices == null)
+                {
+                    Console.WriteLine("[MainPage] PlacedDevices collection is null!");
+                    return;
+                }
+                if (e == null)
+                {
+                    Console.WriteLine("[MainPage] PlacedDeviceModel argument is null!");
+                    return;
+                }
                 // Remove the device from the current floor and persist
                 if (level.PlacedDevices.Contains(e))
                 {
+                    Console.WriteLine($"[MainPage] Removing device from PlacedDevices: {e.Name}");
                     level.PlacedDevices.Remove(e);
                     _ = _viewModel?.SaveCurrentFloorAsync();
                 }
+                else
+                {
+                    Console.WriteLine($"[MainPage] Device not found in PlacedDevices: {e.Name}");
+                }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MainPage] Exception in OnDeviceDeleteRequested: {ex.Message}");
+            }
             finally
             {
                 InvalidateDevicesLayout();

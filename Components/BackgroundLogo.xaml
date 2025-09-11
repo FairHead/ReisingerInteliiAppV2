@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="ReisingerIntelliApp_V4.Components.BackgroundLogo">
-    
-    <!-- Background Logo Component - Reusable background with Reisinger logo -->
-    <Image Source="reisinger_r_kreis.png" 
-           Opacity="0.25"
-           Aspect="AspectFit"
-           HorizontalOptions="Center"
-           VerticalOptions="Center"
-           WidthRequest="200"
-           HeightRequest="200"
-           InputTransparent="True" />
-    
+<ContentView
+    x:Class="ReisingerIntelliApp_V4.Components.BackgroundLogo"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!--  Background Logo Component - Reusable background with Reisinger logo  -->
+    <Image
+        Aspect="AspectFit"
+        HeightRequest="200"
+        HorizontalOptions="Center"
+        InputTransparent="True"
+        Opacity="0.25"
+        Source="reisinger_r_kreis.png"
+        VerticalOptions="Center"
+        WidthRequest="200" />
+
 </ContentView>

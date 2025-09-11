@@ -14,13 +14,15 @@
     <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
     <converters:InverseBoolConverter x:Key="InvertedBoolConverter" />
 
-<Style x:Key="NeonArrowStyle" TargetType="ImageButton">
-    <Setter Property="BackgroundColor" Value="Transparent" />
-    <Setter Property="HeightRequest"   Value="100" />
-    <Setter Property="WidthRequest"    Value="100" />
-    <Setter Property="InputTransparent" Value="False" />
+    <Style x:Key="NeonArrowStyle" TargetType="ImageButton">
+        <!--  Debug-friendly visuals to ensure arrows are visible even if image fails  -->
+        <Setter Property="BackgroundColor" Value="#40FFFF00" />
+        <Setter Property="BorderWidth" Value="2" />
+        <Setter Property="HeightRequest" Value="100" />
+        <Setter Property="WidthRequest" Value="100" />
+        <Setter Property="InputTransparent" Value="False" />
 
-    <!-- <Setter Property="Behaviors">
+        <!-- <Setter Property="Behaviors">
         <Setter.Value>
             <toolkit:AnimationBehavior EventName="Loaded">
                 <toolkit:AnimationBehavior.AnimationType>
@@ -31,9 +33,9 @@
                         To="1.08" />
                 </toolkit:AnimationBehavior.AnimationType>
             </toolkit:AnimationBehavior>
-        </Setter.Value> -->
-    <!-- </Setter> -->
-</Style>
+        </Setter.Value>-->
+        <!-- </Setter> -->
+    </Style>
 
 
 
@@ -171,9 +173,9 @@
     <!--  Frame durch Border ersetzt für .NET 9  -->
     <Style x:Key="FrameStyle" TargetType="Border">
         <Setter Property="Shadow">
-          <Setter.Value>
-            <Shadow />
-          </Setter.Value>
+            <Setter.Value>
+                <Shadow />
+            </Setter.Value>
         </Setter>
         <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray950}}" />
         <Setter Property="StrokeShape" Value="RoundRectangle 8" />
@@ -442,9 +444,9 @@
         </Setter>
     </Style>
 
-    <!--
+
     <Style TargetType="TitleBar">
-        <Setter Property="MinimumHeightRequest" Value="32"/>
+        <Setter Property="MinimumHeightRequest" Value="32" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="TitleActiveStates">
@@ -464,7 +466,7 @@
             </VisualStateGroupList>
         </Setter>
     </Style>
-    -->
+
 
     <Style ApplyToDerivedTypes="True" TargetType="Page">
         <Setter Property="Padding" Value="0" />

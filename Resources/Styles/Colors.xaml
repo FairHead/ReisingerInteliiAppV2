@@ -52,5 +52,6 @@
     <Color x:Key="PlacedDeviceMoveButton">#0A84FF</Color>
     <!--  Text colors on device card  -->
     <Color x:Key="PlacedDeviceText">#FFFFFF</Color>
+    <Color x:Key="PlacedDeviceActiveBorder">Green</Color>
     <Color x:Key="PlacedDeviceTextSecondary">#B0B0B0</Color>
 </ResourceDictionary>
