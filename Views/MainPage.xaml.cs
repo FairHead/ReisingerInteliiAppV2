@@ -114,9 +114,9 @@ public partial class MainPage : ContentPage, IPlanViewportService
         public double PlanWidth => _planIntrinsicWidth;
         public double PlanHeight => _planIntrinsicHeight;
 
-        public new double Scale => PlanContainer?.Content?.Scale ?? 1.0;
-        public new double TranslationX => PlanContainer?.Content?.TranslationX ?? 0.0;
-        public new double TranslationY => PlanContainer?.Content?.TranslationY ?? 0.0;
+    public new double Scale => PlanImage?.Scale ?? 1.0;
+    public new double TranslationX => PlanImage?.TranslationX ?? 0.0;
+    public new double TranslationY => PlanImage?.TranslationY ?? 0.0;
 
         public Point ScreenToPlan(Point screenPoint)
         {
@@ -124,21 +124,21 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 return new Point(PlanWidth / 2, PlanHeight / 2);
 
             // Map screen to container content coordinates considering translation/scale
-            var container = PlanContainer;
-            var content = container.Content as View;
-            if (content == null) return new Point(PlanWidth / 2, PlanHeight / 2);
+            // Use PlanImage for scale/translation
+            if (!IsPlanReady || PlanImage == null)
+                return new Point(PlanWidth / 2, PlanHeight / 2);
 
             // Treat screenPoint as container-local coordinates for this mapping
             var localX = screenPoint.X;
             var localY = screenPoint.Y;
 
             // Undo translation
-            localX -= content.TranslationX;
-            localY -= content.TranslationY;
+            localX -= PlanImage.TranslationX;
+            localY -= PlanImage.TranslationY;
 
             // Undo scale
-            var unscaledX = localX / (content.Scale <= 0 ? 1 : content.Scale);
-            var unscaledY = localY / (content.Scale <= 0 ? 1 : content.Scale);
+            var unscaledX = localX / (PlanImage.Scale <= 0 ? 1 : PlanImage.Scale);
+            var unscaledY = localY / (PlanImage.Scale <= 0 ? 1 : PlanImage.Scale);
 
             // Image is AspectFit centered; compute the drawn image rect within content
             var (drawnX, drawnY, drawnW, drawnH) = GetImageDrawnRect();
@@ -530,43 +530,43 @@ public partial class MainPage : ContentPage, IPlanViewportService
             
             Console.WriteLine($"🔄 MainPage.OnHandlerChanged - Setting up PlanContainer monitoring");
             
-            if (PlanContainer.Content is View content)
+            if (PlanImage != null)
             {
-                Console.WriteLine($"📱 INITIAL PLAN CONTAINER STATE:");
-                Console.WriteLine($"   📏 Content.Scale: {content.Scale:F4}");
-                Console.WriteLine($"   🔀 Content.TranslationX: {content.TranslationX:F4}");
-                Console.WriteLine($"   🔀 Content.TranslationY: {content.TranslationY:F4}");
-                Console.WriteLine($"   📐 Content.Width: {content.Width:F2}");
-                Console.WriteLine($"   📐 Content.Height: {content.Height:F2}");
-                
-                content.PropertyChanged += (s, e) =>
+                Console.WriteLine($"📱 INITIAL PLAN IMAGE STATE:");
+                Console.WriteLine($"   📏 Scale: {PlanImage.Scale:F4}");
+                Console.WriteLine($"   🔀 TranslationX: {PlanImage.TranslationX:F4}");
+                Console.WriteLine($"   🔀 TranslationY: {PlanImage.TranslationY:F4}");
+                Console.WriteLine($"   📐 Width: {PlanImage.Width:F2}");
+                Console.WriteLine($"   📐 Height: {PlanImage.Height:F2}");
+
+                PlanImage.PropertyChanged += (s, e) =>
                 {
                     if (e.PropertyName is nameof(View.Scale) or nameof(View.TranslationX) or nameof(View.TranslationY))
                     {
-                        Console.WriteLine($"");
-                        Console.WriteLine($"🚨 PLAN CONTAINER PROPERTY CHANGED: {e.PropertyName}");
-                        Console.WriteLine($"   📏 Current Scale: {content.Scale:F4}");
-                        Console.WriteLine($"   🔀 Current TranslationX: {content.TranslationX:F4}");
-                        Console.WriteLine($"   🔀 Current TranslationY: {content.TranslationY:F4}");
+                        Console.WriteLine("");
+                        Console.WriteLine($"🚨 PLAN IMAGE PROPERTY CHANGED: {e.PropertyName}");
+                        Console.WriteLine($"   📏 Current Scale: {PlanImage.Scale:F4}");
+                        Console.WriteLine($"   🔀 Current TranslationX: {PlanImage.TranslationX:F4}");
+                        Console.WriteLine($"   🔀 Current TranslationY: {PlanImage.TranslationY:F4}");
                         Console.WriteLine($"   ⚠️ THIS CHANGE AFFECTS ALL DEVICE POSITIONING!");
-                        Console.WriteLine($"");
-                        
+                        Console.WriteLine("");
+
                         // Debounce viewport state updates to prevent excessive calls
                         _viewportUpdateTimer?.Dispose();
-                        _viewportUpdateTimer = new Timer((_) => 
+                        _viewportUpdateTimer = new Timer((_) =>
                         {
                             try
                             {
                                 MainThread.BeginInvokeOnMainThread(() =>
                                 {
-                                    Console.WriteLine($"🔄 Triggering InvalidateDevicesLayout due to Plan Container change...");
+                                    Console.WriteLine($"🔄 Triggering InvalidateDevicesLayout due to Plan Image change...");
                                     InvalidateDevicesLayout();
                                     PersistViewportState();
                                 });
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"[content.PropertyChanged] Timer callback error: {ex.Message}");
+                                Console.WriteLine($"[PlanImage.PropertyChanged] Timer callback error: {ex.Message}");
                             }
                         }, null, 100, Timeout.Infinite);
                     }
@@ -630,11 +630,11 @@ public partial class MainPage : ContentPage, IPlanViewportService
             {
                 var level = _viewModel?.StructuresVM?.SelectedLevel;
                 if (level == null) return;
-                if (PlanContainer.Content is View content)
+                if (PlanImage != null)
                 {
-                    level.ViewScale = content.Scale;
-                    level.ViewTranslationX = content.TranslationX;
-                    level.ViewTranslationY = content.TranslationY;
+                    level.ViewScale = PlanImage.Scale;
+                    level.ViewTranslationX = PlanImage.TranslationX;
+                    level.ViewTranslationY = PlanImage.TranslationY;
                     _ = _viewModel?.SaveCurrentFloorAsync();
                 }
             }
@@ -647,11 +647,11 @@ public partial class MainPage : ContentPage, IPlanViewportService
             {
                 var level = _viewModel?.StructuresVM?.SelectedLevel;
                 if (level == null) return;
-                if (PlanContainer.Content is View content)
+                if (PlanImage != null)
                 {
-                    if (level.ViewScale is double s && s > 0) content.Scale = s;
-                    if (level.ViewTranslationX is double tx) content.TranslationX = tx;
-                    if (level.ViewTranslationY is double ty) content.TranslationY = ty;
+                    if (level.ViewScale is double s && s > 0) PlanImage.Scale = s;
+                    if (level.ViewTranslationX is double tx) PlanImage.TranslationX = tx;
+                    if (level.ViewTranslationY is double ty) PlanImage.TranslationY = ty;
                 }
             }
             catch { }
@@ -661,7 +661,9 @@ public partial class MainPage : ContentPage, IPlanViewportService
 
     #region Footer and tab handlers
 
-    private void SetupFooterEvents()
+    private void
+
+    SetupFooterEvents()
     {
         if (_viewModel != null)
         {
@@ -733,22 +735,28 @@ public partial class MainPage : ContentPage, IPlanViewportService
         switch (tabName)
         {
             case "Structures":
-                StructuresLabel.TextColor = Color.FromArgb("#007AFF");
+                StructuresLabel.Style = (Style)Application.Current?.Resources["TabLabelActive"];
                 StructuresUnderline.BackgroundColor = Color.FromArgb("#007AFF");
                 StructuresTabBackground.Background = gradientBrush;
                 break;
+
             case "Levels":
-                LevelsLabel.TextColor = Color.FromArgb("#007AFF");
-                LevelsUnderline.BackgroundColor = Color.FromArgb("#007AFF");
-                LevelsTabBackground.Background = gradientBrush;
+                // Only allow Level tab styling if levels are available (not disabled)
+                if (_viewModel?.CanModifyLevelTabStyle == true)
+                {
+                    LevelsLabel.Style = (Style)Application.Current?.Resources["TabLabelActive"];
+                    LevelsUnderline.BackgroundColor = Color.FromArgb("#007AFF");
+                    LevelsTabBackground.Background = gradientBrush;
+                }
+                // If disabled, Level tab keeps its disabled style (red-transparent)
                 break;
             case "WifiDev":
-                WifiDevLabel.TextColor = Color.FromArgb("#007AFF");
+                WifiDevLabel.Style = (Style)Application.Current?.Resources["TabLabelActive"];
                 WifiDevUnderline.BackgroundColor = Color.FromArgb("#007AFF");
                 WifiDevTabBackground.Background = gradientBrush;
                 break;
             case "LocalDev":
-                LocalDevLabel.TextColor = Color.FromArgb("#007AFF");
+                LocalDevLabel.Style = (Style)Application.Current?.Resources["TabLabelActive"];
                 LocalDevUnderline.BackgroundColor = Color.FromArgb("#007AFF");
                 LocalDevTabBackground.Background = gradientBrush;
                 break;
@@ -758,22 +766,27 @@ public partial class MainPage : ContentPage, IPlanViewportService
     private void ResetAllTabs()
     {
         // Reset all tab labels and underlines to inactive state
-        var grayColor = Color.FromArgb("#808080");
         var transparent = Colors.Transparent;
 
-        StructuresLabel.TextColor = grayColor;
+        // Use Style instead of direct TextColor to respect XAML DataTriggers
+        StructuresLabel.Style = (Style)Application.Current?.Resources["TabLabel"];
         StructuresUnderline.BackgroundColor = transparent;
         StructuresTabBackground.Background = null;
 
-        LevelsLabel.TextColor = grayColor;
+        // Only reset Level tab style if levels are available (not permanently disabled)
+        // If disabled, Level tab keeps its disabled style (red-transparent) via XAML DataTrigger
+        if (_viewModel?.CanModifyLevelTabStyle == true)
+        {
+            LevelsLabel.Style = (Style)Application.Current?.Resources["TabLabel"];
+        }
         LevelsUnderline.BackgroundColor = transparent;
         LevelsTabBackground.Background = null;
 
-        WifiDevLabel.TextColor = grayColor;
+        WifiDevLabel.Style = (Style)Application.Current?.Resources["TabLabel"];
         WifiDevUnderline.BackgroundColor = transparent;
         WifiDevTabBackground.Background = null;
 
-        LocalDevLabel.TextColor = grayColor;
+        LocalDevLabel.Style = (Style)Application.Current?.Resources["TabLabel"];
         LocalDevUnderline.BackgroundColor = transparent;
         LocalDevTabBackground.Background = null;
     }

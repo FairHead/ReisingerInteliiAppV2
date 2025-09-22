@@ -12,442 +12,347 @@
 
     <!--  Remove BindingContext - will be set in code-behind  -->
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
-        <!--  Background Logo - placed first so it's behind everything  -->
-        <components:BackgroundLogo Grid.RowSpan="4" />
+    <ContentPage.Content>
+        <Grid IsClippedToBounds="True" RowDefinitions="Auto,Auto,*,Auto">
+            <!--  Background Logo - placed first so it's behind everything  -->
+            <components:BackgroundLogo Grid.RowSpan="4" ZIndex="0" />
 
-        <!--  Header Component  -->
-        <components:AppHeader
-            Title="{Binding Title}"
-            Grid.Row="0"
-            FontSize="20"
-            TitleColor="White"
-            ZIndex="2" />
+            <!--  Header Component  -->
+            <components:AppHeader
+                Title="{Binding Title}"
+                Grid.Row="0"
+                FontSize="20"
+                TitleColor="White"
+                ZIndex="2" />
 
-        <!--  Tab Bar  -->
-        <Border
-            Grid.Row="1"
-            Padding="10,0"
-            BackgroundColor="Transparent"
-            StrokeThickness="0"
-            ZIndex="2">
+            <!--  Tab Bar  -->
+            <Border
+                Grid.Row="1"
+                Padding="10,0"
+                BackgroundColor="Transparent"
+                StrokeThickness="0"
+                ZIndex="100">
+                <Grid ColumnDefinitions="*,*,*,*">
+                    <Border
+                        x:Name="StructuresTabBackground"
+                        Grid.Column="0"
+                        Padding="5,5"
+                        BackgroundColor="Transparent"
+                        StrokeShape="RoundRectangle 8"
+                        StrokeThickness="0">
+                        <StackLayout Spacing="0">
+                            <Label
+                                x:Name="StructuresLabel"
+                                Style="{StaticResource TabLabel}"
+                                Text="Structures">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TabTappedCommand}" CommandParameter="Structures" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Border
+                                x:Name="StructuresUnderline"
+                                BackgroundColor="Transparent"
+                                HeightRequest="3"
+                                StrokeShape="RoundRectangle 2"
+                                StrokeThickness="0" />
+                        </StackLayout>
+                    </Border>
+                    <Border
+                        x:Name="LevelsTabBackground"
+                        Grid.Column="1"
+                        Padding="5,5"
+                        BackgroundColor="Transparent"
+                        StrokeShape="RoundRectangle 8"
+                        StrokeThickness="0">
+                        <StackLayout Spacing="0">
+                            <Label
+                                x:Name="LevelsLabel"
+                                Style="{StaticResource TabLabel}"
+                                Text="Levels">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TabTappedCommand}" CommandParameter="Levels" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Border
+                                x:Name="LevelsUnderline"
+                                BackgroundColor="Transparent"
+                                HeightRequest="3"
+                                StrokeShape="RoundRectangle 2"
+                                StrokeThickness="0" />
+                        </StackLayout>
+                    </Border>
+                    <Border
+                        x:Name="WifiDevTabBackground"
+                        Grid.Column="2"
+                        Padding="5,5"
+                        BackgroundColor="Transparent"
+                        StrokeShape="RoundRectangle 8"
+                        StrokeThickness="0">
+                        <StackLayout Spacing="0">
+                            <Label
+                                x:Name="WifiDevLabel"
+                                Style="{StaticResource TabLabel}"
+                                Text="WiFi Dev">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TabTappedCommand}" CommandParameter="WifiDev" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Border
+                                x:Name="WifiDevUnderline"
+                                BackgroundColor="Transparent"
+                                HeightRequest="3"
+                                StrokeShape="RoundRectangle 2"
+                                StrokeThickness="0" />
+                        </StackLayout>
+                    </Border>
+                    <Border
+                        x:Name="LocalDevTabBackground"
+                        Grid.Column="3"
+                        Padding="5,5"
+                        BackgroundColor="Transparent"
+                        StrokeShape="RoundRectangle 8"
+                        StrokeThickness="0">
+                        <StackLayout Spacing="0">
+                            <Label
+                                x:Name="LocalDevLabel"
+                                Style="{StaticResource TabLabel}"
+                                Text="Local Dev">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TabTappedCommand}" CommandParameter="LocalDev" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Border
+                                x:Name="LocalDevUnderline"
+                                BackgroundColor="Transparent"
+                                HeightRequest="3"
+                                StrokeShape="RoundRectangle 2"
+                                StrokeThickness="0" />
+                        </StackLayout>
+                    </Border>
+                </Grid>
+            </Border>
 
-            <Grid ColumnDefinitions="*,*,*,*">
-                <Border
-                    x:Name="StructuresTabBackground"
-                    Grid.Column="0"
-                    Padding="5,5"
-                    BackgroundColor="Transparent"
-                    StrokeShape="RoundRectangle 8"
-                    StrokeThickness="0">
-                    <StackLayout x:Name="StructuresTab" Spacing="0">
-                        <Label
-                            x:Name="StructuresLabel"
-                            Style="{StaticResource TabLabel}"
-                            Text="Structures">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding TabTappedCommand}" CommandParameter="Structures" />
-                            </Label.GestureRecognizers>
-                        </Label>
-                        <Border
-                            x:Name="StructuresUnderline"
-                            BackgroundColor="Transparent"
-                            HeightRequest="3"
-                            StrokeShape="RoundRectangle 2"
-                            StrokeThickness="0" />
-                    </StackLayout>
-                </Border>
 
-                <Border
-                    x:Name="LevelsTabBackground"
-                    Grid.Column="1"
-                    Padding="5,5"
-                    BackgroundColor="Transparent"
-                    StrokeShape="RoundRectangle 8"
-                    StrokeThickness="0">
-                    <StackLayout x:Name="LevelsTab" Spacing="0">
-                        <Label
-                            x:Name="LevelsLabel"
-                            Style="{StaticResource TabLabel}"
-                            Text="Levels">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding TabTappedCommand}" CommandParameter="Levels" />
-                            </Label.GestureRecognizers>
-                        </Label>
-                        <Border
-                            x:Name="LevelsUnderline"
-                            BackgroundColor="Transparent"
-                            HeightRequest="3"
-                            StrokeShape="RoundRectangle 2"
-                            StrokeThickness="0" />
-                    </StackLayout>
-                </Border>
-
-                <Border
-                    x:Name="WifiDevTabBackground"
-                    Grid.Column="2"
-                    Padding="5,5"
-                    BackgroundColor="Transparent"
-                    StrokeShape="RoundRectangle 8"
-                    StrokeThickness="0">
-                    <StackLayout x:Name="WifiDevTab" Spacing="0">
-                        <Label
-                            x:Name="WifiDevLabel"
-                            Style="{StaticResource TabLabel}"
-                            Text="WifiDev">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding TabTappedCommand}" CommandParameter="WifiDev" />
-                            </Label.GestureRecognizers>
-                        </Label>
-                        <Border
-                            x:Name="WifiDevUnderline"
-                            BackgroundColor="Transparent"
-                            HeightRequest="3"
-                            StrokeShape="RoundRectangle 2"
-                            StrokeThickness="0" />
-                    </StackLayout>
-                </Border>
-
-                <Border
-                    x:Name="LocalDevTabBackground"
-                    Grid.Column="3"
-                    Padding="5,5"
-                    BackgroundColor="Transparent"
-                    StrokeShape="RoundRectangle 8"
-                    StrokeThickness="0">
-                    <StackLayout x:Name="LocalDevTab" Spacing="0">
-                        <Label
-                            x:Name="LocalDevLabel"
-                            Style="{StaticResource TabLabel}"
-                            Text="LocalDev">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding TabTappedCommand}" CommandParameter="LocalDev" />
-                            </Label.GestureRecognizers>
-                        </Label>
-                        <Border
-                            x:Name="LocalDevUnderline"
-                            BackgroundColor="Transparent"
-                            HeightRequest="3"
-                            StrokeShape="RoundRectangle 2"
-                            StrokeThickness="0" />
-                    </StackLayout>
-                </Border>
-            </Grid>
-        </Border>
-
-        <!--  Main Content Area with Dropdown and Floorplan viewer  -->
-        <Grid
-            Grid.Row="2"
-            BackgroundColor="Transparent"
-            IsClippedToBounds="True">
-            <Grid.GestureRecognizers>
-                <TapGestureRecognizer Tapped="OnBackgroundTapped" />
-            </Grid.GestureRecognizers>
-
-            <!--  Floorplan display host - moved before dropdown so dropdown is on top  -->
-            <Grid
-                x:Name="PlanHost"
-                HorizontalOptions="FillAndExpand"
-                InputTransparent="False"
+            <!--  Plan Container (with zoom/pan)  -->
+            <controls:PanPinchContainer
+                x:Name="PlanContainer"
+                Grid.Row="2"
                 IsClippedToBounds="True"
-                IsVisible="True"
-                RowDefinitions="*"
-                VerticalOptions="FillAndExpand"
-                ZIndex="1">
-                <!--  Placeholder when no plan  -->
-                <Label
-                    HorizontalOptions="Center"
-                    Text="No floor plan available"
-                    TextColor="#B0B0B0"
-                    VerticalOptions="Center">
-                    <Label.Triggers>
-                        <DataTrigger
-                            Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.HasPlan}"
-                            TargetType="Label"
-                            Value="True">
-                            <Setter Property="IsVisible" Value="False" />
-                        </DataTrigger>
-                    </Label.Triggers>
-                </Label>
+                ZIndex="10">
+                <Grid>
+                    <Image
+                        x:Name="PlanImage"
+                        Aspect="AspectFit"
+                        ZIndex="10" />
+                    <Grid x:Name="DevicesOverlay" ZIndex="11" />
+                </Grid>
+            </controls:PanPinchContainer>
 
-                <!--  PNG fallback viewer with pinch/zoom using PanPinchContainer  -->
-                <controls:PanPinchContainer
-                    x:Name="PlanContainer"
-                    HorizontalOptions="Fill"
-                    VerticalOptions="Fill">
-                    <Grid>
-                        <!--  Floor plan image  -->
-                        <Image x:Name="PlanImage" Aspect="AspectFit">
-                            <Image.Triggers>
-                                <DataTrigger
-                                    Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}"
-                                    TargetType="Image"
-                                    Value="True">
-                                    <Setter Property="IsVisible" Value="False" />
-                                </DataTrigger>
-                                <DataTrigger
-                                    Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPngPath}"
-                                    TargetType="Image"
-                                    Value="{x:Null}">
-                                    <Setter Property="IsVisible" Value="False" />
-                                </DataTrigger>
-                            </Image.Triggers>
-                            <Image.Source>
-                                <Binding Path="BindingContext.StructuresVM.CurrentPngPath" Source="{x:Reference Root}" />
-                            </Image.Source>
-                        </Image>
+            <!--  Transparent overlay for closing dropdown on outside tap  -->
+            <BoxView
+                x:Name="DropdownCloseOverlay"
+                Grid.Row="2"
+                BackgroundColor="Transparent"
+                InputTransparent="False"
+                IsVisible="{Binding IsDropdownVisible}"
+                ZIndex="49">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnBackgroundTapped" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
 
-                        <!--  Devices overlay - BACK INSIDE PanPinchContainer for proper zoom/pan behavior  -->
-                        <!--  HIGHEST Z-INDEX to ensure devices are always clickable  -->
-                        <AbsoluteLayout
-                            x:Name="DevicesOverlay"
-                            AbsoluteLayout.LayoutBounds="0,0,180,180"
-                            AbsoluteLayout.LayoutFlags="None"
-                            BindableLayout.ItemsSource="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.SelectedLevel.PlacedDevices}"
-                            InputTransparent="False"
-                            IsEnabled="True"
-                            ZIndex="1000">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate>
-                                    <components:PlacedDeviceControl
-                                        DeleteDeviceRequested="OnDeviceDeleteRequested"
-                                        HorizontalOptions="Center"
-                                        PlacedDevice="{Binding .}"
-                                        VerticalOptions="Center" />
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </AbsoluteLayout>
-                    </Grid>
-                </controls:PanPinchContainer>
-
-                <!--  PDF viewer placeholder; bind to CurrentPdfPath. Replace with an actual PDF control if added.  -->
-                <ContentView x:Name="PdfViewerHost">
-                    <ContentView.Triggers>
-                        <DataTrigger
-                            Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.UsePdfViewer}"
-                            TargetType="ContentView"
-                            Value="False">
-                            <Setter Property="IsVisible" Value="False" />
-                        </DataTrigger>
-                        <DataTrigger
-                            Binding="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}"
-                            TargetType="ContentView"
-                            Value="{x:Null}">
-                            <Setter Property="IsVisible" Value="False" />
-                        </DataTrigger>
-                    </ContentView.Triggers>
-                    <VerticalStackLayout
-                        HorizontalOptions="CenterAndExpand"
-                        Spacing="6"
-                        VerticalOptions="CenterAndExpand">
-                        <Image
-                            HeightRequest="48"
-                            Source="pdf_icon.svg"
-                            WidthRequest="48" />
-                        <Label Text="PDF viewer not installed. Showing placeholder." TextColor="#B0B0B0" />
-                        <Label
-                            FontSize="10"
-                            Text="{Binding Source={x:Reference Root}, Path=BindingContext.StructuresVM.CurrentPdfPath}"
-                            TextColor="#808080" />
-                    </VerticalStackLayout>
-                </ContentView>
-            </Grid>
-
-            <!--  Dropdown content grid - moved after plan so it overlays properly  -->
+            <!--  Dropdown content overlays plan, not TabBar  -->
             <Grid
                 x:Name="DropdownContainer"
-                Padding="10"
+                Grid.Row="2"
+                Padding="0,-10,0,0"
                 HorizontalOptions="Fill"
                 IsVisible="{Binding IsDropdownVisible}"
                 RowDefinitions="Auto,*,Auto"
-                ZIndex="100">
+                ZIndex="50">
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnDropdownContentTapped" />
                 </Grid.GestureRecognizers>
-                <Border Margin="0,0,0,0" StrokeThickness="0">
+                <Border Margin="10,5,0,0" StrokeThickness="0">
                     <Label
                         x:Name="DropdownTitle"
-                        Grid.Row="0"
                         Padding="5"
-                        Background="{StaticResource PlacedDeviceAddButton}"
                         FontAttributes="Bold"
                         FontSize="24"
                         Text="{Binding DropdownTitle}"
                         TextColor="White" />
                 </Border>
-                <CollectionView
-                    x:Name="DropdownItemsView"
-                    Grid.Row="1"
-                    HorizontalOptions="FillAndExpand"
-                    ItemsSource="{Binding DropdownItems}"
-                    SelectionChanged="OnDropdownItemSelected"
-                    SelectionMode="Single"
-                    VerticalOptions="FillAndExpand">
-                    <CollectionView.ItemsLayout>
-                        <GridItemsLayout
-                            HorizontalItemSpacing="10"
-                            Orientation="Vertical"
-                            Span="2"
-                            VerticalItemSpacing="10" />
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Border
-                                Margin="0,5,0,0"
-                                Padding="15"
-                                BackgroundColor="#2A2A2A"
-                                HorizontalOptions="Center"
-                                Stroke="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}}"
-                                StrokeShape="RoundRectangle 8"
-                                StrokeThickness="{Binding IsSelected, Converter={StaticResource BoolToThicknessConverter}}"
-                                VerticalOptions="Center"
-                                WidthRequest="375">
-                                <Grid RowDefinitions="Auto,*,Auto">
-                                    <!--  Icon  -->
-                                    <Image
-                                        Grid.Row="0"
-                                        Margin="0,0,0,10"
-                                        HeightRequest="24"
-                                        HorizontalOptions="Center"
-                                        Source="{Binding Icon}"
-                                        VerticalOptions="Center"
-                                        WidthRequest="24" />
 
-                                    <!--  Text  -->
-                                    <StackLayout Grid.Row="1" Spacing="5">
-                                        <Label
-                                            FontSize="10"
-                                            LineBreakMode="WordWrap"
-                                            Text="{Binding Text, StringFormat='Name: {0}'}"
-                                            TextColor="White" />
-
-                                        <!--  Already placed hint  -->
-                                        <Label
-                                            FontSize="10"
-                                            IsVisible="{Binding IsPlacedOnCurrentFloor}"
-                                            Text="Already placed on this floor"
-                                            TextColor="#B0B0B0" />
-
-                                        <!--  Connection Status (only for device tabs; hidden for Structures/Levels)  -->
-                                        <StackLayout
-                                            HorizontalOptions="Center"
-                                            IsVisible="{Binding ShowStatus}"
-                                            Orientation="Horizontal"
-                                            Spacing="8">
-                                            <!--  Status Indicator Dot  -->
-                                            <Ellipse
-                                                Fill="{Binding ConnectionColor}"
-                                                HeightRequest="12"
-                                                WidthRequest="12" />
-                                            <!--  Status Text  -->
-                                            <Label
-                                                FontSize="12"
-                                                Text="{Binding ConnectionStatus}"
-                                                TextColor="{Binding ConnectionColor}"
-                                                VerticalOptions="Center" />
-                                        </StackLayout>
-                                    </StackLayout>
-
-                                    <!--  Action Buttons (if HasActions is true)  -->
-                                    <HorizontalStackLayout
-                                        Grid.Row="2"
-                                        Margin="0,12,0,0"
-                                        HorizontalOptions="Center"
-                                        IsVisible="{Binding HasActions}"
-                                        Spacing="15">
-
-                                        <!--  Add to Floor Plan Button (only for devices)  -->
-                                        <ImageButton
-                                            Padding="0"
-                                            BackgroundColor="Transparent"
-                                            Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.AddDeviceToFloorPlanCommand}"
-                                            CommandParameter="{Binding .}"
-                                            HeightRequest="32"
-                                            IsEnabled="{Binding IsActionEnabled}"
-                                            Source="add_to_floorplan.svg"
-                                            WidthRequest="32">
-                                            <ImageButton.Triggers>
-                                                <!--  Hide for Structures and Levels tabs  -->
-                                                <DataTrigger
-                                                    Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
-                                                    TargetType="ImageButton"
-                                                    Value="Structures">
-                                                    <Setter Property="IsVisible" Value="False" />
-                                                </DataTrigger>
-                                                <DataTrigger
-                                                    Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
-                                                    TargetType="ImageButton"
-                                                    Value="Levels">
-                                                    <Setter Property="IsVisible" Value="False" />
-                                                </DataTrigger>
-                                            </ImageButton.Triggers>
-                                        </ImageButton>
-
-                                        <!--  Configure/Edit Button (only for devices and buildings)  -->
-                                        <ImageButton
-                                            Padding="0"
-                                            BackgroundColor="Transparent"
-                                            Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.ShowDeviceOptionsCommand}"
-                                            CommandParameter="{Binding .}"
-                                            HeightRequest="32"
-                                            Source="configuredevicebutton.svg"
-                                            WidthRequest="32">
-                                            <ImageButton.Triggers>
-                                                <!--  Hide for Levels tab as floors are edited through building editor  -->
-                                                <DataTrigger
-                                                    Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
-                                                    TargetType="ImageButton"
-                                                    Value="Levels">
-                                                    <Setter Property="IsVisible" Value="False" />
-                                                </DataTrigger>
-                                            </ImageButton.Triggers>
-                                        </ImageButton>
-
-                                        <!--  Delete Button (for all items with actions)  -->
-                                        <ImageButton
-                                            x:Name="deleteButton"
-                                            Padding="0"
-                                            BackgroundColor="Transparent"
-                                            Command="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.DeleteDeviceFromDropdownCommand}"
-                                            CommandParameter="{Binding .}"
-                                            HeightRequest="32"
-                                            Source="bin.svg"
-                                            WidthRequest="32" />
-                                    </HorizontalStackLayout>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-                <!--  Scan button at bottom of dropdown  -->
+                <!--  Empty State Card for Structures Dropdown  -->
                 <Border
-                    Grid.Row="2"
+                    x:Name="StructuresEmptyStateCard"
+                    Grid.Row="1"
                     Margin="0,20,0,0"
-                    Padding="20,15"
-                    BackgroundColor="#007AFF"
+                    Padding="15"
+                    BackgroundColor="#2A2A2A"
                     HorizontalOptions="Center"
-                    InputTransparent="False"
-                    IsVisible="{Binding ShowScanButton}"
+                    IsVisible="False"
+                    Stroke="#444444"
+                    StrokeShape="RoundRectangle 8"
+                    StrokeThickness="1"
+                    VerticalOptions="Start"
+                    WidthRequest="375">
+                    <Border.Triggers>
+                        <MultiTrigger TargetType="Border">
+                            <MultiTrigger.Conditions>
+                                <BindingCondition Binding="{Binding ShowStructuresEmptyState}" Value="True" />
+                                <BindingCondition Binding="{Binding CurrentActiveTab}" Value="Structures" />
+                            </MultiTrigger.Conditions>
+                            <Setter Property="IsVisible" Value="True" />
+                        </MultiTrigger>
+                    </Border.Triggers>
+                    <StackLayout Spacing="15" VerticalOptions="Center">
+                        <!--  Icon  -->
+                        <Image
+                            HeightRequest="48"
+                            HorizontalOptions="Center"
+                            Source="info.svg"
+                            WidthRequest="48" />
+
+                        <!--  Message  -->
+                        <Label
+                            FontSize="16"
+                            HorizontalOptions="Center"
+                            HorizontalTextAlignment="Center"
+                            LineBreakMode="WordWrap"
+                            Text="Nothing to display yet"
+                            TextColor="White" />
+
+                        <!--  Add Structure Button  -->
+                        <Button
+                            Padding="20,10"
+                            BackgroundColor="#007AFF"
+                            Command="{Binding NavigateToStructureEditorCommand}"
+                            CornerRadius="8"
+                            FontSize="14"
+                            HorizontalOptions="Center"
+                            Text="Add Structure"
+                            TextColor="White" />
+                    </StackLayout>
+                </Border>
+
+                <!--  Dropdown CollectionView with rounded frame  -->
+                <Border
+                    x:Name="DropdownFrame"
+                    Grid.Row="1"
+                    Margin="15,20,20,10"
+                    Padding="5"
+                    BackgroundColor="#EE2A2A2A"
+                    HorizontalOptions="Center"
+                    Stroke="#EE2A2A2A"
                     StrokeShape="RoundRectangle 25"
-                    ZIndex="1">
-                    <Border.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding ScanButtonTappedCommand}" />
-                    </Border.GestureRecognizers>
-                    <Label
-                        FontAttributes="Bold"
-                        FontSize="14"
-                        HorizontalOptions="Center"
-                        Text="{Binding ScanButtonText}"
-                        TextColor="White"
-                        VerticalOptions="Center" />
+                    StrokeThickness="3"
+                    VerticalOptions="Start"
+                    ZIndex="51">
+                    <Border.Shadow>
+                        <Shadow
+                            Brush="Black"
+                            Opacity="1"
+                            Radius="10"
+                            Offset="6,6" />
+                    </Border.Shadow>
+
+                    <Grid
+                     
+                        RowDefinitions="Auto,*,*"
+                        ZIndex="52">
+                        <CollectionView
+                            x:Name="DropdownItemsView"
+                            Grid.Row="0"
+                            Margin="10"
+                            Background="Transparent"
+                            ItemsSource="{Binding DropdownItems}"
+                            SelectionChanged="OnDropdownItemSelected"
+                            SelectionMode="Single"
+                            VerticalOptions="Center"
+                            ZIndex="53">
+                            <CollectionView.ItemsLayout>
+                                <GridItemsLayout
+                                    HorizontalItemSpacing="0"
+                                    Orientation="Vertical"
+                                    Span="1"
+                                    VerticalItemSpacing="0" />
+                            </CollectionView.ItemsLayout>
+
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <components:GradientWifiCardComponent
+                                        Margin="0"
+                                        Padding="10"
+                                        AddButtonEnabled="{Binding IsActionEnabled}"
+                                        AddToFloorPlanCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.AddDeviceToFloorPlanCommand}"
+                                        CommandParameter="{Binding .}"
+                                        DeleteCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.DeleteDeviceFromDropdownCommand}"
+                                        DeviceName="{Binding Text}"
+                                        Icon="{Binding Icon}"
+                                        IsConnected="{Binding IsConnected}"
+                                        IsPlacedOnCurrentFloor="{Binding IsPlacedOnCurrentFloor}"
+                                        LastSeen="{Binding LastSeen}"
+                                        ShowAddButton="{Binding HasActions}"
+                                        ShowDeviceOptionsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.ShowDeviceOptionsCommand}"
+                                        ShowSettingsButton="{Binding HasActions}"
+                                        ShowStatus="{Binding ShowStatus}"
+                                        WidthRequest="300">
+
+                                        <components:GradientWifiCardComponent.Triggers>
+                                            <DataTrigger
+                                                Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
+                                                TargetType="components:GradientWifiCardComponent"
+                                                Value="Structures">
+                                                <Setter Property="ShowAddButton" Value="False" />
+                                                <Setter Property="ShowSettingsButton" Value="False" />
+                                            </DataTrigger>
+                                            <DataTrigger
+                                                Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
+                                                TargetType="components:GradientWifiCardComponent"
+                                                Value="Levels">
+                                                <Setter Property="ShowAddButton" Value="False" />
+                                                <Setter Property="ShowSettingsButton" Value="False" />
+                                            </DataTrigger>
+                                        </components:GradientWifiCardComponent.Triggers>
+
+                                    </components:GradientWifiCardComponent>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <!--  Scan button at bottom of dropdown frame  -->
+                        <Border
+                            Grid.Row="1"
+                            Margin="0,20,0,0"
+                            Padding="20,15"
+                            BackgroundColor="#007AFF"
+                            HeightRequest="50"
+                            HorizontalOptions="Center"
+                            InputTransparent="False"
+                            IsVisible="{Binding ShowScanButton}"
+                            StrokeShape="RoundRectangle 25"
+                            ZIndex="54">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ScanButtonTappedCommand}" />
+                            </Border.GestureRecognizers>
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="14"
+                                HorizontalOptions="Center"
+                                Text="{Binding ScanButtonText}"
+                                TextColor="White"
+                                VerticalOptions="Center" />
+                        </Border>
+                    </Grid>
                 </Border>
             </Grid>
+
+            <!--  Footer Component  -->
+            <components:AppFooter
+                x:Name="Footer"
+                Grid.Row="3"
+                ZIndex="200" />
         </Grid>
-
-        <!--  Footer Component  -->
-        <components:AppFooter x:Name="Footer" Grid.Row="3" />
-
-    </Grid>
-
-
+    </ContentPage.Content>
 </ContentPage>

@@ -44,6 +44,8 @@
     <!--  PlacedDeviceControl color resources  -->
     <!--  Small control buttons on the device card (plus/minus/arrows)  -->
     <Color x:Key="PlacedDeviceAddButton">#333333</Color>
+
+    <Color x:Key="DropdownListBackgroundTransparent">#80333333</Color>
     <!--  Delete (bin) button background  -->
     <Color x:Key="PlacedDeviceDeleteButton">#FF3B30</Color>
     <!--  Center open/close (config) button background  -->

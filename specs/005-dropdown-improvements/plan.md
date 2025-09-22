@@ -1,209 +1,266 @@
-# Plan: Dropdown Logic Improvements Implementation
+# Implementation Plan: Dropdown Logic Improvements & UI Enhancements
 
-## Architecture Impact
+**Branch**: `005-dropdown-improvements` | **Date**: 2025-09-11 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/005-dropdown-improvements/sp**Phase Status**:
+- [x] Phase 0: Research complete (/plan command)
+- [x] Phase 1: Design complete (/plan command)
+- [ ] Phase 2: Task planning complete (/plan command - describe approach only)
+- [ ] Phase 3: Tasks generated (/tasks command)
+- [ ] Phase 4: Implementation complete
+- [ ] Phase 5: Validation passed
 
-### Component Changes
-- **MainPage.xaml:** Background overlays, Empty state cards, Dropdown containers
-- **MainPageViewModel.cs:** Navigation logic, Selection sync, State management
-- **Existing Styles:** KEINE Änderungen (kritisch für UI-Konsistenz)
-
-### Data Flow Extensions
+**Gate Status**:
+- [x] Initial Constitution Check: PASS
+- [x] Post-Design Constitution Check: PASS
+- [x] All NEEDS CLARIFICATION resolved
+- [ ] Complexity deviations documentedecution Flow (/plan command scope)
 ```
-Structure Selection → Auto Level Navigation → Bauplan Display
-     ↓                       ↓                      ↓
-Empty State Check     First Level Select    Selection Sync
-```
-
-### UI State Management
-- Dropdown Open/Close States
-- Background Overlay Visibility
-- Level Access Control (enabled/disabled)
-- Selection Synchronization
-
-## Technical Implementation
-
-### 1. Empty State Infrastructure
-**File:** `MainPageViewModel.cs`
-- Property: `ShowStructuresEmptyState` (bool)
-- Logic: `StructuresDropdownItems.Count == 0 → true`
-- Command: `NavigateToStructureEditorCommand` (reuse existing)
-
-**File:** `MainPage.xaml` 
-- Conditional Card in Structures area
-- Button binds to existing navigation command
-- Consistent styling with Info cards
-
-### 2. Level Access Control
-**File:** `MainPageViewModel.cs`
-- Property: `IsLevelDropdownEnabled` (bool)
-- Logic: `SelectedBuildingName != null → enabled`
-- Binding to Level dropdown container
-
-### 3. Auto Navigation Logic
-**File:** `MainPageViewModel.cs`
-- Enhance: `OnStructureSelected()` method
-- Add: Auto-switch to "Levels" tab
-- Add: Select first available level
-- Trigger: Bauplan update for selected level
-
-### 4. Selection Synchronization
-**File:** `MainPageViewModel.cs`
-- Method: `SynchronizeLevelSelection()`
-- Watch: `StructuresVM.SelectedLevel` changes
-- Update: Level dropdown visual selection
-- Bidirectional sync
-
-### 5. Background Overlay System
-**File:** `MainPage.xaml`
-- Add: Overlay containers for each dropdown area
-- Binding: Dropdown open states
-- Styling: Semi-transparent gray, dynamic height
-
-**File:** `MainPageViewModel.cs`
-- Properties: `IsStructuresDropdownOpen`, `IsLevelsDropdownOpen`, etc.
-- Logic: Toggle states on dropdown open/close
-
-### 6. Native Close Behavior
-**File:** `MainPage.xaml.cs` (Code-behind)
-- Event: Background tap detection
-- Method: `CloseAllDropdowns()`
-- Integration: Existing tab click logic
-
-## DI & Services Integration
-
-### No New Services Required
-- Reuse existing: `NavigationService`, `IBuildingStorageService`
-- Existing Commands: Plus button navigation logic
-
-### ViewModel Properties Extension
-```csharp
-// New Properties in MainPageViewModel
-public bool ShowStructuresEmptyState { get; set; }
-public bool IsLevelDropdownEnabled { get; set; }
-public bool IsStructuresDropdownOpen { get; set; }
-public bool IsLevelsDropdownOpen { get; set; }
-public bool IsDevicesDropdownOpen { get; set; }
+1. Load feature spec from Input path
+   → If not found: ERROR "No feature spec at {path}"
+2. Fill Technical Context (scan for NEEDS CLARIFICATION)
+   → Detect Project Type from context (web=frontend+backend, mobile=app+api)
+   → Set Structure Decision based on project type
+3. Evaluate Constitution Check section below
+   → If violations exist: Document in Complexity Tracking
+   → If no justification possible: ERROR "Simplify approach first"
+   → Update Progress Tracking: Initial Constitution Check
+4. Execute Phase 0 → research.md
+   → If NEEDS CLARIFICATION remain: ERROR "Resolve unknowns"
+5. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, or `GEMINI.md` for Gemini CLI).
+6. Re-evaluate Constitution Check section
+   → If new violations: Refactor design, return to Phase 1
+   → Update Progress Tracking: Post-Design Constitution Check
+7. Plan Phase 2 → Describe task generation approach (DO NOT create tasks.md)
+8. STOP - Ready for /tasks command
 ```
 
-## UI Implementation Details
+**IMPORTANT**: The /plan command STOPS at step 7. Phases 2-4 are executed by other commands:
+- Phase 2: /tasks command creates tasks.md
+- Phase 3-4: Implementation execution (manual or via tools)
 
-### Empty State Card Template
-```xml
-<ContentView IsVisible="{Binding ShowStructuresEmptyState}">
-    <Border> <!-- Reuse existing card styling -->
-        <StackLayout>
-            <Label Text="Nothing to display yet" />
-            <Label Text="Add Structure" />
-            <Button Command="{Binding NavigateToStructureEditorCommand}" />
-        </StackLayout>
-    </Border>
-</ContentView>
+## Summary
+[Extract from feature spec: primary requirement + technical approach from research]
+
+## Technical Context
+**Language/Version**: C# 13 with .NET 9, XAML markup  
+**Primary Dependencies**: .NET MAUI 9, CommunityToolkit.Mvvm, Microsoft.Extensions.DependencyInjection  
+**Storage**: File-based JSON storage via IBuildingStorageService, local app data  
+**Testing**: MSTest/NUnit for unit tests, MAUI UI tests for integration  
+**Target Platform**: Cross-platform mobile (Android, iOS, Windows, macOS)  
+**Project Type**: Mobile MAUI application with MVVM architecture  
+**Performance Goals**: 60fps smooth animations, <300ms dropdown response, <100ms UI state changes  
+**Constraints**: No UI thread blocking, maintain existing card styling, backwards compatibility  
+**Scale/Scope**: Single-user app, ~50 XAML files, dropdown UX improvements across 4 tabs
+
+## Constitution Check
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+
+**Simplicity**:
+- Projects: 1 (MAUI app only - UI enhancement, no new projects)
+- Using framework directly? ✅ (Direct MAUI/XAML, no wrapper classes)
+- Single data model? ✅ (Using existing DropdownItemModel, no new DTOs)
+- Avoiding patterns? ✅ (No new Repository/UoW, reusing existing services)
+
+**Architecture**:
+- MVVM-First Architecture: ✅ (All logic in ViewModels, XAML binding only)
+- DI Integration: ✅ (No new services, using existing IBuildingStorageService)
+- Existing Services: ✅ (Reusing NavigationService, no new dependencies)
+- No Code-Behind Logic: ✅ (Only event wiring, business logic in ViewModel)
+
+**Testing (NON-NEGOTIABLE)**:
+- TDD Approach: ✅ (UI tests for dropdown behaviors, unit tests for ViewModel properties)
+- Integration Tests: ✅ (Dropdown state management, navigation flows)
+- Manual Testing: ✅ (Touch events, visual feedback, cross-platform behavior)
+- Performance Tests: ✅ (Animation smoothness, state change timing)
+
+**Observability**:
+- Structured logging: ✅ (Console.WriteLine for dropdown state changes)
+- Error handling: ✅ (Try-catch in event handlers, graceful degradation)
+- Debug information: ✅ (State logging for troubleshooting)
+
+**Versioning**:
+- Feature versioning: N/A (UI enhancement, no API changes)
+- Breaking changes: ✅ None (backwards compatible, extends existing UI)
+- Migration plan: N/A (UI-only changes, no data migration needed)
+
+## Project Structure
+
+### Documentation (this feature)
+```
+specs/[###-feature]/
+├── plan.md              # This file (/plan command output)
+├── research.md          # Phase 0 output (/plan command)
+├── data-model.md        # Phase 1 output (/plan command)
+├── quickstart.md        # Phase 1 output (/plan command)
+├── contracts/           # Phase 1 output (/plan command)
+└── tasks.md             # Phase 2 output (/tasks command - NOT created by /plan)
 ```
 
-### Background Overlay Template  
-```xml
-<BoxView IsVisible="{Binding IsStructuresDropdownOpen}"
-         BackgroundColor="#40000000"
-         HeightRequest="{Binding StructuresDropdownHeight}" />
+### Source Code (repository root)
+```
+# Option 1: Single project (DEFAULT)
+src/
+├── models/
+├── services/
+├── cli/
+└── lib/
+
+tests/
+├── contract/
+├── integration/
+└── unit/
+
+# Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
+
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
+
+# Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
+
+ios/ or android/
+└── [platform-specific structure]
 ```
 
-### Level Dropdown Access Control
-```xml
-<ContentView IsEnabled="{Binding IsLevelDropdownEnabled}"
-             Opacity="{Binding IsLevelDropdownEnabled, Converter={StaticResource BoolToOpacityConverter}}">
-    <!-- Existing Level Dropdown Content -->
-</ContentView>
+**Structure Decision**: MAUI Mobile App Structure (existing project enhancement)
+
+### MAUI Project Structure (existing)
+```
+ViewModels/
+├── MainPageViewModel.cs     # Enhanced with dropdown state properties
+└── StructuresViewModel.cs   # Existing, used for data binding
+
+Views/
+├── MainPage.xaml           # Enhanced with empty states and overlays  
+└── MainPage.xaml.cs        # Enhanced with close behavior logic
+
+Components/
+└── [existing components]   # No changes required
+
+Services/
+├── IBuildingStorageService.cs  # Existing, reused
+└── NavigationService.cs        # Existing, reused
+
+Converters/
+└── BoolToOpacityConverter.cs   # New converter for disabled states
 ```
 
-## Event Flow & State Management
+## Phase 0: Outline & Research
+1. **Extract unknowns from Technical Context** above:
+   - For each NEEDS CLARIFICATION → research task
+   - For each dependency → best practices task
+   - For each integration → patterns task
 
-### Structure Selection Flow
-1. User selects Structure → `OnStructureSelected(structure)`
-2. Set `SelectedBuildingName = structure.Name`
-3. Enable Level dropdown: `IsLevelDropdownEnabled = true`
-4. Auto-navigate: `CurrentActiveTab = "Levels"`
-5. Load levels: `LoadLevelsAsync()`
-6. Select first level: `SelectedLevelName = firstLevel.Name`
-7. Update bauplan: `StructuresVM.SelectedLevel = firstLevel`
+2. **Generate and dispatch research agents**:
+   ```
+   For each unknown in Technical Context:
+     Task: "Research {unknown} for {feature context}"
+   For each technology choice:
+     Task: "Find best practices for {tech} in {domain}"
+   ```
 
-### Dropdown Close Flow
-1. User taps outside → `OnBackgroundTapped()`
-2. Check dropdown states → Close if open
-3. Update state properties → `IsXxxDropdownOpen = false`
-4. Background overlays hide automatically via binding
+3. **Consolidate findings** in `research.md` using format:
+   - Decision: [what was chosen]
+   - Rationale: [why chosen]
+   - Alternatives considered: [what else evaluated]
 
-### Selection Sync Flow
-1. Bauplan changes → `StructuresVM.SelectedLevel` updates
-2. Watch property change → `SynchronizeLevelSelection()`
-3. Update `SelectedLevelName` → Level dropdown selection updates
-4. Maintain bidirectional consistency
+**Output**: research.md with all NEEDS CLARIFICATION resolved
 
-## Testing Strategy
+## Phase 1: Design & Contracts
+*Prerequisites: research.md complete*
 
-### Unit Tests
-- Empty state logic: No structures → ShowEmptyState = true
-- Access control: No building → Level disabled
-- Navigation: Structure select → Auto level navigation
-- Sync: Bauplan change → Level selection update
+1. **Extract entities from feature spec** → `data-model.md`:
+   - Entity name, fields, relationships
+   - Validation rules from requirements
+   - State transitions if applicable
 
-### Integration Tests  
-- Full navigation flow: Empty → Structure → Level → Bauplan
-- Close behavior: Outside tap → All dropdowns close
-- State persistence: Navigation → States maintained
+2. **Generate API contracts** from functional requirements:
+   - For each user action → endpoint
+   - Use standard REST/GraphQL patterns
+   - Output OpenAPI/GraphQL schema to `/contracts/`
 
-### UI Tests
-- Visual: Background overlays appear/disappear correctly
-- Touch: Outside tap closes dropdowns
-- Styling: No regression in existing cards
+3. **Generate contract tests** from contracts:
+   - One test file per endpoint
+   - Assert request/response schemas
+   - Tests must fail (no implementation yet)
 
-## Rollback Plan
+4. **Extract test scenarios** from user stories:
+   - Each story → integration test scenario
+   - Quickstart test = story validation steps
 
-### Safe Implementation
-- Feature flags for each enhancement
-- Preserve all existing functionality
-- No breaking changes to current UI
+5. **Update agent file incrementally** (O(1) operation):
+   - Run `/scripts/update-agent-context.sh [claude|gemini|copilot]` for your AI assistant
+   - If exists: Add only NEW tech from current plan
+   - Preserve manual additions between markers
+   - Update recent changes (keep last 3)
+   - Keep under 150 lines for token efficiency
+   - Output to repository root
 
-### Rollback Triggers
-- Visual regression in existing cards
-- Performance degradation
-- Touch event conflicts
-- Navigation flow breaks
+**Output**: data-model.md, /contracts/*, failing tests, quickstart.md, agent-specific file
 
-### Rollback Process
-1. Disable new features via flags
-2. Restore original navigation logic
-3. Remove new UI components
-4. Validate existing functionality
+## Phase 2: Task Planning Approach
+*This section describes what the /tasks command will do - DO NOT execute during /plan*
 
-## Performance Considerations
+**Task Generation Strategy**:
+- Load `/templates/tasks-template.md` as base
+- Generate tasks from Phase 1 design docs (contracts, data model, quickstart)
+- Each contract → contract test task [P]
+- Each entity → model creation task [P] 
+- Each user story → integration test task
+- Implementation tasks to make tests pass
 
-### Efficient State Management
-- Minimal property change notifications
-- Debounced dropdown state updates
-- Lazy loading of empty state content
+**Ordering Strategy**:
+- TDD order: Tests before implementation 
+- Dependency order: Models before services before UI
+- Mark [P] for parallel execution (independent files)
 
-### Memory Management  
-- Weak event subscriptions
-- Proper disposal of new event handlers
-- No memory leaks in background overlays
+**Estimated Output**: 25-30 numbered, ordered tasks in tasks.md
 
-### UI Responsiveness
-- Fast dropdown open/close animations
-- Smooth auto-navigation transitions
-- No blocking operations in selection sync
+**IMPORTANT**: This phase is executed by the /tasks command, NOT by /plan
 
-## Dependencies & Prerequisites
+## Phase 3+: Future Implementation
+*These phases are beyond the scope of the /plan command*
 
-### Existing Code Reuse
-- Plus button navigation command
-- Current dropdown styling system
-- Existing card templates
-- Current property change infrastructure
+**Phase 3**: Task execution (/tasks command creates tasks.md)  
+**Phase 4**: Implementation (execute tasks.md following constitutional principles)  
+**Phase 5**: Validation (run tests, execute quickstart.md, performance validation)
 
-### New Dependencies
-- None (use existing MAUI/MVVM patterns)
+## Complexity Tracking
+*Fill ONLY if Constitution Check has violations that must be justified*
 
-### Prerequisites
-- Current MainPageViewModel structure intact
-- Existing dropdown containers functional  
-- Card styling system available for reuse
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+
+
+## Progress Tracking
+*This checklist is updated during execution flow*
+
+**Phase Status**:
+- [ ] Phase 0: Research complete (/plan command)
+- [ ] Phase 1: Design complete (/plan command)
+- [ ] Phase 2: Task planning complete (/plan command - describe approach only)
+- [ ] Phase 3: Tasks generated (/tasks command)
+- [ ] Phase 4: Implementation complete
+- [ ] Phase 5: Validation passed
+
+**Gate Status**:
+- [ ] Initial Constitution Check: PASS
+- [ ] Post-Design Constitution Check: PASS
+- [ ] All NEEDS CLARIFICATION resolved
+- [ ] Complexity deviations documented
+
+---
+*Based on Constitution v2.1.1 - See `/memory/constitution.md`*

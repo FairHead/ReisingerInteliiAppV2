@@ -43,3 +43,22 @@ public class InverseBoolConverter : IValueConverter
         return true;
     }
 }
+
+public class BoolToTextColorConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool boolValue)
+        {
+            // true = enabled = white text (normal)
+            // false = disabled = dark red transparent text
+            return boolValue ? Colors.White : Color.FromRgba(180, 50, 50, 0.6);
+        }
+        return Colors.White; // Default to white if conversion fails
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

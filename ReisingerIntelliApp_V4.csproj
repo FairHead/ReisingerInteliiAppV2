@@ -86,4 +86,10 @@
 	  <MauiXaml Remove="LocalDevicesScanPage.xaml" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <MauiXaml Update="Components\GradientWifiCardComponent.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	</ItemGroup>
+
 </Project>

@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="ReisingerIntelliApp_V4.Components.GradientWifiCardComponent"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="GradientCardRoot">
+
+    <!--
+        - TODO T[100] [P1][feature][area:dropdown-ui] Replace current Structure dropdown entries with GradientWifiCardComponent version
+        Structure dropdown entries currently use basic Border + Grid + Label layout in MainPage.xaml.
+        Need to create Structure-specific version of this component with:
+        - Icon: Replace Text="📶" with Source="home.svg" (same icon used in LoadStructuresAsync())
+        - DeviceName binding: Use building.BuildingName (same as DropdownItemModel.Text for Structures)
+        - LastSeen row: Hide completely for Structures (not relevant for buildings)
+        - MonitorButton: Hide for Structures (not applicable to buildings)
+        - SettingsButton: Keep and bind to ShowDeviceOptionsCommand (opens StructureEditor)
+        - DeleteButton: Keep and bind to DeleteDeviceFromDropdownCommand (deletes building + all floors)
+        Status indicators: Hide StatusIndicator and StatusLabel (structures don't have connection status)
+    -->
+
+    <!--
+        - TODO T[101] [P1][feature][area:dropdown-ui] Replace current Level dropdown entries with GradientWifiCardComponent version
+        Level dropdown entries currently use basic Border + Grid + Label layout in MainPage.xaml.
+        Need to create Level-specific version of this component with:
+        - Icon: Replace Text="📶" with Source="levels.svg" (same icon used in LoadLevelsAsync())
+        - DeviceName binding: Use floor.FloorName (same as DropdownItemModel.Text for Levels)
+        - LastSeen row: Hide completely for Levels (not relevant for floor plans)
+        - MonitorButton: Hide for Levels (not applicable to floor plans)
+        - SettingsButton: Keep and bind to ShowDeviceOptionsCommand (opens StructureEditor for building management)
+        - DeleteButton: Keep and bind to DeleteDeviceFromDropdownCommand (deletes floor + all placed devices)
+        Status indicators: Hide StatusIndicator and StatusLabel (floors don't have connection status)
+    -->
+
+    <!--
+        - TODO T[102] [P1][feature][area:dropdown-ui] Replace current WifiDev dropdown entries with GradientWifiCardComponent version
+        WifiDev dropdown entries currently use Border with extensive Grid layout in MainPage.xaml DataTemplate.
+        Need to adapt this component for WiFi devices with:
+        - Icon: Replace Text="📶" with Source="wifi_icon.svg" (same icon used in LoadWifiDevicesAsync())
+        - DeviceName binding: Use device.Name (from DropdownItemModel.Text first line)
+        - LastSeen: Use device.LastSeen formatted as "Last seen: HH:mm" (from DropdownItemModel.Text second line)
+        - MonitorButton: Replace with "Add to Floor Plan" functionality → bind to AddDeviceToFloorPlanCommand
+        - SettingsButton: Keep and bind to ShowDeviceOptionsCommand (opens device configuration)
+        - DeleteButton: Keep and bind to DeleteDeviceFromDropdownCommand (removes saved WiFi device)
+        - Status indicators: Keep and bind to DropdownItemModel.IsConnected and connection monitoring from WiFi status timer
+        - Connection status: Show "Connected"/"Disconnected" based on current SSID matching device.Ssid
+    -->
+
+    <!--
+        - TODO T[103] [P1][feature][area:dropdown-ui] Replace current LocalDev dropdown entries with GradientWifiCardComponent version
+        LocalDev dropdown entries currently use Border with extensive Grid layout in MainPage.xaml DataTemplate.
+        Need to adapt this component for Local devices with:
+        - Icon: Replace Text="📶" with Source="local_icon.svg" (same icon used in LoadLocalDevicesAsync())
+        - DeviceName binding: Use device.Name (from DropdownItemModel.Text first line)
+        - LastSeen: Use device.LastSeen formatted as "Last seen: HH:mm" (from DropdownItemModel.Text second line)
+        - MonitorButton: Replace with "Add to Floor Plan" functionality → bind to AddDeviceToFloorPlanCommand
+        - SettingsButton: Keep and bind to ShowDeviceOptionsCommand (opens device configuration)
+        - DeleteButton: Keep and bind to DeleteDeviceFromDropdownCommand (removes saved local device)
+        - Status indicators: Keep and bind to DropdownItemModel.IsConnected and connection monitoring via /intellidrive/version API
+        - Connection status: Show "Connected"/"Disconnected" based on API response from CheckLocalDeviceStatusAsync()
+    -->
+
+    <!--
+        - TODO T[104] [P2][feature][area:dropdown-ui] Create conditional component variants based on CurrentActiveTab
+        Implement logic to show/hide elements based on dropdown type:
+        - Add DropdownType bindable property (Structure, Level, WifiDevice, LocalDevice)
+        - Use DataTriggers to control visibility of LastSeen row, MonitorButton, StatusIndicator
+        - Implement proper Command bindings that match current MainPageViewModel commands
+        - Ensure IsPlacedOnCurrentFloor logic works for device entries (disable AddToFloorPlan button)
+        - Test component behavior across all four dropdown types
+    -->
+
+    <!--
+        - TODO T[105] [P1][feature][area:integration] Replace MainPage.xaml CollectionView.ItemTemplate with GradientWifiCardComponent
+        Current MainPage.xaml has complex DataTemplate with Border + Grid + multiple elements.
+        Replace entire DataTemplate with single GradientWifiCardComponent instance:
+        - Bind component properties to DropdownItemModel fields
+        - Remove existing Border + Grid + Label structure from MainPage.xaml
+        - Ensure proper spacing and layout within CollectionView
+        - Test touch/tap events work correctly within CollectionView context
+        - Verify scroll performance is not impacted by component complexity
+    -->
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+
+            <!--  Gradient Card Style - Compact Version (for Border)  -->
+            <Style x:Key="CompactGradientCardStyle" TargetType="Border">
+                <!--  Stroke acts as the border color for Border  -->
+                <Setter Property="Stroke" Value="#334155" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="StrokeShape">
+                    <Setter.Value>
+                        <RoundRectangle CornerRadius="12" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Padding" Value="12" />
+                <Setter Property="WidthRequest" Value="200" />
+                <Setter Property="HeightRequest" Value="140" />
+                <Setter Property="Background">
+                    <Setter.Value>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Offset="0.0" Color="#1E293B" />
+                            <GradientStop Offset="1.0" Color="#0F172A" />
+                        </LinearGradientBrush>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Shadow">
+                    <Setter.Value>
+                        <Shadow
+                            Brush="Black"
+                            Opacity="0.2"
+                            Radius="8"
+                            Offset="0,4" />
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  Icon Container Style (for Border)  -->
+            <Style x:Key="GradientIconContainer" TargetType="Border">
+                <Setter Property="StrokeShape">
+                    <Setter.Value>
+                        <RoundRectangle CornerRadius="8" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Padding" Value="6" />
+                <Setter Property="WidthRequest" Value="32" />
+                <Setter Property="HeightRequest" Value="32" />
+                <Setter Property="Background">
+                    <Setter.Value>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Offset="0.0" Color="#3B82F6" />
+                            <GradientStop Offset="1.0" Color="#1D4ED8" />
+                        </LinearGradientBrush>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  ImageButton style for compact action icons  -->
+            <Style x:Key="CompactGradientImageButtonStyle" TargetType="ImageButton">
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="WidthRequest" Value="36" />
+                <Setter Property="HeightRequest" Value="36" />
+                <Setter Property="Padding" Value="6" />
+                <!--  ImageButton inherits Button so CornerRadius applies  -->
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="Aspect" Value="AspectFit" />
+            </Style>
+
+            <!--  Button Styles  -->
+            <Style x:Key="CompactGradientButtonStyle" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="BorderColor" Value="Transparent" />
+                <Setter Property="BorderWidth" Value="0" />
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="Padding" Value="6" />
+                <Setter Property="WidthRequest" Value="32" />
+                <Setter Property="HeightRequest" Value="32" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="TextColor" Value="#60A5FA" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="Transparent" />
+                                    <Setter Property="Scale" Value="1.0" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="#1D4ED833" />
+                                    <Setter Property="Scale" Value="0.95" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="PointerOver">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="#1D4ED820" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+
+            <!--  Text Styles  -->
+            <Style x:Key="DeviceNameCompact" TargetType="Label">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="LineBreakMode" Value="TailTruncation" />
+            </Style>
+
+            <Style x:Key="LastSeenCompact" TargetType="Label">
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="TextColor" Value="#CBD5E1" />
+            </Style>
+
+            <Style x:Key="StatusTextCompact" TargetType="Label">
+                <Setter Property="FontSize" Value="10" />
+            </Style>
+
+            <!--  Status Indicators  -->
+            <Style x:Key="ConnectedIndicatorCompact" TargetType="Ellipse">
+                <Setter Property="Fill" Value="#22C55E" />
+                <Setter Property="WidthRequest" Value="6" />
+                <Setter Property="HeightRequest" Value="6" />
+            </Style>
+
+            <Style x:Key="DisconnectedIndicatorCompact" TargetType="Ellipse">
+                <Setter Property="Fill" Value="#EF4444" />
+                <Setter Property="WidthRequest" Value="16" />
+                <Setter Property="HeightRequest" Value="16" />
+            </Style>
+
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Border Padding="14" Style="{StaticResource CompactGradientCardStyle}">
+        <Grid RowDefinitions="Auto,1,Auto" RowSpacing="8">
+
+            <!--  Header Row  -->
+            <Grid
+                ColumnDefinitions="Auto,*,Auto"
+                ColumnSpacing="12"
+                Row="0">
+
+                <!--  Icon container  -->
+                <Border Grid.Column="0" Style="{StaticResource GradientIconContainer}">
+                    <Image
+                        HeightRequest="24"
+                        HorizontalOptions="Center"
+                        Source="{Binding Source={x:Reference GradientCardRoot}, Path=Icon}"
+                        VerticalOptions="Center"
+                        WidthRequest="24" />
+                </Border>
+
+                <!--  Device Info  -->
+                <StackLayout
+                    Grid.Column="1"
+                    HorizontalOptions="Center"
+                    Spacing="2"
+                    VerticalOptions="Center">
+
+                    <Label
+                        x:Name="DeviceNameLabel"
+                        FontSize="16"
+                        Style="{StaticResource DeviceNameCompact}"
+                        Text="{Binding Source={x:Reference GradientCardRoot}, Path=DeviceName}" />
+
+                    <Label
+                        x:Name="LastSeenLabel"
+                        IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowLastSeen}"
+                        Style="{StaticResource LastSeenCompact}">
+                        <Label.Text>
+                            <Binding
+                                Path="LastSeen"
+                                Source="{x:Reference GradientCardRoot}"
+                                StringFormat="seen: {0}" />
+                        </Label.Text>
+                    </Label>
+                </StackLayout>
+
+                <!--  Status  -->
+                <StackLayout
+                    Grid.Column="2"
+                    IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowStatus}"
+                    Orientation="Horizontal"
+                    Spacing="6"
+                    VerticalOptions="Center">
+                    <Ellipse
+                        x:Name="StatusIndicator"
+                        Style="{StaticResource DisconnectedIndicatorCompact}"
+                        VerticalOptions="Center" />
+                    <Label
+                        x:Name="StatusLabel"
+                        Style="{StaticResource StatusTextCompact}"
+                        VerticalOptions="Center" />
+                </StackLayout>
+
+            </Grid>
+
+            <!--  Separator  -->
+            <BoxView
+                Grid.Row="1"
+                BackgroundColor="#334155"
+                HeightRequest="1" />
+
+            <!--  Action Buttons Row  -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackLayout
+                    Padding="4"
+                    HorizontalOptions="Center"
+                    Orientation="Horizontal"
+                    Spacing="18">
+                    <ImageButton
+                        x:Name="MonitorButton"
+                        Command="{Binding Source={x:Reference GradientCardRoot}, Path=AddToFloorPlanCommand}"
+                        CommandParameter="{Binding Source={x:Reference GradientCardRoot}, Path=CommandParameter}"
+                        IsEnabled="{Binding Source={x:Reference GradientCardRoot}, Path=AddButtonEnabled}"
+                        IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowAddButton}"
+                        Source="add_to_floorplan.svg"
+                        Style="{StaticResource CompactGradientImageButtonStyle}" />
+
+                    <ImageButton
+                        x:Name="SettingsButton"
+                        Command="{Binding Source={x:Reference GradientCardRoot}, Path=ShowDeviceOptionsCommand}"
+                        CommandParameter="{Binding Source={x:Reference GradientCardRoot}, Path=CommandParameter}"
+                        IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowSettingsButton}"
+                        Source="settings.svg"
+                        Style="{StaticResource CompactGradientImageButtonStyle}" />
+
+                    <ImageButton
+                        x:Name="DeleteButton"
+                        Command="{Binding Source={x:Reference GradientCardRoot}, Path=DeleteCommand}"
+                        CommandParameter="{Binding Source={x:Reference GradientCardRoot}, Path=CommandParameter}"
+                        Source="deletedevicebutton.svg"
+                        Style="{StaticResource CompactGradientImageButtonStyle}" />
+                </StackLayout>
+            </Grid>
+
+        </Grid>
+    </Border>
+
+</ContentView>

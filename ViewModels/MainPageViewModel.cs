@@ -57,6 +57,10 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         _dropdownCache["Levels"] = ("Levels", new List<DropdownItemModel>());
         _dropdownCache["WifiDev"] = ("Wifi Devices", new List<DropdownItemModel>());
         _dropdownCache["LocalDev"] = ("Local Devices", new List<DropdownItemModel>());
+        
+        // Ensure Level dropdown starts as disabled (no structure selected initially)
+        IsLevelDropdownEnabled = false;
+        
         Title = "Reisinger App";
         TabTappedCommand = new Command<string>(OnTabTapped);
         LeftSectionTappedCommand = new Command(OnLeftSectionTapped);
@@ -161,6 +165,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             {
                 await StructuresVM.RefreshCurrentFloorPlanAsync();
             }
+            
+            // Update level access whenever floor plans change (new levels might be available)
+            UpdateLevelDropdownAccess();
         });
     }
 
@@ -272,10 +279,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         {
             if (SetProperty(ref _selectedBuildingName, value))
             {
-                // Update Level dropdown access control
-                IsLevelDropdownEnabled = !string.IsNullOrWhiteSpace(_selectedBuildingName);
-                
                 _ = ApplyStructureSelectionAsync(_selectedBuildingName, _selectedLevelName);
+                // Update Level dropdown access control after structure selection
+                UpdateLevelDropdownAccess();
             }
         }
     }
@@ -325,9 +331,41 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 StructuresVM.SelectedLevel = StructuresVM.Levels.FirstOrDefault(f => f.FloorName.Equals(levelName, StringComparison.OrdinalIgnoreCase));
             }
             await StructuresVM.RefreshCurrentFloorPlanAsync();
+            
+            // Update level access after loading structure data
+            UpdateLevelDropdownAccess();
         }
         catch { }
     }
+    /// <summary>
+    /// Updates Level dropdown access control. Level stays disabled (red-transparent) 
+    /// until levels are actually available in dropdown list.
+    /// </summary>
+    private void UpdateLevelDropdownAccess()
+    {
+        // Level dropdown is only enabled if:
+        // 1. A building is selected AND
+        // 2. That building has levels/floors available
+        bool hasSelectedBuilding = !string.IsNullOrWhiteSpace(_selectedBuildingName);
+        int levelsCount = StructuresVM?.Levels?.Count ?? 0;
+        bool hasLevelsAvailable = hasSelectedBuilding && levelsCount > 0;
+        
+        IsLevelDropdownEnabled = hasLevelsAvailable;
+        
+        System.Diagnostics.Debug.WriteLine($"[UpdateLevelDropdownAccess] Building='{_selectedBuildingName}' HasSelectedBuilding={hasSelectedBuilding} LevelsCount={levelsCount} HasLevelsAvailable={hasLevelsAvailable} IsLevelDropdownEnabled={IsLevelDropdownEnabled}");
+        
+        // Debug: List all levels
+        if (StructuresVM?.Levels != null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UpdateLevelDropdownAccess] Available levels: {string.Join(", ", StructuresVM.Levels.Select(l => $"'{l?.FloorName}'"))}");
+        }
+    }
+
+    /// <summary>
+    /// Checks if Level tab style can be modified. Returns false if Level should stay disabled (red-transparent).
+    /// Only when levels are actually created/available should Level tab be styleable.
+    /// </summary>
+    public bool CanModifyLevelTabStyle => IsLevelDropdownEnabled;
 
     private void OnTabTapped(string tabName)
     {
@@ -364,10 +402,10 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     CloseAllDropdowns();
     
     // Check Level access control before opening Levels dropdown
-    if (tabName == "Levels" && string.IsNullOrWhiteSpace(SelectedBuildingName))
+    if (tabName == "Levels" && !IsLevelDropdownEnabled)
     {
-        System.Diagnostics.Debug.WriteLine("[ShowDropdownForTab] Level dropdown access denied - no structure selected");
-        return; // Don't open Levels dropdown if no structure selected
+        System.Diagnostics.Debug.WriteLine("[ShowDropdownForTab] Level dropdown access denied - no levels available");
+        return; // Don't open Levels dropdown if no levels available
     }
     
     CurrentActiveTab = tabName;
@@ -492,7 +530,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         {
                             Id = device.DeviceId,
                             Icon = "wifi_icon.svg",
-                            Text = $"{device.Name}\n{device.Ssid} • {lastSeenText}",
+                            // Primary line: device name; Secondary line: SSID and last seen
+                            Text = device.Name,
+                            SubText = $"{device.Ssid} • {lastSeenText}",
                             HasActions = true,
                             ShowStatus = true,
                             IsConnected = false,
@@ -525,7 +565,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                     {
                         Id = $"dummy_wifi_{i}",
                         Icon = "wifi_icon.svg",
-                        Text = $"Dummy WiFi Device {i}\nSSID{i} • Last seen: 12:00",
+                        Text = $"Dummy WiFi Device {i}",
+                        SubText = $"SSID{i} • Last seen: 12:00",
                         HasActions = true,
                         ShowStatus = true,
                         IsConnected = false,
@@ -600,7 +641,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         {
                             Id = device.DeviceId,
                             Icon = "local_icon.svg",
-                            Text = $"{device.Name}\n{device.IpAddress} • {lastSeenText}",
+                            Text = device.Name,
+                            SubText = $"{device.IpAddress} • {lastSeenText}",
                             HasActions = true,
                             ShowStatus = true,
                             IsConnected = false,
@@ -632,7 +674,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                     {
                         Id = $"dummy_local_{i}",
                         Icon = "local_icon.svg",
-                        Text = $"Dummy Local Device {i}\n192.168.1.10{i} • Last seen: 12:00",
+                        Text = $"Dummy Local Device {i}",
+                        SubText = $"192.168.1.10{i} • Last seen: 12:00",
                         HasActions = true,
                         ShowStatus = true,
                         IsConnected = false,
@@ -687,20 +730,21 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 return;
             }
             
-            foreach (var b in buildings)
-            {
-                try
+                foreach (var b in buildings)
                 {
-                    DropdownItems.Add(new DropdownItemModel 
-                    { 
-                        Id = b.BuildingName, 
-                        Icon = "home.svg", 
-                        Text = b.BuildingName, 
-                        HasActions = true, // Enable actions for buildings to show delete button
-                        ShowStatus = false, 
-                        IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) 
-                    });
-                }
+                    try
+                    {
+                        DropdownItems.Add(new DropdownItemModel 
+                        { 
+                            Id = b.BuildingName, 
+                            Icon = "home.svg", 
+                            Text = b.BuildingName,
+                            SubText = string.Empty,
+                            HasActions = true, // Enable actions for buildings to show delete button
+                            ShowStatus = false, 
+                            IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) 
+                        });
+                    }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync] Fehler beim Hinzufügen eines Buildings: {ex.Message}");
@@ -762,7 +806,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 return;
             }
 
-            foreach (var f in selected.Floors)
+                foreach (var f in selected.Floors)
             {
                 try
                 {
@@ -773,6 +817,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         Id = f.FloorName,
                         Icon = "levels.svg",
                         Text = f.FloorName,
+                        SubText = string.Empty,
                         HasActions = true,
                         ShowStatus = false,
                         IsSelected = string.Equals(SelectedLevelName, f.FloorName, StringComparison.OrdinalIgnoreCase)
