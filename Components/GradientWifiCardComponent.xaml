@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="ReisingerIntelliApp_V4.Components.GradientWifiCardComponent"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="GradientCardRoot">
+
+
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+
+            <!--  Gradient Card Style - Compact Version (for Border)  -->
+            <Style x:Key="CompactGradientCardStyle" TargetType="Border">
+                <!--  Stroke acts as the border color for Border  -->
+                <Setter Property="Stroke" Value="#334155" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="StrokeShape">
+                    <Setter.Value>
+                        <RoundRectangle CornerRadius="12" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Padding" Value="12" />
+                <Setter Property="WidthRequest" Value="180" />
+                <Setter Property="HeightRequest" Value="180" />
+                <Setter Property="Background">
+                    <Setter.Value>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Offset="0.0" Color="#1E293B" />
+                            <GradientStop Offset="1.0" Color="#0F172A" />
+                        </LinearGradientBrush>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Shadow">
+                    <Setter.Value>
+                        <Shadow
+                            Brush="Black"
+                            Opacity="0.2"
+                            Radius="8"
+                            Offset="0,4" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="SelectionStates">
+                            <VisualState x:Name="Selected">
+                                <VisualState.Setters>
+                                    <Setter Property="Stroke" Value="#22C55E" />
+                                    <Setter Property="StrokeThickness" Value="2" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="NotSelected">
+                                <VisualState.Setters>
+                                    <Setter Property="Stroke" Value="#334155" />
+                                    <Setter Property="StrokeThickness" Value="1" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+
+            <!--  Icon Container Style (for Border)  -->
+            <Style x:Key="GradientIconContainer" TargetType="Border">
+                <Setter Property="StrokeShape">
+                    <Setter.Value>
+                        <RoundRectangle CornerRadius="8" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Padding" Value="6" />
+                <Setter Property="WidthRequest" Value="32" />
+                <Setter Property="HeightRequest" Value="32" />
+                <Setter Property="Background">
+                    <Setter.Value>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Offset="0.0" Color="#3B82F6" />
+                            <GradientStop Offset="1.0" Color="#1D4ED8" />
+                        </LinearGradientBrush>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  ImageButton style for compact action icons  -->
+            <Style x:Key="CompactGradientImageButtonStyle" TargetType="ImageButton">
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="MaximumHeightRequest" Value="36" />
+                <Setter Property="MaximumHeightRequest" Value="36" />
+                <Setter Property="Padding" Value="5" />
+                <!--  ImageButton inherits Button so CornerRadius applies  -->
+                <Setter Property="CornerRadius" Value="5" />
+                <Setter Property="Aspect" Value="AspectFit" />
+            </Style>
+
+            <!--  Button Styles  -->
+            <Style x:Key="CompactGradientButtonStyle" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="BorderColor" Value="Transparent" />
+                <Setter Property="BorderWidth" Value="0" />
+                <Setter Property="CornerRadius" Value="5" />
+                <Setter Property="Padding" Value="5" />
+                <Setter Property="WidthRequest" Value="29" />
+                <Setter Property="HeightRequest" Value="29" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="TextColor" Value="#60A5FA" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="Transparent" />
+                                    <Setter Property="Scale" Value="1.0" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="#1D4ED833" />
+                                    <Setter Property="Scale" Value="0.95" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="PointerOver">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="#1D4ED820" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+
+            <!--  Text Styles  -->
+            <Style x:Key="DeviceNameCompact" TargetType="Label">
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="LineBreakMode" Value="TailTruncation" />
+            </Style>
+
+            <Style x:Key="LastSeenCompact" TargetType="Label">
+                <Setter Property="FontSize" Value="10" />
+                <Setter Property="TextColor" Value="#CBD5E1" />
+            </Style>
+
+            <Style x:Key="StatusTextCompact" TargetType="Label">
+                <Setter Property="FontSize" Value="9" />
+            </Style>
+
+            <!--  Status Indicators  -->
+            <Style x:Key="ConnectedIndicatorCompact" TargetType="Ellipse">
+                <Setter Property="Fill" Value="#22C55E" />
+                <Setter Property="WidthRequest" Value="5" />
+                <Setter Property="HeightRequest" Value="5" />
+            </Style>
+
+            <Style x:Key="DisconnectedIndicatorCompact" TargetType="Ellipse">
+                <Setter Property="Fill" Value="#EF4444" />
+                <Setter Property="WidthRequest" Value="14" />
+                <Setter Property="HeightRequest" Value="14" />
+            </Style>
+
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Border
+        x:Name="CardBorder"
+        Padding="9"
+        Style="{StaticResource CompactGradientCardStyle}">
+        <Border.Triggers>
+            <DataTrigger
+                Binding="{Binding Source={x:Reference GradientCardRoot}, Path=IsSelected}"
+                TargetType="Border"
+                Value="True">
+                <Setter Property="Stroke" Value="#22C55E" />
+                <Setter Property="StrokeThickness" Value="2" />
+            </DataTrigger>
+            <DataTrigger
+                Binding="{Binding Source={x:Reference GradientCardRoot}, Path=IsSelected}"
+                TargetType="Border"
+                Value="False">
+                <Setter Property="Stroke" Value="#334155" />
+                <Setter Property="StrokeThickness" Value="1" />
+            </DataTrigger>
+        </Border.Triggers>
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
+
+            <!--  Icon container  -->
+            <Border
+                Grid.Row="0"
+                HorizontalOptions="Center"
+                Style="{StaticResource GradientIconContainer}">
+                <Image
+                    HeightRequest="22"
+                    HorizontalOptions="Center"
+                    Source="{Binding Source={x:Reference GradientCardRoot}, Path=Icon}"
+                    VerticalOptions="Center"
+                    WidthRequest="22" />
+            </Border>
+
+            <!--  Device Name  -->
+            <Label
+                x:Name="DeviceNameLabel"
+                Grid.Row="1"
+                FontSize="15"
+                HorizontalOptions="Center"
+                Style="{StaticResource DeviceNameCompact}"
+                Text="{Binding Source={x:Reference GradientCardRoot}, Path=DeviceName}" />
+
+            <!--  Network Info (SSID/IP)  -->
+            <Label
+                x:Name="NetworkInfoLabel"
+                Grid.Row="2"
+                HorizontalOptions="Center"
+                IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowNetworkInfo}"
+                Style="{StaticResource LastSeenCompact}"
+                Text="{Binding Source={x:Reference GradientCardRoot}, Path=NetworkInfo}" />
+
+            <!--  Status  -->
+            <StackLayout
+                Grid.Row="3"
+                HorizontalOptions="Center"
+                IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowStatus}"
+                Orientation="Horizontal"
+                Spacing="5">
+                <Ellipse
+                    x:Name="StatusIndicator"
+                    Style="{StaticResource DisconnectedIndicatorCompact}"
+                    VerticalOptions="Center" />
+                <Label
+                    x:Name="StatusLabel"
+                    Style="{StaticResource StatusTextCompact}"
+                    VerticalOptions="Center" />
+            </StackLayout>
+
+            <!--  Separator  -->
+            <BoxView
+                Grid.Row="4"
+                BackgroundColor="#334155"
+                HeightRequest="1" />
+
+            <!--  Action Buttons Row  -->
+            <Grid Grid.Row="5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackLayout
+                    Padding="4"
+                    HorizontalOptions="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <ImageButton
+                        x:Name="MonitorButton"
+                        Command="{Binding Source={x:Reference GradientCardRoot}, Path=AddToFloorPlanCommand}"
+                        CommandParameter="{Binding Source={x:Reference GradientCardRoot}, Path=CommandParameter}"
+                        IsEnabled="{Binding Source={x:Reference GradientCardRoot}, Path=AddButtonEnabled}"
+                        IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowAddButton}"
+                        Source="add_to_floorplan.svg"
+                        Style="{StaticResource CompactGradientImageButtonStyle}" />
+
+                    <ImageButton
+                        x:Name="SettingsButton"
+                        Command="{Binding Source={x:Reference GradientCardRoot}, Path=SettingsCommand}"
+                        CommandParameter="{Binding Source={x:Reference GradientCardRoot}, Path=CommandParameter}"
+                        IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowSettingsButton}"
+                        Source="settings.svg"
+                        Style="{StaticResource CompactGradientImageButtonStyle}" />
+
+                    <ImageButton
+                        x:Name="DeleteButton"
+                        Margin="-12,0,0,0"
+                        Command="{Binding Source={x:Reference GradientCardRoot}, Path=DeleteCommand}"
+                        CommandParameter="{Binding Source={x:Reference GradientCardRoot}, Path=CommandParameter}"
+                        Source="deletedevicebutton.svg"
+                        Style="{StaticResource CompactGradientImageButtonStyle}" />
+                </StackLayout>
+            </Grid>
+
+        </Grid>
+    </Border>
+
+</ContentView>

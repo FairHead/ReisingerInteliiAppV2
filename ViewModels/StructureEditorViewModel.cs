@@ -17,11 +17,15 @@ public partial class StructureEditorViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<Floor> floors = new();
     [ObservableProperty] private string newFloorName = string.Empty;
 
+    // Add computed property for UI binding
+    public string Title => string.IsNullOrEmpty(Name) ? "New Building" : $"Edit Building: {Name}";
+
     public IAsyncRelayCommand SaveCommand { get; }
     public IRelayCommand AddFloorCommand { get; }
     public IRelayCommand<Floor> RemoveFloorCommand { get; }
     public IAsyncRelayCommand<Floor> UploadPdfCommand { get; }
     public IAsyncRelayCommand<Floor> DeletePdfCommand { get; }
+    public IAsyncRelayCommand BackToMainPageCommand { get; }
 
     public StructureEditorViewModel(IBuildingStorageService storage, PdfStorageService pdfStorage)
     {
@@ -32,6 +36,7 @@ public partial class StructureEditorViewModel : ObservableObject
         RemoveFloorCommand = new RelayCommand<Floor>(RemoveFloor);
         UploadPdfCommand = new AsyncRelayCommand<Floor>(UploadPdfAsync);
         DeletePdfCommand = new AsyncRelayCommand<Floor>(DeletePdfAsync);
+        BackToMainPageCommand = new AsyncRelayCommand(BackToMainPageAsync);
     }
 
     public async Task InitializeAsync()
@@ -47,6 +52,9 @@ public partial class StructureEditorViewModel : ObservableObject
             // Remember which building is being edited so save can update (even if name changes)
             _originalName = Name;
         }
+        
+        // Notify UI about title change
+        OnPropertyChanged(nameof(Title));
     }
 
     private void AddFloor()
@@ -84,6 +92,9 @@ public partial class StructureEditorViewModel : ObservableObject
             floor.PdfPath = imported.pdfPath;
             floor.PngPath = imported.pngPath;
 
+            // Debug output to verify PDF path is set
+            System.Diagnostics.Debug.WriteLine($"? PDF uploaded for floor '{floor.FloorName}': {floor.PdfPath}");
+
             await PersistAsync(closeAndNotify: false);
             MessagingCenter.Send(this, "FloorPlanChanged", (Name, floor.FloorName));
         }
@@ -103,6 +114,10 @@ public partial class StructureEditorViewModel : ObservableObject
             await _pdfStorage.DeleteFloorAssetsAsync(new Building { BuildingName = Name }, floor);
             floor.PdfPath = null;
             floor.PngPath = null;
+
+            // Debug output to verify PDF path is cleared
+            System.Diagnostics.Debug.WriteLine($"? PDF deleted for floor '{floor.FloorName}'");
+
             await PersistAsync(closeAndNotify: false);
             MessagingCenter.Send(this, "FloorPlanChanged", (Name, floor.FloorName));
         }
@@ -115,6 +130,12 @@ public partial class StructureEditorViewModel : ObservableObject
     private async Task SaveAsync()
     {
         await PersistAsync(closeAndNotify: true);
+    }
+
+    private async Task BackToMainPageAsync()
+    {
+        // Navigate directly to the root MainPage to ensure all dropdowns are closed
+        await Shell.Current.GoToAsync("//MainPage");
     }
 
     private async Task PersistAsync(bool closeAndNotify)

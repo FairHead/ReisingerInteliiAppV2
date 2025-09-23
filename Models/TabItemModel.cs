@@ -17,6 +17,7 @@ public partial class DropdownItemModel : ObservableObject
     public string Icon { get; set; } = string.Empty;
     public string Text { get; set; } = string.Empty;
     public string SubText { get; set; } = string.Empty;
+    public string NetworkInfo { get; set; } = string.Empty; // New property for SSID or IP address
     public bool HasActions { get; set; }
     
     // Controls whether the connection status UI is shown for this item
@@ -29,6 +30,14 @@ public partial class DropdownItemModel : ObservableObject
     
     [ObservableProperty]
     private bool isConnected = false;
+
+    // If false, UI should disable action buttons (e.g., Add to Floor Plan) and optionally grey out the card
+    [ObservableProperty]
+    private bool isActionEnabled = true;
+
+    // Mark when this device is already placed on the currently selected floor (used to compute isActionEnabled/visuals)
+    [ObservableProperty]
+    private bool isPlacedOnCurrentFloor = false;
     
     // Computed properties that automatically notify when IsConnected changes
     public string ConnectionStatus => IsConnected ? "Connected" : "Disconnected";

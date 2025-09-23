@@ -22,6 +22,10 @@ public interface IDeviceService
     Task<bool> DeviceExistsAsync(string deviceId);
     Task<bool> DeviceExistsBySsidAsync(string ssid);
     Task<(bool IsSuccessful, bool IsEmpty, List<DeviceModel> Devices)> LoadDeviceListAsync();
+
+    // Neue Methoden für komplettes Speichern
+    Task SaveLocalDevicesAsync(List<DeviceModel> devices);
+    Task SaveWifiDevicesAsync(List<DeviceModel> devices);
 }
 
 public class DeviceService : IDeviceService
@@ -111,9 +115,9 @@ public class DeviceService : IDeviceService
         {
             Debug.WriteLine($"🔍 Starting local network scan from {startIp} to {endIp}");
             
-            // Get saved device serial numbers for comparison
+            // Get saved device IDs for comparison to ensure we can grey out already-saved devices
             var savedDevices = await GetSavedLocalDevicesAsync();
-            var savedSerialNumbers = savedDevices.Select(d => d.SerialNumber).ToHashSet();
+            var savedDeviceIds = savedDevices.Select(d => d.DeviceId ?? string.Empty).ToHashSet();
             
             // Parse IP range
             var startBytes = IPAddress.Parse(startIp).GetAddressBytes();
@@ -135,11 +139,11 @@ public class DeviceService : IDeviceService
             
             // Use SemaphoreSlim for controlled parallelism (max 20 concurrent connections)
             using var semaphore = new SemaphoreSlim(20, 20);
-            var scanTasks = ipsToScan.Select(async ip => {
+        var scanTasks = ipsToScan.Select(async ip => {
                 await semaphore.WaitAsync();
                 try
                 {
-                    return await ScanSingleDeviceAsync(ip, savedSerialNumbers);
+            return await ScanSingleDeviceAsync(ip, savedDeviceIds);
                 }
                 finally
                 {
@@ -161,7 +165,7 @@ public class DeviceService : IDeviceService
         }
     }
     
-    private async Task<LocalNetworkDeviceModel?> ScanSingleDeviceAsync(string ipAddress, HashSet<string> savedSerialNumbers)
+    private async Task<LocalNetworkDeviceModel?> ScanSingleDeviceAsync(string ipAddress, HashSet<string> savedDeviceIds)
     {
         try
         {
@@ -172,7 +176,7 @@ public class DeviceService : IDeviceService
             
             stopwatch.Stop();
             
-            if (versionResponse != null && !string.IsNullOrEmpty(versionResponse.Message))
+        if (versionResponse != null && !string.IsNullOrEmpty(versionResponse.Message))
             {
                 var device = new LocalNetworkDeviceModel
                 {
@@ -182,7 +186,8 @@ public class DeviceService : IDeviceService
                     FirmwareVersion = versionResponse.FirmwareVersion ?? "Unknown",
                     SoftwareVersion = versionResponse.Message ?? "Unknown", 
                     LatestFirmware = versionResponse.LatestFirmware,
-                    IsAlreadySaved = savedSerialNumbers.Contains(versionResponse.DeviceId ?? ""),
+            // Grey out immediately if we've already saved this DeviceId
+            IsAlreadySaved = savedDeviceIds.Contains(versionResponse.DeviceId ?? string.Empty),
                     DiscoveredAt = DateTime.Now,
                     IsOnline = true,
                     ResponseTime = DateTime.Now // Fixed: Use DateTime instead of TimeSpan
@@ -349,4 +354,24 @@ public class DeviceService : IDeviceService
             System.Diagnostics.Debug.WriteLine($"❌ Error saving device list: {ex.Message}");
         }
     }
+
+    // --- Neue Methoden für komplettes Speichern ---
+    public async Task SaveLocalDevicesAsync(List<DeviceModel> devices)
+    {
+        var (success, _, allDevices) = await LoadDeviceListAsync();
+        if (!success) allDevices = new List<DeviceModel>();
+        allDevices.RemoveAll(d => d.ConnectionType == ConnectionType.Local);
+        allDevices.AddRange(devices);
+        await SaveDeviceListToSecureStoreAsync(allDevices);
+    }
+
+    public async Task SaveWifiDevicesAsync(List<DeviceModel> devices)
+    {
+        var (success, _, allDevices) = await LoadDeviceListAsync();
+        if (!success) allDevices = new List<DeviceModel>();
+        allDevices.RemoveAll(d => d.ConnectionType == ConnectionType.Wifi);
+        allDevices.AddRange(devices);
+        await SaveDeviceListToSecureStoreAsync(allDevices);
+    }
+
 }

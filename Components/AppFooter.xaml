@@ -1,47 +1,99 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="ReisingerIntelliApp_V4.Components.AppFooter">
-    
+<ContentView
+    x:Class="ReisingerIntelliApp_V4.Components.AppFooter"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
     <Border Padding="20,15" StrokeThickness="0">
         <Border.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="Transparent" Offset="0.0" />
-                <GradientStop Color="#565656" Offset="0.9" />
-                <GradientStop Color="#2D2D2D" Offset="1.0" />
+                <GradientStop Offset="0.0" Color="#1E1E1E" />
+                <GradientStop Offset="0.9" Color="#565656" />
+                <GradientStop Offset="1.1" Color="#2D2D2D" />
             </LinearGradientBrush>
         </Border.Background>
-        
+
         <Grid ColumnDefinitions="*,Auto,*">
-            <StackLayout x:Name="LeftSection" Grid.Column="0" HorizontalOptions="Start">
+            <StackLayout
+                x:Name="LeftSection"
+                Grid.Column="0"
+                HorizontalOptions="Start">
                 <Grid>
-                    <Label x:Name="LeftIconLabel" Text="" FontSize="24" TextColor="#808080" HorizontalOptions="Center" IsVisible="False" />
-                    <Image x:Name="LeftIconImage" Source="home.svg" WidthRequest="24" HeightRequest="24" HorizontalOptions="Center" />
+                    <Label
+                        x:Name="LeftIconLabel"
+                        FontSize="24"
+                        HorizontalOptions="Center"
+                        IsVisible="False"
+                        Text=""
+                        TextColor="#808080" />
+                    <Image
+                        x:Name="LeftIconImage"
+                        HeightRequest="24"
+                        HorizontalOptions="Center"
+                        Source="home.svg"
+                        WidthRequest="24" />
                 </Grid>
-                <Label x:Name="LeftTextLabel" Text="My Place" TextColor="#808080" FontSize="12" HorizontalOptions="Center" />
+                <Label
+                    x:Name="LeftTextLabel"
+                    FontSize="12"
+                    HorizontalOptions="Center"
+                    Text="My Place"
+                    TextColor="#808080" />
             </StackLayout>
-            
-            <Border x:Name="CenterButton" 
-                    Grid.Column="1" 
-                    BackgroundColor="#007AFF" 
-                    StrokeShape="RoundRectangle 30" 
-                    StrokeThickness="0"
-                    WidthRequest="60" 
-                    HeightRequest="60">
+
+            <Border
+                x:Name="CenterButton"
+                Grid.Column="1"
+                BackgroundColor="#007AFF"
+                HeightRequest="60"
+                StrokeShape="RoundRectangle 30"
+                StrokeThickness="0"
+                WidthRequest="60">
                 <Grid>
-                    <Label x:Name="CenterIconLabel" Text="+" FontSize="30" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
-                    <Image x:Name="CenterIconImage" WidthRequest="30" HeightRequest="30" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="False" />
+                    <Label
+                        x:Name="CenterIconLabel"
+                        FontSize="30"
+                        HorizontalOptions="Center"
+                        Text="+"
+                        TextColor="White"
+                        VerticalOptions="Center" />
+                    <Image
+                        x:Name="CenterIconImage"
+                        HeightRequest="30"
+                        HorizontalOptions="Center"
+                        IsVisible="False"
+                        VerticalOptions="Center"
+                        WidthRequest="30" />
                 </Grid>
             </Border>
-            
-            <StackLayout x:Name="RightSection" Grid.Column="2" HorizontalOptions="End">
+
+            <StackLayout
+                x:Name="RightSection"
+                Grid.Column="2"
+                HorizontalOptions="End">
                 <Grid>
-                    <Label x:Name="RightIconLabel" Text="⚙️" FontSize="24" TextColor="#808080" HorizontalOptions="Center" IsVisible="False" />
-                    <Image x:Name="RightIconImage" Source="settings.svg" WidthRequest="24" HeightRequest="24" HorizontalOptions="Center" />
+                    <Label
+                        x:Name="RightIconLabel"
+                        FontSize="24"
+                        HorizontalOptions="Center"
+                        IsVisible="False"
+                        Text="⚙️"
+                        TextColor="#808080" />
+                    <Image
+                        x:Name="RightIconImage"
+                        HeightRequest="24"
+                        HorizontalOptions="Center"
+                        Source="settings.svg"
+                        WidthRequest="24" />
                 </Grid>
-                <Label x:Name="RightTextLabel" Text="Preferences" TextColor="#808080" FontSize="12" HorizontalOptions="Center" />
+                <Label
+                    x:Name="RightTextLabel"
+                    FontSize="12"
+                    HorizontalOptions="Center"
+                    Text="Preferences"
+                    TextColor="#808080" />
             </StackLayout>
         </Grid>
     </Border>
-    
+
 </ContentView>

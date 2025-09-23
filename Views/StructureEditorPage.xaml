@@ -1,44 +1,153 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     x:Class="ReisingerIntelliApp_V4.Views.StructureEditorPage"
-    x:Name="EditorPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
+    xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters"
+    x:Name="EditorPage"
+    Title="Structure Editor"
     BackgroundColor="#1E1E1E"
-    Title="Structure Editor">
+    Shell.NavBarIsVisible="False">
 
-    <VerticalStackLayout Padding="20" Spacing="12">
-        <Label Text="Building Name" TextColor="White" />
-        <Entry Text="{Binding Name}" Placeholder="Enter name" />
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:PdfPathToDisplayNameConverter x:Key="PdfPathToDisplayNameConverter" />
+            <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
-        <Label Text="Floors" TextColor="White" />
-        <HorizontalStackLayout Spacing="8">
-            <Entry Text="{Binding NewFloorName}" Placeholder="New floor name" />
-            <Button Text="Add" Command="{Binding AddFloorCommand}" />
-        </HorizontalStackLayout>
+    <Grid RowDefinitions="Auto,*,Auto">
+        <components:BackgroundLogo Grid.RowSpan="3" />
+        <components:AppHeader
+            Title="{Binding Title}"
+            Grid.Row="0"
+            FontSize="20"
+            TitleColor="White"
+            ShowBackButton="True"
+            BackCommand="{Binding BackToMainPageCommand}"
+            ZIndex="2" />
+        
 
-    <CollectionView ItemsSource="{Binding Floors}" HeightRequest="300">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" Padding="8" ColumnSpacing="8">
-                        <VerticalStackLayout>
-                            <Label Text="{Binding FloorName}" TextColor="White" />
-                            <Label Text="{Binding PdfPath}" FontSize="10" TextColor="#808080" />
-                        </VerticalStackLayout>
-                        <Button Grid.Column="1" Text="Upload/Replace PDF"
-                                Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.UploadPdfCommand}"
-                                CommandParameter="{Binding .}" />
-                        <Button Grid.Column="2" Text="Delete Plan"
-                                Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.DeletePdfCommand}"
-                                CommandParameter="{Binding .}" />
-                        <Button Grid.Column="3" Text="Remove"
-                                Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.RemoveFloorCommand}"
-                                CommandParameter="{Binding .}" />
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+        <ScrollView Grid.Row="1" Padding="20">
+            <VerticalStackLayout Spacing="12">
 
-        <Button Text="Save" Command="{Binding SaveCommand}" />
-    </VerticalStackLayout>
+                <Label
+                    FontSize="25"
+                    Text="Building Name"
+                    TextColor="White" />
+                <Entry
+                    Placeholder="Enter name"
+                    Text="{Binding Name}"
+                    TextColor="White" />
+
+                <Label Text="Floors" TextColor="White" />
+                <HorizontalStackLayout Spacing="8">
+                    <Entry
+                        Placeholder="New floor name"
+                        Text="{Binding NewFloorName}"
+                        TextColor="White" />
+                    <Button Command="{Binding AddFloorCommand}" Text="Add" />
+                </HorizontalStackLayout>
+
+                <CollectionView
+                    Margin="0,10,0,0"
+                    BackgroundColor="#40808080"
+                    HeightRequest="400"
+                    ItemsSource="{Binding Floors}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Border
+                                Margin="0,4"
+                                Padding="12"
+                                BackgroundColor="#2A2A2A"
+                                Stroke="#444444"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="1">
+                                <Grid
+                                    ColumnDefinitions="*,Auto,Auto,Auto"
+                                    ColumnSpacing="8"
+                                    RowDefinitions="Auto,Auto">
+
+                                    <!--  Floor Info Section  -->
+                                    <StackLayout
+                                        Grid.Row="0"
+                                        Grid.RowSpan="2"
+                                        Grid.Column="0"
+                                        Margin="0,5,0,0"
+                                        Spacing="4">
+                                        <Label
+                                            FontAttributes="Bold"
+                                            FontSize="16"
+                                            Text="{Binding FloorName}"
+                                            TextColor="White" />
+
+                                        <!--  PDF Status Label - Show when PDF exists  -->
+                                        <Label
+                                            FontSize="12"
+                                            IsVisible="{Binding PdfPath, Converter={StaticResource StringToBoolConverter}}"
+                                            Text="{Binding PdfPath, Converter={StaticResource PdfPathToDisplayNameConverter}}"
+                                            TextColor="#90EE90" />
+
+                                        <!--  No PDF Label - Show when PDF doesn't exist  -->
+                                        <Label
+                                            FontSize="12"
+                                            IsVisible="{Binding PdfPath, Converter={StaticResource StringToBoolConverter}, ConverterParameter=true}"
+                                            Text="No floor plan uploaded"
+                                            TextColor="#FF6B6B" />
+                                    </StackLayout>
+
+                                    <!--  Action Buttons  -->
+                                    <Button
+                                        Grid.Row="0"
+                                        Grid.Column="1"
+                                        BackgroundColor="#007ACC"
+                                        Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.UploadPdfCommand}"
+                                        CommandParameter="{Binding .}"
+                                        FontSize="10"
+                                        HeightRequest="50"
+                                        Text="Upload&#x0A;Replace PDF"
+                                        TextColor="White"
+                                        WidthRequest="85" />
+
+                                    <Button
+                                        Grid.Row="0"
+                                        Grid.Column="2"
+                                        BackgroundColor="#DC3545"
+                                        Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.DeletePdfCommand}"
+                                        CommandParameter="{Binding .}"
+                                        FontSize="10"
+                                        HeightRequest="50"
+                                        IsEnabled="{Binding PdfPath, Converter={StaticResource StringToBoolConverter}}"
+                                        Text="Delete&#x0A;Plan"
+                                        TextColor="White"
+                                        WidthRequest="65" />
+
+                                    <Button
+                                        Grid.Row="0"
+                                        Grid.Column="3"
+                                        BackgroundColor="#6C757D"
+                                        Command="{Binding Source={x:Reference Name=EditorPage}, Path=BindingContext.RemoveFloorCommand}"
+                                        CommandParameter="{Binding .}"
+                                        FontSize="10"
+                                        HeightRequest="50"
+                                        Text="Remove&#x0A;Floor"
+                                        TextColor="White"
+                                        WidthRequest="65" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!--  Footer Component with Save functionality (bookmark icon)  -->
+        <components:AppFooter
+            x:Name="Footer"
+            Grid.Row="2"
+            CenterIcon="bookmark.svg" />
+    </Grid>
 </ContentPage>
+

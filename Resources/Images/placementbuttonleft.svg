@@ -1,0 +1,64 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Metall-Background -->
+    <linearGradient id="metalFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2c2c2c"></stop>
+      <stop offset="50%" stop-color="#1f1f1f"></stop>
+      <stop offset="100%" stop-color="#2b2b2b"></stop>
+    </linearGradient>
+
+    <!-- Metall-Rand -->
+    <linearGradient id="metalStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e0e0e0"></stop>
+      <stop offset="50%" stop-color="#888888"></stop>
+      <stop offset="100%" stop-color="#cccccc"></stop>
+    </linearGradient>
+
+    <!-- ✅ Neuer Außenring in #0A84FF -->
+    <radialGradient id="neonGlow" cx="50%" cy="50%" r="60%">
+      <stop offset="80%" stop-color="#0A84FF"></stop>
+      <stop offset="100%" stop-color="rgba(10,132,255,0.05)"></stop>
+    </radialGradient>
+
+    <!-- ✅ Pulsierender Pfeil-Glow in #0A84FF -->
+    <filter id="bluePulse" x="-10%" y="-90%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="2.5" result="blur">
+        <animate attributeName="stdDeviation" values="2.5;4;2.5" dur="2s" repeatCount="indefinite"></animate>
+      </feGaussianBlur>
+      <feColorMatrix result="pulseGlow" type="matrix" values="0 0 1 0 0
+                0 0 1 0 0
+                0 0 1 0 0
+                0 0 0 0.6 0">
+        <animate attributeName="values" values="
+            0 0 0.4 0 0
+            0 0 0.6 0 0
+            0 0 1 0 0
+            0 0 0 0.4 0;
+            0 0 0.65 0 0
+            0 0 0.75 0 0
+            0 0 1 0 0
+            0 0 0 0.8 0;
+            0 0 0.4 0 0
+            0 0 0.6 0 0
+            0 0 1 0 0
+            0 0 0 0.4 0" dur="2s" repeatCount="indefinite"></animate>
+      </feColorMatrix>
+      <feMerge>
+        <feMergeNode in="pulseGlow"></feMergeNode>
+        <feMergeNode in="SourceGraphic"></feMergeNode>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Außenring -->
+  <circle cx="50" cy="50" r="48" fill="url(#neonGlow)" />
+
+  <!-- Buttonkörper -->
+  <circle cx="50" cy="50" r="40" fill="url(#metalFill)" stroke="url(#metalStroke)" stroke-width="3" />
+
+  <!-- Eingelassener Pfeil (dunkel, etwas größer) -->
+  <path d="M60 33 L32 50 L60 67 Z" fill="black" />
+
+  <!-- Pulsierender LED-Pfeil -->
+  <path d="M58 35 L35 50 L58 65 Z" fill="#0A84FF" filter="url(#bluePulse)" />
+</svg>

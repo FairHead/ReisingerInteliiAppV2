@@ -1,18 +1,22 @@
-﻿<?xml version = "1.0" encoding = "UTF-8" ?>
-<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:local="clr-namespace:ReisingerIntelliApp_V4"
-             xmlns:conv="clr-namespace:ReisingerIntelliApp_V4.Converters"
-             x:Class="ReisingerIntelliApp_V4.App">
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<Application
+    x:Class="ReisingerIntelliApp_V4.App"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:conv="clr-namespace:ReisingerIntelliApp_V4.Converters"
+    xmlns:local="clr-namespace:ReisingerIntelliApp_V4">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <!-- Converters -->
-            <conv:BoolToStrokeThicknessConverter x:Key="BoolToThicknessConverter" TrueThickness="2" FalseThickness="0" />
-            <!-- Reuse existing BoolToColorConverter for stroke if desired; if not ideal, consider a dedicated converter -->
+            <!--  Converters  -->
+            <conv:BoolToStrokeThicknessConverter
+                x:Key="BoolToThicknessConverter"
+                FalseThickness="0"
+                TrueThickness="2" />
+            <!--  Reuse existing BoolToColorConverter for stroke if desired; if not ideal, consider a dedicated converter  -->
             <conv:BoolToColorConverter x:Key="BoolToColorConverter" />
         </ResourceDictionary>
     </Application.Resources>

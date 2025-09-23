@@ -18,20 +18,31 @@ public class PanPinchContainer : ContentView
     private double _panX;
     private double _panY;
     private double _startScale = 1;
+    private bool _isProcessingGesture = false;
+    private int _inputBlockCount = 0; // counts active interactive presses from device controls
 
     public PanPinchContainer()
     {
         _panGestureRecognizer = new PanGestureRecognizer();
-        _panGestureRecognizer.PanUpdated += OnPanUpdatedAsync;
+        _panGestureRecognizer.PanUpdated += OnPanUpdated;
         GestureRecognizers.Add(_panGestureRecognizer);
 
         _pinchGestureRecognizer = new PinchGestureRecognizer();
-        _pinchGestureRecognizer.PinchUpdated += OnPinchUpdatedAsync;
+        _pinchGestureRecognizer.PinchUpdated += OnPinchUpdated;
         GestureRecognizers.Add(_pinchGestureRecognizer);
 
         _doubleTapGestureRecognizer = new TapGestureRecognizer { NumberOfTapsRequired = 2 };
-        _doubleTapGestureRecognizer.Tapped += DoubleTappedAsync;
+        _doubleTapGestureRecognizer.Tapped += OnDoubleTapped;
         GestureRecognizers.Add(_doubleTapGestureRecognizer);
+
+    // Listen for temporary pan blocking while interacting with device buttons
+#pragma warning disable CS0618
+    MessagingCenter.Subscribe<ReisingerIntelliApp_V4.Components.PlacedDeviceControl, bool>(this, "PanInputBlock", (sender, isPressed) =>
+    {
+        _inputBlockCount = Math.Max(0, _inputBlockCount + (isPressed ? 1 : -1));
+        System.Diagnostics.Debug.WriteLine($"[PanPinchContainer] Pan block count = {_inputBlockCount}");
+    });
+#pragma warning restore CS0618
     }
 
     protected override void OnChildAdded(Element child)
@@ -119,7 +130,30 @@ public class PanPinchContainer : ContentView
         await ClampTranslationAsync(targetX, targetY, animate);
     }
 
-    private async void DoubleTappedAsync(object? sender, TappedEventArgs e)
+    private void OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_isProcessingGesture || Content is null || _inputBlockCount > 0) return;
+        
+        // Use fire-and-forget with proper error handling to avoid deadlocks
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                _isProcessingGesture = true;
+                await DoubleTappedAsync(sender, e);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error in OnDoubleTapped: {ex.Message}");
+            }
+            finally
+            {
+                _isProcessingGesture = false;
+            }
+        });
+    }
+
+    private async Task DoubleTappedAsync(object? sender, TappedEventArgs e)
     {
         if (Content is null) return;
 
@@ -145,8 +179,32 @@ public class PanPinchContainer : ContentView
         _panY = Content.TranslationY;
     }
 
-    private async void OnPanUpdatedAsync(object? sender, PanUpdatedEventArgs e)
+    private void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
     {
+        if (_isProcessingGesture || _inputBlockCount > 0) return;
+        
+        // Use fire-and-forget with proper error handling to avoid deadlocks
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                _isProcessingGesture = true;
+                await OnPanUpdatedAsync(sender, e);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error in OnPanUpdated: {ex.Message}");
+            }
+            finally
+            {
+                _isProcessingGesture = false;
+            }
+        });
+    }
+
+    private async Task OnPanUpdatedAsync(object? sender, PanUpdatedEventArgs e)
+    {
+        if (_inputBlockCount > 0) return;
         if (!_isPanEnabled || Content is null)
             return;
 
@@ -176,8 +234,32 @@ public class PanPinchContainer : ContentView
         }
     }
 
-    private async void OnPinchUpdatedAsync(object? sender, PinchGestureUpdatedEventArgs e)
+    private void OnPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e)
     {
+        if (_isProcessingGesture || _inputBlockCount > 0) return;
+        
+        // Use fire-and-forget with proper error handling to avoid deadlocks
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                _isProcessingGesture = true;
+                await OnPinchUpdatedAsync(sender, e);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error in OnPinchUpdated: {ex.Message}");
+            }
+            finally
+            {
+                _isProcessingGesture = false;
+            }
+        });
+    }
+
+    private async Task OnPinchUpdatedAsync(object? sender, PinchGestureUpdatedEventArgs e)
+    {
+        if (_inputBlockCount > 0) return;
         if (Content is null) return;
 
         if (e.Status == GestureStatus.Started)
