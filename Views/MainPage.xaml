@@ -173,12 +173,13 @@
                 Padding="0,-10,0,0"
                 HorizontalOptions="Fill"
                 IsVisible="{Binding IsDropdownVisible}"
-                RowDefinitions="Auto,*,Auto"
+                RowDefinitions="Auto,Auto"
+                VerticalOptions="Start"
                 ZIndex="50">
-                <Grid.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnDropdownContentTapped" />
-                </Grid.GestureRecognizers>
                 <Border Margin="10,5,0,0" StrokeThickness="0">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnDropdownContentTapped" />
+                    </Border.GestureRecognizers>
                     <Label
                         x:Name="DropdownTitle"
                         Padding="5"
@@ -202,6 +203,9 @@
                     StrokeThickness="1"
                     VerticalOptions="Start"
                     WidthRequest="375">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnDropdownContentTapped" />
+                    </Border.GestureRecognizers>
                     <Border.Triggers>
                         <MultiTrigger TargetType="Border">
                             <MultiTrigger.Conditions>
@@ -254,6 +258,9 @@
                     StrokeThickness="3"
                     VerticalOptions="Start"
                     ZIndex="51">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnDropdownContentTapped" />
+                    </Border.GestureRecognizers>
 
                     <Grid RowDefinitions="Auto,Auto" ZIndex="52">
                         <CollectionView
