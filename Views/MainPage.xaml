@@ -255,74 +255,70 @@
                     VerticalOptions="Start"
                     ZIndex="51">
 
-                    <Grid RowDefinitions="*,Auto" ZIndex="52">
-                        <ScrollView
+                    <Grid RowDefinitions="Auto,Auto" ZIndex="52">
+                        <CollectionView
                             Grid.Row="0"
-                            MaximumHeightRequest="400"
-                            VerticalScrollBarVisibility="Always"
-                            ZIndex="53">
-                            <CollectionView
-                                x:Name="DropdownItemsView"
-                                Background="Transparent"
-                                ItemsSource="{Binding DropdownItems}"
-                                SelectionChanged="OnDropdownItemSelected"
-                                SelectionMode="Single"
-                                VerticalOptions="Start"
-                                ZIndex="54">
-                                <CollectionView.ItemsLayout>
-                                    <GridItemsLayout
-                                        HorizontalItemSpacing="10"
-                                        Orientation="Vertical"
-                                        Span="2"
-                                        VerticalItemSpacing="10" />
-                                </CollectionView.ItemsLayout>
+                            x:Name="DropdownItemsView"
+                            Background="Transparent"
+                            ItemsSource="{Binding DropdownItems}"
+                            SelectionChanged="OnDropdownItemSelected"
+                            SelectionMode="Single"
+                            VerticalOptions="Start"
+                            ItemSizingStrategy="MeasureFirstItem"
+                            ZIndex="54">
+                            <CollectionView.ItemsLayout>
+                                <GridItemsLayout
+                                    HorizontalItemSpacing="10"
+                                    Orientation="Vertical"
+                                    Span="2"
+                                    VerticalItemSpacing="10" />
+                            </CollectionView.ItemsLayout>
 
-                                <CollectionView.ItemTemplate>
-                                    <DataTemplate>
-                                        <components:GradientWifiCardComponent
-                                            Margin="0"
-                                            Padding="0"
-                                            AddButtonEnabled="{Binding IsActionEnabled}"
-                                            AddToFloorPlanCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.AddDeviceToFloorPlanCommand}"
-                                            CommandParameter="{Binding .}"
-                                            DeleteCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.DeleteDeviceFromDropdownCommand}"
-                                            DeviceName="{Binding Text}"
-                                            Icon="{Binding Icon}"
-                                            IsConnected="{Binding IsConnected}"
-                                            IsPlacedOnCurrentFloor="{Binding IsPlacedOnCurrentFloor}"
-                                            IsSelected="{Binding IsSelected}"
-                                            LastSeen="{Binding LastSeen}"
-                                            NetworkInfo="{Binding NetworkInfo}"
-                                            ShowAddButton="{Binding HasActions}"
-                                            ShowDeviceOptionsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.ShowDeviceOptionsCommand}"
-                                            SettingsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.NavigateToStructureEditorCommand}"
-                                            ShowNetworkInfo="True"
-                                            ShowSettingsButton="{Binding HasActions}"
-                                            ShowStatus="{Binding ShowStatus}"
-                                            WidthRequest="180">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <components:GradientWifiCardComponent
+                                        Margin="0"
+                                        Padding="0"
+                                        AddButtonEnabled="{Binding IsActionEnabled}"
+                                        AddToFloorPlanCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.AddDeviceToFloorPlanCommand}"
+                                        CommandParameter="{Binding .}"
+                                        DeleteCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.DeleteDeviceFromDropdownCommand}"
+                                        DeviceName="{Binding Text}"
+                                        Icon="{Binding Icon}"
+                                        IsConnected="{Binding IsConnected}"
+                                        IsPlacedOnCurrentFloor="{Binding IsPlacedOnCurrentFloor}"
+                                        IsSelected="{Binding IsSelected}"
+                                        LastSeen="{Binding LastSeen}"
+                                        NetworkInfo="{Binding NetworkInfo}"
+                                        ShowAddButton="{Binding HasActions}"
+                                        ShowDeviceOptionsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.ShowDeviceOptionsCommand}"
+                                        SettingsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.NavigateToStructureEditorCommand}"
+                                        ShowNetworkInfo="True"
+                                        ShowSettingsButton="{Binding HasActions}"
+                                        ShowStatus="{Binding ShowStatus}"
+                                        WidthRequest="180">
 
-                                            <components:GradientWifiCardComponent.Triggers>
-                                                <DataTrigger
-                                                    Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
-                                                    TargetType="components:GradientWifiCardComponent"
-                                                    Value="Structures">
-                                                    <Setter Property="ShowAddButton" Value="False" />
-                                                    <Setter Property="ShowSettingsButton" Value="True" />
-                                                </DataTrigger>
-                                                <DataTrigger
-                                                    Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
-                                                    TargetType="components:GradientWifiCardComponent"
-                                                    Value="Levels">
-                                                    <Setter Property="ShowAddButton" Value="False" />
-                                                    <Setter Property="ShowSettingsButton" Value="True" />
-                                                </DataTrigger>
-                                            </components:GradientWifiCardComponent.Triggers>
+                                        <components:GradientWifiCardComponent.Triggers>
+                                            <DataTrigger
+                                                Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
+                                                TargetType="components:GradientWifiCardComponent"
+                                                Value="Structures">
+                                                <Setter Property="ShowAddButton" Value="False" />
+                                                <Setter Property="ShowSettingsButton" Value="True" />
+                                            </DataTrigger>
+                                            <DataTrigger
+                                                Binding="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CurrentActiveTab}"
+                                                TargetType="components:GradientWifiCardComponent"
+                                                Value="Levels">
+                                                <Setter Property="ShowAddButton" Value="False" />
+                                                <Setter Property="ShowSettingsButton" Value="True" />
+                                            </DataTrigger>
+                                        </components:GradientWifiCardComponent.Triggers>
 
-                                        </components:GradientWifiCardComponent>
-                                    </DataTemplate>
-                                </CollectionView.ItemTemplate>
-                            </CollectionView>
-                        </ScrollView>
+                                    </components:GradientWifiCardComponent>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
 
                         <!--  Scan button at bottom of dropdown frame  -->
                         <Border
