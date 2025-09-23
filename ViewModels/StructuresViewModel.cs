@@ -77,8 +77,11 @@ public partial class StructuresViewModel : ObservableObject
     partial void OnSelectedBuildingChanged(Building? value)
     {
         Levels = new ObservableCollection<Floor>(value?.Floors ?? new());
-        // Reset selected level when building changes
-        SelectedLevel = Levels.FirstOrDefault();
+        // Only auto-select first level if no level is currently selected
+        if (SelectedLevel == null && Levels.Any())
+        {
+            SelectedLevel = Levels.FirstOrDefault();
+        }
         RecomputePlanState();
     }
 

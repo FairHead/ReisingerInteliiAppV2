@@ -26,6 +26,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
         SetupViewModelEvents();
         
         // Listen for force device layout refresh messages
+        #pragma warning disable CS0618 // MessagingCenter is obsolete; suppression until migrated
         MessagingCenter.Subscribe<MainPageViewModel>(this, "ForceDeviceLayoutRefresh", (sender) =>
         {
             MainThread.BeginInvokeOnMainThread(() =>
@@ -34,6 +35,18 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 InvalidateDevicesLayout();
             });
         });
+        // Listen for reset request to immediately clear plan and overlay (e.g., My Place)
+        MessagingCenter.Subscribe<MainPageViewModel>(this, "ResetPlanAndOverlay", (sender) =>
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                Console.WriteLine("🧹 ResetPlanAndOverlay received -> clearing PlanImage and DevicesOverlay");
+                PlanImage.Source = null;
+                DevicesOverlay?.Children?.Clear();
+                DevicesOverlay?.InvalidateMeasure();
+            });
+        });
+        #pragma warning restore CS0618
         
         // Hook plan updates to refresh image source when properties change
         if (_viewModel.StructuresVM != null)
@@ -54,6 +67,16 @@ public partial class MainPage : ContentPage, IPlanViewportService
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
                         WireDevicesCollection();
+                        // If no level selected, clear plan and overlay
+                        if (_viewModel?.StructuresVM?.SelectedLevel == null)
+                        {
+                            PlanImage.Source = null;
+                            DevicesOverlay?.Children?.Clear();
+                        }
+                        else
+                        {
+                            SyncDevicesOverlay(); // Sync controls when level changes
+                        }
                         InvalidateDevicesLayout();
                     });
                 }
@@ -62,6 +85,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
 
         // Ensure we are wired to the current level and can layout existing devices immediately
         WireDevicesCollection();
+        SyncDevicesOverlay(); // Sync controls on initial load
         InvalidateDevicesLayout();
 
         // When BindableLayout creates a new visual child, position it right away
@@ -212,8 +236,9 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 try
                 {
                     MainThread.BeginInvokeOnMainThread(() => {
-                        Console.WriteLine("[PlacedDevices_CollectionChanged] -> InvalidateDevicesLayout (debounced)");
-                        InvalidateDevicesLayout();
+                        Console.WriteLine("[PlacedDevices_CollectionChanged] -> SyncDevicesOverlay and InvalidateDevicesLayout (debounced)");
+                        SyncDevicesOverlay(); // Sync first to add/remove controls
+                        InvalidateDevicesLayout(); // Then update positions
                     });
                 }
                 catch (Exception ex)
@@ -231,7 +256,8 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 {
                     try
                     {
-                        await _viewModel?.SaveCurrentFloorAsync();
+                        if (_viewModel != null)
+                            await _viewModel.SaveCurrentFloorAsync();
                     }
                     catch (Exception ex)
                     {
@@ -269,35 +295,102 @@ public partial class MainPage : ContentPage, IPlanViewportService
             if (e.PropertyName is nameof(PlacedDeviceModel.RelativeX) or nameof(PlacedDeviceModel.RelativeY) or nameof(PlacedDeviceModel.Scale)
                 or nameof(PlacedDeviceModel.BaseWidthNorm) or nameof(PlacedDeviceModel.BaseHeightNorm))
             {
-                // Immediate layout update for scale changes to ensure visual feedback
-                if (e.PropertyName == nameof(PlacedDeviceModel.Scale))
+                // Immediate layout update for all property changes to ensure visual feedback
+                Console.WriteLine($"🔄 PlacedDevice_PropertyChanged: {e.PropertyName} - triggering immediate layout update");
+                
+                try
                 {
-                    try
+                    // Cancel any pending timer and execute immediately
+                    _layoutInvalidationTimer?.Dispose();
+                    _layoutInvalidationTimer = null;
+                    
+                    MainThread.BeginInvokeOnMainThread(() =>
                     {
-                    Console.WriteLine("🔄 Force device layout refresh requested");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[PlacedDevice_PropertyChanged] Scale update error: {ex.Message}");
-                    }
+                        Console.WriteLine($"🎯 Immediate InvalidateDevicesLayout for {e.PropertyName}");
+                        InvalidateDevicesLayout();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[PlacedDevice_PropertyChanged] Immediate update error: {ex.Message}");
+                }
+            }
+        }
+
+        private void SyncDevicesOverlay()
+        {
+            if (DevicesOverlay == null || _viewModel?.StructuresVM?.SelectedLevel?.PlacedDevices == null)
+            {
+                Console.WriteLine("[SyncDevicesOverlay] DevicesOverlay or PlacedDevices is null. Skipping.");
+                // Additionally, ensure overlay is empty if no level selected
+                if (_viewModel?.StructuresVM?.SelectedLevel == null)
+                {
+                    DevicesOverlay?.Children?.Clear();
+                }
+                return;
+            }
+
+            Console.WriteLine($"[SyncDevicesOverlay] Syncing {_viewModel.StructuresVM.SelectedLevel.PlacedDevices.Count} PlacedDevices with {DevicesOverlay.Children.Count} UI controls");
+
+            // Get existing controls and current models
+            var existingControls = DevicesOverlay.Children.OfType<Components.PlacedDeviceControl>().ToList();
+            var currentModels = _viewModel.StructuresVM.SelectedLevel.PlacedDevices.ToList();
+
+            // Create lookup dictionary for current models by PlacedDeviceId
+            var currentModelsById = currentModels.ToDictionary(m => m.PlacedDeviceId, m => m);
+
+            // Update existing controls with new model instances (don't recreate!)
+            foreach (var control in existingControls)
+            {
+                var currentModel = (PlacedDeviceModel)control.BindingContext!;
+                if (currentModelsById.TryGetValue(currentModel.PlacedDeviceId, out var updatedModel))
+                {
+                    // Update the binding context with the new model instance
+                    control.BindingContext = updatedModel;
+                    Console.WriteLine($"[SyncDevicesOverlay] Updated control for device: {updatedModel.Name}");
+                    // Remove from lookup so we don't add it again
+                    currentModelsById.Remove(currentModel.PlacedDeviceId);
                 }
                 else
                 {
-                    // Debounce layout invalidation for position changes only
-                    _layoutInvalidationTimer?.Dispose();
-                    _layoutInvalidationTimer = new Timer((_) => 
-                    {
-                        try
-                        {
-                            MainThread.BeginInvokeOnMainThread(InvalidateDevicesLayout);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[PlacedDevice_PropertyChanged] Timer callback error: {ex.Message}");
-                        }
-                    }, null, 10, Timeout.Infinite);
+                    // Model no longer exists, remove the control
+                    Console.WriteLine($"[SyncDevicesOverlay] Removing control for device: {currentModel.Name}");
+                    
+                    // Unwire ALL event handlers before removing
+                    control.AddDeviceRequested -= OnDeviceIncreaseRequested;
+                    control.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
+                    control.DeleteDeviceRequested -= OnDeviceDeleteRequested;
+                    control.MoveDeviceRequested -= OnDeviceMoveRequested;
+                    
+                    DevicesOverlay.Children.Remove(control);
+                    Console.WriteLine($"[SyncDevicesOverlay] All event handlers unwired for device: {currentModel.Name}");
                 }
             }
+
+            // Add controls for remaining new models
+            foreach (var model in currentModelsById.Values)
+            {
+                Console.WriteLine($"[SyncDevicesOverlay] Adding control for device: {model.Name}");
+                var control = new Components.PlacedDeviceControl
+                {
+                    BindingContext = model
+                };
+                
+                // Wire up ALL event handlers for the new control (remove first to prevent duplicates)
+                control.AddDeviceRequested -= OnDeviceIncreaseRequested;
+                control.AddDeviceRequested += OnDeviceIncreaseRequested;
+                control.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
+                control.RemoveDeviceRequested += OnDeviceDecreaseRequested;
+                control.DeleteDeviceRequested -= OnDeviceDeleteRequested;
+                control.DeleteDeviceRequested += OnDeviceDeleteRequested;
+                control.MoveDeviceRequested -= OnDeviceMoveRequested;
+                control.MoveDeviceRequested += OnDeviceMoveRequested;
+                
+                DevicesOverlay.Children.Add(control);
+                Console.WriteLine($"[SyncDevicesOverlay] All event handlers wired for device: {model.Name}");
+            }
+
+            Console.WriteLine($"[SyncDevicesOverlay] Sync complete. DevicesOverlay now has {DevicesOverlay.Children.Count} controls");
         }
 
         private void InvalidateDevicesLayout()
@@ -305,6 +398,11 @@ public partial class MainPage : ContentPage, IPlanViewportService
             if (DevicesOverlay == null || _viewModel?.StructuresVM?.SelectedLevel?.PlacedDevices == null)
             {
                 Console.WriteLine("[InvalidateDevicesLayout] DevicesOverlay or PlacedDevices is null. Skipping.");
+                // Also clear visual children when no level is active so no stray devices are shown
+                if (_viewModel?.StructuresVM?.SelectedLevel == null)
+                {
+                    DevicesOverlay?.Children?.Clear();
+                }
                 return;
             }
 
@@ -410,20 +508,23 @@ public partial class MainPage : ContentPage, IPlanViewportService
             Console.WriteLine($"   🔹 xCenter = {drawnX:F2} + {pd.RelativeX:F4} * {drawnW:F2} = {xCenter:F2}");
             Console.WriteLine($"   🔹 yCenter = {drawnY:F2} + {pd.RelativeY:F4} * {drawnH:F2} = {yCenter:F2}");
 
-            // Use intrinsic template size and scale for plan size adaptation
-            const double intrinsicW = 160.0;
-            const double intrinsicH = 180.0;
+            // Intrinsic sizes
+            // - Card (the visible device panel inside the container): 200 x 180 (see XAML)
+            // - Container (hosts arrows/scale buttons): 400 x 400 (see XAML)
+            const double cardIntrinsicW = 200.0;
+            const double containerW = 400.0;
+            const double containerH = 400.0;
 
-            // Calculate scale based on plan size and user preference (NO PlanScale multiplication!)
-            var targetWidth = pd.BaseWidthNorm * drawnW;
-            var baseScale = intrinsicW > 0 ? (targetWidth / intrinsicW) : 1.0;
-            
-            // Apply user's scale multiplier
+            // Calculate scale based on plan size and user preference, targeting the CARD width
+            var targetWidth = pd.BaseWidthNorm * drawnW; // desired visible card width in pixels
+            var baseScale = cardIntrinsicW > 0 ? (targetWidth / cardIntrinsicW) : 1.0;
+
+            // Apply user's scale multiplier (scales the whole container, and thus the card inside it)
             var userScaledSize = baseScale * (pd.Scale <= 0 ? 1.0 : pd.Scale);
 
             Console.WriteLine($"📊 SCALE CALCULATION (plan adaptation only):");
             Console.WriteLine($"   🔹 targetWidth = {pd.BaseWidthNorm:F4} * {drawnW:F2} = {targetWidth:F2}");
-            Console.WriteLine($"   🔹 baseScale = {targetWidth:F2} / {intrinsicW:F1} = {baseScale:F4}");
+            Console.WriteLine($"   🔹 baseScale = {targetWidth:F2} / {cardIntrinsicW:F1} = {baseScale:F4}");
             Console.WriteLine($"   🔹 userScaledSize = {baseScale:F4} * {pd.Scale:F4} = {userScaledSize:F4}");
 
             // Enforce minimum size for usability
@@ -438,15 +539,16 @@ public partial class MainPage : ContentPage, IPlanViewportService
             view.AnchorY = 0.5;
             view.Scale = appliedScale;
 
-            var xLeft = xCenter - intrinsicW / 2.0;
-            var yTop = yCenter - intrinsicH / 2.0;
+            // Center the 400x400 container at the computed device center
+            var xLeft = xCenter - containerW / 2.0;
+            var yTop = yCenter - containerH / 2.0;
             
             Console.WriteLine($"📍 FINAL POSITIONING (PanPinchContainer handles zoom/pan automatically):");
             Console.WriteLine($"   🔹 view.AnchorX: 0.5, view.AnchorY: 0.5");
             Console.WriteLine($"   🔹 view.Scale: {appliedScale:F4}");
-            Console.WriteLine($"   🔹 xLeft = {xCenter:F2} - {intrinsicW:F1}/2 = {xLeft:F2}");
-            Console.WriteLine($"   🔹 yTop = {yCenter:F2} - {intrinsicH:F1}/2 = {yTop:F2}");
-            Console.WriteLine($"   📏 LayoutBounds: ({xLeft:F2}, {yTop:F2}, {intrinsicW:F1}, {intrinsicH:F1})");
+            Console.WriteLine($"   🔹 xLeft = {xCenter:F2} - {containerW:F1}/2 = {xLeft:F2}");
+            Console.WriteLine($"   🔹 yTop = {yCenter:F2} - {containerH:F1}/2 = {yTop:F2}");
+            Console.WriteLine($"   📏 LayoutBounds: ({xLeft:F2}, {yTop:F2}, {containerW:F1}, {containerH:F1})");
             
             // SMART BUILDING: Device stays at fixed position on plan, zooms with plan automatically
             Console.WriteLine($"🏢 SMART BUILDING BEHAVIOR:");
@@ -455,8 +557,16 @@ public partial class MainPage : ContentPage, IPlanViewportService
             Console.WriteLine($"   ✅ Manual movement ONLY changes RelativeX/Y, NOT plan state");
             Console.WriteLine($"   ✅ Represents physical door control at building location");
 
-            AbsoluteLayout.SetLayoutBounds(view, new Rect(xLeft, yTop, intrinsicW, intrinsicH));
+            // Use the full container size so all interactive buttons are inside the hit area
+            AbsoluteLayout.SetLayoutBounds(view, new Rect(xLeft, yTop, containerW, containerH));
             AbsoluteLayout.SetLayoutFlags(view, Microsoft.Maui.Layouts.AbsoluteLayoutFlags.None);
+            // Nudge layout system on Android to apply new bounds immediately
+            try
+            {
+                view.InvalidateMeasure();
+                DevicesOverlay?.InvalidateMeasure();
+            }
+            catch { }
             
             Console.WriteLine($"✅ PositionDeviceView COMPLETE - SMART BUILDING READY");
             Console.WriteLine($"═══════════════════════════════════════════════════════════════════");
@@ -469,13 +579,12 @@ public partial class MainPage : ContentPage, IPlanViewportService
             Console.WriteLine($"📤 OnDeviceMoveRequested - Device: {e.Name}");
             Console.WriteLine($"   📍 Updated Position: X={e.RelativeX:F6}, Y={e.RelativeY:F6}");
             Console.WriteLine($"   📊 Current Scale: {e.Scale:F4}");
-            Console.WriteLine($"   🔄 Triggering save and layout refresh...");
+            Console.WriteLine($"   💾 Triggering save only (position already updated)...");
             
-            // Position already updated by control; persist and re-layout
+            // Position is already updated by the PlacedDeviceControl - just save
             _ = _viewModel?.SaveCurrentFloorAsync();
-            InvalidateDevicesLayout();
             
-            Console.WriteLine($"   ✅ Save and layout refresh triggered");
+            Console.WriteLine($"   ✅ Save triggered - layout handled by PropertyChanged");
             Console.WriteLine($"");
         }
 
@@ -587,6 +696,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 _layoutInvalidationTimer = new Timer((_) => MainThread.BeginInvokeOnMainThread(InvalidateDevicesLayout), null, 100, Timeout.Infinite);
             };
 
+            if (PlanImage == null) return;
             PlanImage.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName is nameof(Width) or nameof(Height))
@@ -683,7 +793,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
         // Prevent the background tap from being triggered when clicking inside dropdown
     }
 
-    private async void OnDropdownItemSelected(object sender, SelectionChangedEventArgs e)
+    private void OnDropdownItemSelected(object sender, SelectionChangedEventArgs e)
     {
         try
         {
@@ -696,16 +806,64 @@ public partial class MainPage : ContentPage, IPlanViewportService
 
             if (_viewModel.CurrentActiveTab == "Structures")
             {
-                // Update selected building and highlight
+                // Check if the same structure is selected again (toggle off)
+                if (!string.IsNullOrEmpty(_viewModel.SelectedBuildingName) && 
+                    _viewModel.SelectedBuildingName == item.Id)
+                {
+                    // Toggle off: deselect structure and close bauplan
+                    _viewModel.SelectedBuildingName = null;
+                    _viewModel.SelectedLevelName = null;
+                    
+                    // Clear all selections in dropdown
+                    foreach (var it in _viewModel.DropdownItems)
+                        it.IsSelected = false;
+                    
+                    // Reset StructuresVM selection state
+                    _viewModel.StructuresVM.SelectedBuilding = null;
+                    _viewModel.StructuresVM.SelectedLevel = null;
+                    // Clear plan and devices overlay immediately
+                    PlanImage.Source = null;
+                    DevicesOverlay?.Children?.Clear();
+                    
+                    // Close dropdown
+                    _viewModel.CloseDropdown();
+                    return;
+                }
+                
+                // Select new structure
                 _viewModel.SelectedBuildingName = item.Id;
                 foreach (var it in _viewModel.DropdownItems)
                     it.IsSelected = it.Id == item.Id;
+                
                 // Auto-switch to Levels to show floors of the selected building
                 _viewModel.TabTappedCommand.Execute("Levels");
             }
             else if (_viewModel.CurrentActiveTab == "Levels")
             {
-                // Select a level for later operations and highlight
+                // Check if the same level is selected again (toggle off)
+                if (!string.IsNullOrEmpty(_viewModel.SelectedLevelName) && 
+                    _viewModel.SelectedLevelName == item.Id)
+                {
+                    // Toggle off: deselect level and close bauplan
+                    _viewModel.SelectedLevelName = null;
+                    
+                    // Clear all selections in dropdown
+                    foreach (var it in _viewModel.DropdownItems)
+                        it.IsSelected = false;
+                    
+                    // Reset StructuresVM level selection but keep building selected
+                    _viewModel.StructuresVM.SelectedLevel = null;
+                    // Clear plan and devices overlay immediately
+                    PlanImage.Source = null;
+                    DevicesOverlay?.Children?.Clear();
+                    DevicesOverlay?.InvalidateMeasure();
+                    
+                    // Close dropdown
+                    _viewModel.CloseDropdown();
+                    return;
+                }
+                
+                // Select new level
                 _viewModel.SelectedLevelName = item.Id;
                 foreach (var it in _viewModel.DropdownItems)
                     it.IsSelected = it.Id == item.Id;
@@ -735,7 +893,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
         switch (tabName)
         {
             case "Structures":
-                StructuresLabel.Style = (Style)Application.Current?.Resources["TabLabelActive"];
+                StructuresLabel.Style = (Application.Current?.Resources["TabLabelActive"] as Style) ?? StructuresLabel.Style;
                 StructuresUnderline.BackgroundColor = Color.FromArgb("#007AFF");
                 StructuresTabBackground.Background = gradientBrush;
                 break;
@@ -744,19 +902,19 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 // Only allow Level tab styling if levels are available (not disabled)
                 if (_viewModel?.CanModifyLevelTabStyle == true)
                 {
-                    LevelsLabel.Style = (Style)Application.Current?.Resources["TabLabelActive"];
+                    LevelsLabel.Style = (Application.Current?.Resources["TabLabelActive"] as Style) ?? LevelsLabel.Style;
                     LevelsUnderline.BackgroundColor = Color.FromArgb("#007AFF");
                     LevelsTabBackground.Background = gradientBrush;
                 }
                 // If disabled, Level tab keeps its disabled style (red-transparent)
                 break;
             case "WifiDev":
-                WifiDevLabel.Style = (Style)Application.Current?.Resources["TabLabelActive"];
+                WifiDevLabel.Style = (Application.Current?.Resources["TabLabelActive"] as Style) ?? WifiDevLabel.Style;
                 WifiDevUnderline.BackgroundColor = Color.FromArgb("#007AFF");
                 WifiDevTabBackground.Background = gradientBrush;
                 break;
             case "LocalDev":
-                LocalDevLabel.Style = (Style)Application.Current?.Resources["TabLabelActive"];
+                LocalDevLabel.Style = (Application.Current?.Resources["TabLabelActive"] as Style) ?? LocalDevLabel.Style;
                 LocalDevUnderline.BackgroundColor = Color.FromArgb("#007AFF");
                 LocalDevTabBackground.Background = gradientBrush;
                 break;
@@ -769,7 +927,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
         var transparent = Colors.Transparent;
 
         // Use Style instead of direct TextColor to respect XAML DataTriggers
-        StructuresLabel.Style = (Style)Application.Current?.Resources["TabLabel"];
+    StructuresLabel.Style = (Application.Current?.Resources["TabLabel"] as Style) ?? StructuresLabel.Style; 
         StructuresUnderline.BackgroundColor = transparent;
         StructuresTabBackground.Background = null;
 
@@ -777,16 +935,16 @@ public partial class MainPage : ContentPage, IPlanViewportService
         // If disabled, Level tab keeps its disabled style (red-transparent) via XAML DataTrigger
         if (_viewModel?.CanModifyLevelTabStyle == true)
         {
-            LevelsLabel.Style = (Style)Application.Current?.Resources["TabLabel"];
+            LevelsLabel.Style = (Application.Current?.Resources["TabLabel"] as Style) ?? LevelsLabel.Style;
         }
         LevelsUnderline.BackgroundColor = transparent;
         LevelsTabBackground.Background = null;
 
-        WifiDevLabel.Style = (Style)Application.Current?.Resources["TabLabel"];
+        WifiDevLabel.Style = (Application.Current?.Resources["TabLabel"] as Style) ?? WifiDevLabel.Style;
         WifiDevUnderline.BackgroundColor = transparent;
         WifiDevTabBackground.Background = null;
 
-        LocalDevLabel.Style = (Style)Application.Current?.Resources["TabLabel"];
+        LocalDevLabel.Style = (Application.Current?.Resources["TabLabel"] as Style) ?? LocalDevLabel.Style;
         LocalDevUnderline.BackgroundColor = transparent;
         LocalDevTabBackground.Background = null;
     }
@@ -833,7 +991,10 @@ public partial class MainPage : ContentPage, IPlanViewportService
         // Clean up messaging subscriptions
         try
         {
+            #pragma warning disable CS0618
             MessagingCenter.Unsubscribe<MainPageViewModel>(this, "ForceDeviceLayoutRefresh");
+                MessagingCenter.Unsubscribe<MainPageViewModel>(this, "ResetPlanAndOverlay");
+            #pragma warning restore CS0618
             Console.WriteLine("🧹 MainPage messaging subscriptions cleaned up");
         }
         catch (Exception ex)

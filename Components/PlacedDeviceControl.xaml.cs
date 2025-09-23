@@ -138,6 +138,36 @@ public partial class PlacedDeviceControl : ContentView
         this.BindingContext = this;
     }
 
+    private void OnInteractivePressed(object? sender, EventArgs e)
+    {
+        try
+        {
+#pragma warning disable CS0618
+            MessagingCenter.Send(this, "PanInputBlock", true);
+#pragma warning restore CS0618
+            Console.WriteLine("[PlacedDeviceControl] Interactive Pressed -> Block Pan");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PlacedDeviceControl] OnInteractivePressed error: {ex.Message}");
+        }
+    }
+
+    private void OnInteractiveReleased(object? sender, EventArgs e)
+    {
+        try
+        {
+#pragma warning disable CS0618
+            MessagingCenter.Send(this, "PanInputBlock", false);
+#pragma warning restore CS0618
+            Console.WriteLine("[PlacedDeviceControl] Interactive Released -> Unblock Pan");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PlacedDeviceControl] OnInteractiveReleased error: {ex.Message}");
+        }
+    }
+
     private static void OnPlacedDeviceChanged(BindableObject bindable, object oldValue, object newValue)
     {
         if (bindable is PlacedDeviceControl control && newValue is PlacedDeviceModel placedDevice)

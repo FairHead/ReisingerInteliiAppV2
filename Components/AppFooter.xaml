@@ -7,9 +7,9 @@
     <Border Padding="20,15" StrokeThickness="0">
         <Border.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Offset="0.0" Color="Transparent" />
+                <GradientStop Offset="0.0" Color="#1E1E1E" />
                 <GradientStop Offset="0.9" Color="#565656" />
-                <GradientStop Offset="1.0" Color="#2D2D2D" />
+                <GradientStop Offset="1.1" Color="#2D2D2D" />
             </LinearGradientBrush>
         </Border.Background>
 

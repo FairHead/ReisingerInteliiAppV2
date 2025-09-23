@@ -17,6 +17,7 @@ public partial class DropdownItemModel : ObservableObject
     public string Icon { get; set; } = string.Empty;
     public string Text { get; set; } = string.Empty;
     public string SubText { get; set; } = string.Empty;
+    public string NetworkInfo { get; set; } = string.Empty; // New property for SSID or IP address
     public bool HasActions { get; set; }
     
     // Controls whether the connection status UI is shown for this item

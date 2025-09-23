@@ -1,10 +1,12 @@
 using System.Windows.Input;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.Linq;
 using ReisingerIntelliApp_V4.Models;
 using ReisingerIntelliApp_V4.Services;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 namespace ReisingerIntelliApp_V4.ViewModels;
@@ -32,6 +34,11 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private string _scanButtonText = string.Empty;
     private string? _selectedBuildingName;
     private string? _selectedLevelName;
+    // Remember the last selected level per building during app session
+    private readonly Dictionary<string, string> _lastLevelByBuilding = new(StringComparer.OrdinalIgnoreCase);
+    // Reentrancy guards to prevent feedback loops between VM <-> StructuresVM
+    private bool _isApplyingSelection = false;
+    private bool _isMirroringFromStructuresVM = false;
     
     // New fields for dropdown improvements
     private bool _showStructuresEmptyState;
@@ -67,6 +74,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         CenterButtonTappedCommand = new Command(OnCenterButtonTapped);
         RightSectionTappedCommand = new Command(OnRightSectionTapped);
         ScanButtonTappedCommand = new Command(OnScanButtonTapped);
+        NavigateToStructureEditorCommand = new Command<DropdownItemModel>(OnNavigateToStructureEditor);
         DeleteDeviceFromDropdownCommand = new Command<DropdownItemModel>(OnDeleteDeviceFromDropdown);
     ShowDeviceOptionsCommand = new Command<DropdownItemModel>(OnShowDeviceOptions);
     AddDeviceToFloorPlanCommand = new AsyncRelayCommand<DropdownItemModel>(AddDeviceToCurrentFloorAsync);
@@ -128,6 +136,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         });
         
         // Subscribe to device added messages
+        #pragma warning disable CS0618 // MessagingCenter is obsolete; migration planned to WeakReferenceMessenger
         MessagingCenter.Subscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded", async (sender) =>
         {
             if (CurrentActiveTab == "LocalDev")
@@ -144,17 +153,14 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             }
         });
 
-        // Listen for building saved to refresh and auto-open Levels
+        // Listen for building saved to refresh and open Levels without forcing a level selection
         MessagingCenter.Subscribe<StructureEditorViewModel, string>(this, "BuildingSaved", async (sender, buildingName) =>
         {
             await LoadStructuresAsync();
+            // Select the building; ApplyStructureSelectionAsync will handle last-used/first level
             SelectedBuildingName = buildingName;
-            // Auto-open Levels and preselect first level if available
+            // Open Levels dropdown so user can see/select floors; don't force a specific floor
             ShowDropdownForTab("Levels");
-            var structures = await _buildingStorage.LoadAsync();
-            var selected = structures.FirstOrDefault(b => b.BuildingName.Equals(buildingName, StringComparison.OrdinalIgnoreCase));
-            SelectedLevelName = selected?.Floors?.FirstOrDefault()?.FloorName;
-            _ = ApplyStructureSelectionAsync(SelectedBuildingName, SelectedLevelName);
         });
 
         // Listen for floor plan changes to refresh current viewer if affected
@@ -169,6 +175,10 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             // Update level access whenever floor plans change (new levels might be available)
             UpdateLevelDropdownAccess();
         });
+        #pragma warning restore CS0618
+        
+        // Subscribe to StructuresVM property changes for synchronization
+        StructuresVM.PropertyChanged += OnStructuresVMPropertyChanged;
     }
 
     public ICommand TabTappedCommand { get; }
@@ -269,7 +279,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     /// <summary>
     /// Command for navigating to StructureEditor (reused from center button)
     /// </summary>
-    public ICommand NavigateToStructureEditorCommand => CenterButtonTappedCommand;
+    public ICommand NavigateToStructureEditorCommand { get; }
 
     // Tracks the currently selected building from the Structures tab
     public string? SelectedBuildingName
@@ -279,7 +289,13 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         {
             if (SetProperty(ref _selectedBuildingName, value))
             {
-                _ = ApplyStructureSelectionAsync(_selectedBuildingName, _selectedLevelName);
+                // Optimistically enable Level dropdown when a building is selected,
+                // so we can open Levels immediately without waiting for async load.
+                IsLevelDropdownEnabled = !string.IsNullOrWhiteSpace(_selectedBuildingName);
+                if (!_isMirroringFromStructuresVM)
+                {
+                    _ = ApplyStructureSelectionAsync(_selectedBuildingName, _selectedLevelName);
+                }
                 // Update Level dropdown access control after structure selection
                 UpdateLevelDropdownAccess();
             }
@@ -294,7 +310,10 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         {
             if (SetProperty(ref _selectedLevelName, value))
             {
-                _ = ApplyStructureSelectionAsync(_selectedBuildingName, _selectedLevelName);
+                if (!_isMirroringFromStructuresVM)
+                {
+                    _ = ApplyStructureSelectionAsync(_selectedBuildingName, _selectedLevelName);
+                }
             }
         }
     }
@@ -321,14 +340,44 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     {
         try
         {
-            await StructuresVM.LoadAsync(buildingName);
-            if (!string.IsNullOrWhiteSpace(buildingName))
+            if (_isApplyingSelection) return;
+            _isApplyingSelection = true;
+            // If a building is ALREADY selected in the VM and the level is being de-selected (null),
+            // avoid reloading or re-assigning SelectedBuilding (which would auto-select first level).
+            // Only short-circuit when the incoming building matches the currently selected building.
+            if (!string.IsNullOrWhiteSpace(buildingName)
+                && string.IsNullOrWhiteSpace(levelName)
+                && StructuresVM.SelectedBuilding != null
+                && string.Equals(StructuresVM.SelectedBuilding.BuildingName, buildingName, StringComparison.OrdinalIgnoreCase))
             {
-                StructuresVM.SelectedBuilding = StructuresVM.Buildings.FirstOrDefault(b => b.BuildingName.Equals(buildingName, StringComparison.OrdinalIgnoreCase));
+                // Keep the current building, just clear the level selection
+                StructuresVM.SelectedLevel = null;
+                // Update level access after deselection
+                UpdateLevelDropdownAccess();
+                return;
             }
-            if (!string.IsNullOrWhiteSpace(levelName) && StructuresVM.SelectedBuilding != null)
+
+            await StructuresVM.LoadAsync(buildingName);
+            // Note: LoadAsync(selectBuilding) already sets SelectedBuilding when provided; avoid redundant assignment
+            if (StructuresVM.SelectedBuilding != null)
             {
-                StructuresVM.SelectedLevel = StructuresVM.Levels.FirstOrDefault(f => f.FloorName.Equals(levelName, StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(levelName))
+                {
+                    StructuresVM.SelectedLevel = StructuresVM.Levels.FirstOrDefault(f => f.FloorName.Equals(levelName, StringComparison.OrdinalIgnoreCase));
+                }
+                else
+                {
+                    var bName = StructuresVM.SelectedBuilding.BuildingName;
+                    if (!string.IsNullOrWhiteSpace(bName) && _lastLevelByBuilding.TryGetValue(bName, out var lastLevel))
+                    {
+                        var found = StructuresVM.Levels.FirstOrDefault(f => f.FloorName.Equals(lastLevel, StringComparison.OrdinalIgnoreCase));
+                        StructuresVM.SelectedLevel = found ?? StructuresVM.Levels.FirstOrDefault();
+                    }
+                    else
+                    {
+                        StructuresVM.SelectedLevel = StructuresVM.Levels.FirstOrDefault();
+                    }
+                }
             }
             await StructuresVM.RefreshCurrentFloorPlanAsync();
             
@@ -336,6 +385,10 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             UpdateLevelDropdownAccess();
         }
         catch { }
+        finally
+        {
+            _isApplyingSelection = false;
+        }
     }
     /// <summary>
     /// Updates Level dropdown access control. Level stays disabled (red-transparent) 
@@ -366,6 +419,45 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     /// Only when levels are actually created/available should Level tab be styleable.
     /// </summary>
     public bool CanModifyLevelTabStyle => IsLevelDropdownEnabled;
+
+    /// <summary>
+    /// Synchronizes SelectedLevelName with StructuresVM.SelectedLevel changes
+    /// to ensure dropdown selection matches current bauplan
+    /// </summary>
+    private void OnStructuresVMPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(StructuresViewModel.SelectedLevel))
+        {
+            // Synchronize SelectedLevelName with StructuresVM.SelectedLevel
+            var newLevelName = StructuresVM.SelectedLevel?.FloorName;
+            if (SelectedLevelName != newLevelName)
+            {
+                System.Diagnostics.Debug.WriteLine($"[OnStructuresVMPropertyChanged] Synchronizing SelectedLevelName: '{SelectedLevelName}' -> '{newLevelName}'");
+                _isMirroringFromStructuresVM = true;
+                try { SelectedLevelName = newLevelName; }
+                finally { _isMirroringFromStructuresVM = false; }
+            }
+            // Remember last-selected level per building at runtime
+            var bName = StructuresVM.SelectedBuilding?.BuildingName;
+            if (!string.IsNullOrWhiteSpace(bName) && !string.IsNullOrWhiteSpace(newLevelName))
+            {
+                _lastLevelByBuilding[bName] = newLevelName!;
+                System.Diagnostics.Debug.WriteLine($"[OnStructuresVMPropertyChanged] Remembered last level '{newLevelName}' for building '{bName}'");
+            }
+        }
+        else if (e.PropertyName == nameof(StructuresViewModel.SelectedBuilding))
+        {
+            // Synchronize SelectedBuildingName with StructuresVM.SelectedBuilding
+            var newBuildingName = StructuresVM.SelectedBuilding?.BuildingName;
+            if (SelectedBuildingName != newBuildingName)
+            {
+                System.Diagnostics.Debug.WriteLine($"[OnStructuresVMPropertyChanged] Synchronizing SelectedBuildingName: '{SelectedBuildingName}' -> '{newBuildingName}'");
+                _isMirroringFromStructuresVM = true;
+                try { SelectedBuildingName = newBuildingName; }
+                finally { _isMirroringFromStructuresVM = false; }
+            }
+        }
+    }
 
     private void OnTabTapped(string tabName)
     {
@@ -523,16 +615,14 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 {
                     try
                     {
-                        var lastSeenText = device.LastSeen != default(DateTime)
-                            ? $"Last seen: {device.LastSeen:HH:mm}"
-                            : "Never connected";
                         var dropdownItem = new DropdownItemModel
                         {
                             Id = device.DeviceId,
                             Icon = "wifi_icon.svg",
-                            // Primary line: device name; Secondary line: SSID and last seen
+                            // Primary line: device name; Secondary line: just the SSID instead of last seen
                             Text = device.Name,
-                            SubText = $"{device.Ssid} • {lastSeenText}",
+                            SubText = device.Ssid,
+                            NetworkInfo = device.Ssid, // Pass SSID to show in the card instead of last seen
                             HasActions = true,
                             ShowStatus = true,
                             IsConnected = false,
@@ -566,7 +656,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         Id = $"dummy_wifi_{i}",
                         Icon = "wifi_icon.svg",
                         Text = $"Dummy WiFi Device {i}",
-                        SubText = $"SSID{i} • Last seen: 12:00",
+                        SubText = $"SSID{i}",
+                        NetworkInfo = $"SSID{i}", // Show SSID instead of last seen
                         HasActions = true,
                         ShowStatus = true,
                         IsConnected = false,
@@ -634,15 +725,13 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 {
                     try
                     {
-                        var lastSeenText = device.LastSeen != default(DateTime)
-                            ? $"Last seen: {device.LastSeen:HH:mm}"
-                            : "Never connected";
                         var dropdownItem = new DropdownItemModel
                         {
                             Id = device.DeviceId,
                             Icon = "local_icon.svg",
                             Text = device.Name,
-                            SubText = $"{device.IpAddress} • {lastSeenText}",
+                            SubText = device.IpAddress, // Show just the IP address instead of last seen
+                            NetworkInfo = device.IpAddress, // Pass IP address to show in the card instead of last seen
                             HasActions = true,
                             ShowStatus = true,
                             IsConnected = false,
@@ -675,7 +764,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         Id = $"dummy_local_{i}",
                         Icon = "local_icon.svg",
                         Text = $"Dummy Local Device {i}",
-                        SubText = $"192.168.1.10{i} • Last seen: 12:00",
+                        SubText = $"192.168.1.10{i}",
+                        NetworkInfo = $"192.168.1.10{i}", // Show IP address instead of last seen
                         HasActions = true,
                         ShowStatus = true,
                         IsConnected = false,
@@ -907,10 +997,15 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
     }
 
-    private async void OnLeftSectionTapped()
+    private void OnLeftSectionTapped()
     {
         // Reset MainPage to default state - close all dropdowns and clear selections
         CloseDropdown();
+        
+        // Immediately notify view to clear plan image and overlay (ensure instant UI reset on devices)
+        #pragma warning disable CS0618 // MessagingCenter obsolete suppression until migration
+        MessagingCenter.Send(this, "ResetPlanAndOverlay");
+        #pragma warning restore CS0618
         
         // Clear any selected building/level to reset the view completely
         SelectedBuildingName = null;
@@ -928,7 +1023,10 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                     StructuresVM.SelectedLevel = null;
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[OnLeftSectionTapped] Error resetting StructuresVM: {ex.Message}");
+            }
         });
     }
 
@@ -938,10 +1036,38 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         await Shell.Current.GoToAsync("structureeditor");
     }
 
+    private async void OnNavigateToStructureEditor(DropdownItemModel item)
+    {
+        if (item != null)
+        {
+            // Pass the building or level data as navigation parameters
+            var parameters = new Dictionary<string, object>();
+            
+            if (CurrentActiveTab == "Structures")
+            {
+                // For structures, pass building info - use "name" to match QueryProperty
+                parameters["name"] = item.Text;
+                parameters["EditMode"] = "Building";
+            }
+            else if (CurrentActiveTab == "Levels")
+            {
+                // For levels, pass the building name to edit the building containing this level
+                parameters["name"] = StructuresVM?.SelectedBuilding?.BuildingName ?? "";
+                parameters["EditMode"] = "Level";
+            }
+            
+            await Shell.Current.GoToAsync("structureeditor", parameters);
+        }
+        else
+        {
+            // Fallback to general structure editor
+            await Shell.Current.GoToAsync("structureeditor");
+        }
+    }
+
     private async void OnRightSectionTapped()
     {
-        if (Application.Current?.Windows?.FirstOrDefault()?.Page is Page page)
-            await page.DisplayAlert("Settings", "Preferences tapped", "OK");
+        await ShowAlertAsync("Settings", "Preferences tapped", "OK");
     }
 
     private async void OnScanButtonTapped()
@@ -971,7 +1097,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             // Branch by current tab
             if (CurrentActiveTab == "Structures")
             {
-                var confirm = await Application.Current.MainPage.DisplayAlert(
+                var confirm = await ShowConfirmAsync(
                     "Gebäude löschen",
                     $"Gebäude '{device.Text}' und alle zugehörigen Stockwerke löschen?",
                     "Löschen",
@@ -1000,7 +1126,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 // Refresh Structures view
                 await LoadStructuresAsync();
                 
-                await Application.Current.MainPage.DisplayAlert(
+                await ShowAlertAsync(
                     "Erfolg", 
                     $"Gebäude '{device.Text}' wurde erfolgreich gelöscht.", 
                     "OK");
@@ -1010,10 +1136,10 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             {
                 if (string.IsNullOrWhiteSpace(SelectedBuildingName))
                 {
-                    await Application.Current.MainPage.DisplayAlert("Info", "Wählen Sie zuerst ein Gebäude aus.", "OK");
+                    await ShowAlertAsync("Info", "Wählen Sie zuerst ein Gebäude aus.", "OK");
                     return;
                 }
-                var confirm = await Application.Current.MainPage.DisplayAlert(
+                var confirm = await ShowConfirmAsync(
                     "Stockwerk löschen",
                     $"Stockwerk '{device.Text}' aus '{SelectedBuildingName}' löschen?",
                     "Löschen",
@@ -1052,12 +1178,14 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 
                 // Force immediate UI refresh to hide deleted devices
                 await StructuresVM.RefreshCurrentFloorPlanAsync();
+                #pragma warning disable CS0618
                 MessagingCenter.Send(this, "ForceDeviceLayoutRefresh");
+                #pragma warning restore CS0618
                 
                 // Refresh Levels view
                 await LoadLevelsAsync();
                 
-                await Application.Current.MainPage.DisplayAlert(
+                await ShowAlertAsync(
                     "Erfolg", 
                     $"Stockwerk '{device.Text}' wurde erfolgreich gelöscht.", 
                     "OK");
@@ -1065,7 +1193,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             }
 
             // Default device deletion logic
-            var confirmDelete = await Application.Current.MainPage.DisplayAlert(
+            var confirmDelete = await ShowConfirmAsync(
                 "Delete Device",
                 $"Are you sure you want to delete the device '{device.Text.Split('\n')[0]}'?",
                 "Delete",
@@ -1117,7 +1245,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                     });
                 }
 
-                await Application.Current.MainPage.DisplayAlert(
+                await ShowAlertAsync(
                     "Success",
                     "Deleted successfully.",
                     "OK");
@@ -1125,7 +1253,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
         catch (Exception ex)
         {
-            await Application.Current.MainPage.DisplayAlert(
+            await ShowAlertAsync(
                 "Error",
                 $"Failed to delete: {ex.Message}",
                 "OK");
@@ -1150,7 +1278,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 // Open building editor for the selected building to manage floors
                 if (string.IsNullOrWhiteSpace(SelectedBuildingName))
                 {
-                    await Application.Current.MainPage.DisplayAlert("Info", "Select a building first.", "OK");
+                    await ShowAlertAsync("Info", "Select a building first.", "OK");
                     return;
                 }
                 var route = $"structureeditor?name={Uri.EscapeDataString(SelectedBuildingName)}";
@@ -1168,7 +1296,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 "Cancel"
             };
 
-            var action = await Application.Current.MainPage.DisplayActionSheet(
+            var action = await ShowActionSheetAsync(
                 $"Options for '{deviceName}'",
                 "Cancel",
                 null,
@@ -1177,7 +1305,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             switch (action)
             {
                 case "Edit Device":
-                    await Application.Current.MainPage.DisplayAlert(
+                    await ShowAlertAsync(
                         "Edit Device",
                         "Edit functionality will be implemented later.",
                         "OK");
@@ -1189,14 +1317,14 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                                  $"Info: {device.Text}\n" +
                                  $"Type: {(CurrentActiveTab == "WifiDev" ? "WiFi Device" : "Local Device")}";
                     
-                    await Application.Current.MainPage.DisplayAlert(
+                    await ShowAlertAsync(
                         "Device Details",
                         details,
                         "OK");
                     break;
 
                 case "Connection Settings":
-                    await Application.Current.MainPage.DisplayAlert(
+                    await ShowAlertAsync(
                         "Connection Settings",
                         "Connection settings will be implemented later.",
                         "OK");
@@ -1209,7 +1337,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
         catch (Exception ex)
         {
-            await Application.Current.MainPage.DisplayAlert(
+            await ShowAlertAsync(
                 "Error",
                 $"Failed to show options: {ex.Message}",
                 "OK");
@@ -1230,35 +1358,38 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             if (StructuresVM == null)
             {
                 System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: StructuresVM is null");
-                await Application.Current.MainPage.DisplayAlert("Error", "App state invalid (StructuresVM is null).", "OK");
+                await ShowAlertAsync("Error", "App state invalid (StructuresVM is null).", "OK");
                 return;
             }
             if (StructuresVM.SelectedBuilding == null)
             {
                 System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: SelectedBuilding is null");
-                await Application.Current.MainPage.DisplayAlert("Info", "Select a building first.", "OK");
+                await ShowAlertAsync("Info", "Select a building first.", "OK");
                 return;
             }
             if (StructuresVM.SelectedLevel == null)
             {
                 System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: SelectedLevel is null");
+                await ShowAlertAsync("Info", "Select a level first.", "OK");
+                return;
             }
-            if (StructuresVM.SelectedLevel?.PlacedDevices == null)
+            var currentLevel = StructuresVM.SelectedLevel; // non-null here
+            if (currentLevel.PlacedDevices == null)
             {
                 System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] PlacedDevices is null! Initialisiere neu.");
-                StructuresVM.SelectedLevel.PlacedDevices = new ObservableCollection<PlacedDeviceModel>();
+                currentLevel.PlacedDevices = new ObservableCollection<PlacedDeviceModel>();
             }
             if (_viewport == null || !_viewport.IsPlanReady)
             {
                 System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: Viewport not ready");
-                await Application.Current.MainPage.DisplayAlert("Info", "Floor plan not ready.", "OK");
+                await ShowAlertAsync("Info", "Floor plan not ready.", "OK");
                 return;
             }
 
             if (item == null || string.IsNullOrWhiteSpace(item.Id))
             {
                 System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: No device selected");
-                await Application.Current.MainPage.DisplayAlert("Error", "No device selected.", "OK");
+                await ShowAlertAsync("Error", "No device selected.", "OK");
                 return;
             }
             DeviceModel? source = null;
@@ -1312,16 +1443,16 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             if (source == null)
             {
                 System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] ERROR: Device not found for id {item.Id}");
-                await Application.Current.MainPage.DisplayAlert("Error", "Device not found.", "OK");
+                await ShowAlertAsync("Error", "Device not found.", "OK");
                 return;
             }
 
-            var alreadyPlaced = StructuresVM.SelectedLevel.PlacedDevices.Any(pd => pd.DeviceInfo?.DeviceId == source.DeviceId);
+            var alreadyPlaced = currentLevel.PlacedDevices.Any(pd => pd.DeviceInfo?.DeviceId == source.DeviceId);
             System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] alreadyPlaced={alreadyPlaced}");
             if (alreadyPlaced)
             {
                 System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Device already placed on floor: {source.DeviceId}");
-                await Application.Current.MainPage.DisplayAlert("Info", "This device is already placed on the selected floor.", "OK");
+                await ShowAlertAsync("Info", "This device is already placed on the selected floor.", "OK");
                 var dropdownMatch = DropdownItems.FirstOrDefault(d => d.Id == source.DeviceId);
                 if (dropdownMatch != null)
                 {
@@ -1346,21 +1477,21 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 FloorId = 0,
             };
 
-            if (StructuresVM.SelectedLevel == null)
+            if (currentLevel == null)
             {
                 System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] ERROR: SelectedLevel is null after device creation!");
-                await Application.Current.MainPage.DisplayAlert("Error", "SelectedLevel is null!", "OK");
+                await ShowAlertAsync("Error", "SelectedLevel is null!", "OK");
                 return;
             }
-            if (StructuresVM.SelectedLevel.PlacedDevices == null)
+            if (currentLevel.PlacedDevices == null)
             {
                 System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] PlacedDevices is null after device creation! Initialisiere neue Collection.");
-                StructuresVM.SelectedLevel.PlacedDevices = new System.Collections.ObjectModel.ObservableCollection<PlacedDeviceModel>();
+                currentLevel.PlacedDevices = new System.Collections.ObjectModel.ObservableCollection<PlacedDeviceModel>();
             }
 
-            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] >>> VOR Add: {placed?.DeviceId} zu Level: {StructuresVM.SelectedLevel.FloorName}");
-            StructuresVM.SelectedLevel.PlacedDevices.Add(placed);
-            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] <<< NACH Add: {placed?.DeviceId} zu Level: {StructuresVM.SelectedLevel.FloorName}");
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] >>> VOR Add: {placed?.DeviceId} zu Level: {currentLevel.FloorName}");
+            currentLevel.PlacedDevices!.Add(placed!);
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] <<< NACH Add: {placed?.DeviceId} zu Level: {currentLevel.FloorName}");
 
             System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] Calling PersistBuildingsAsync...");
             await PersistBuildingsAsync();
@@ -1371,7 +1502,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] RefreshCurrentFloorPlanAsync finished.");
 
             System.Diagnostics.Debug.WriteLine("[AddDeviceToCurrentFloorAsync] Sending ForceDeviceLayoutRefresh via MessagingCenter...");
+            #pragma warning disable CS0618
             MessagingCenter.Send(this, "ForceDeviceLayoutRefresh");
+            #pragma warning restore CS0618
 
             var placedItem = DropdownItems.FirstOrDefault(d => d.Id == source.DeviceId);
             if (placedItem != null)
@@ -1384,7 +1517,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Exception: {ex}");
-            await Application.Current.MainPage.DisplayAlert("Error", ex.Message, "OK");
+            await ShowAlertAsync("Error", ex.Message, "OK");
         }
     }
 
@@ -1642,8 +1775,16 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     public void Dispose()
     {
         StopWifiStatusMonitoring();
-    MessagingCenter.Unsubscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded");
-    MessagingCenter.Unsubscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded");
+        #pragma warning disable CS0618
+        MessagingCenter.Unsubscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded");
+        MessagingCenter.Unsubscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded");
+        #pragma warning restore CS0618
+        
+        // Unsubscribe from StructuresVM PropertyChanged events
+        if (StructuresVM != null)
+        {
+            StructuresVM.PropertyChanged -= OnStructuresVMPropertyChanged;
+        }
     }
 
     #endregion
@@ -1661,11 +1802,11 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             await _buildingStorage.LoadAsync(); // This will trigger our debug output
             
             // Show confirmation dialog
-            bool confirm = await Application.Current?.Windows?[0]?.Page?.DisplayAlert(
-                "Debug: Clear Storage", 
-                "This will clear ALL saved buildings, floors, and devices. Continue?", 
-                "Yes, Clear All", 
-                "Cancel") == true;
+            bool confirm = await ShowConfirmAsync(
+                "Debug: Clear Storage",
+                "This will clear ALL saved buildings, floors, and devices. Continue?",
+                "Yes, Clear All",
+                "Cancel");
                 
             if (confirm)
             {
@@ -1680,9 +1821,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 CurrentActiveTab = null;
                 
                 // Show success
-                await Application.Current?.Windows?[0]?.Page?.DisplayAlert(
-                    "Debug: Success", 
-                    "Storage cleared successfully! App state reset.", 
+                await ShowAlertAsync(
+                    "Debug: Success",
+                    "Storage cleared successfully! App state reset.",
                     "OK");
                     
                 Debug.WriteLine("=== Storage clear operation completed ===");
@@ -1697,12 +1838,70 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             Debug.WriteLine($"=== ERROR in DebugClearStorageAsync: {ex.Message} ===");
             Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             
-            await Application.Current?.Windows?[0]?.Page?.DisplayAlert(
-                "Debug: Error", 
-                $"Error clearing storage: {ex.Message}", 
+            await ShowAlertAsync(
+                "Debug: Error",
+                $"Error clearing storage: {ex.Message}",
                 "OK");
         }
     }
 
+    #endregion
+
+    #region UI helpers (alerts/action sheets)
+    private Page? CurrentPage => Application.Current?.Windows?.FirstOrDefault()?.Page;
+
+    private async Task ShowAlertAsync(string title, string message, string cancel)
+    {
+        try
+        {
+            var page = CurrentPage;
+            if (page != null)
+            {
+                await page.DisplayAlert(title, message, cancel);
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[ShowAlertAsync] No current page. Title='{title}' Message='{message}'");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ShowAlertAsync] Exception: {ex.Message}");
+        }
+    }
+
+    private async Task<bool> ShowConfirmAsync(string title, string message, string accept, string cancel)
+    {
+        try
+        {
+            var page = CurrentPage;
+            if (page != null)
+            {
+                return await page.DisplayAlert(title, message, accept, cancel);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ShowConfirmAsync] Exception: {ex.Message}");
+        }
+        return false;
+    }
+
+    private async Task<string?> ShowActionSheetAsync(string title, string cancel, string? destruction, params string[] buttons)
+    {
+        try
+        {
+            var page = CurrentPage;
+            if (page != null)
+            {
+                return await page.DisplayActionSheet(title, cancel, destruction, buttons);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ShowActionSheetAsync] Exception: {ex.Message}");
+        }
+        return null;
+    }
     #endregion
 }
