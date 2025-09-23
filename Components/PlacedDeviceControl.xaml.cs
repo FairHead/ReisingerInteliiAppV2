@@ -111,6 +111,7 @@ public partial class PlacedDeviceControl : ContentView
     public event EventHandler<PlacedDeviceModel>? DeleteDeviceRequested;
     public event EventHandler<PlacedDeviceModel>? MoveDeviceRequested;
     public event EventHandler<PlacedDeviceModel>? ToggleDoorRequested;
+    public event EventHandler<PlacedDeviceModel>? ModeChangedRequested;
 
     // For move mode
         private bool _isInMoveMode = false;
@@ -167,6 +168,8 @@ public partial class PlacedDeviceControl : ContentView
             Console.WriteLine($"[PlacedDeviceControl] OnInteractiveReleased error: {ex.Message}");
         }
     }
+
+    // Settings toggler removed; we reverted to a visible Expander header and the Move button
 
     private static void OnPlacedDeviceChanged(BindableObject bindable, object oldValue, object newValue)
     {
@@ -549,6 +552,66 @@ public partial class PlacedDeviceControl : ContentView
         {
             model.IsDoorOpen = !model.IsDoorOpen;
             ToggleDoorRequested?.Invoke(this, model);
+        }
+    }
+
+    private void OnToggleDauerAufClicked(object sender, EventArgs e)
+    {
+        var model = GetModel();
+        if (model != null)
+        {
+            model.DauerAuf = !model.DauerAuf;
+            ModeChangedRequested?.Invoke(this, model);
+        }
+    }
+
+    private void OnToggleLockClicked(object sender, EventArgs e)
+    {
+        var model = GetModel();
+        if (model != null)
+        {
+            model.IsLocked = !model.IsLocked;
+            ModeChangedRequested?.Invoke(this, model);
+        }
+    }
+
+    private void OnToggleOneWayClicked(object sender, EventArgs e)
+    {
+        var model = GetModel();
+        if (model != null)
+        {
+            model.IsOneWay = !model.IsOneWay;
+            ModeChangedRequested?.Invoke(this, model);
+        }
+    }
+
+    private void OnSetAutoModeHalfClicked(object sender, EventArgs e)
+    {
+        var model = GetModel();
+        if (model != null)
+        {
+            model.AutoMode = PlacedDeviceModel.AutoModeLevel.Half;
+            ModeChangedRequested?.Invoke(this, model);
+        }
+    }
+
+    private void OnSetAutoModeFullClicked(object sender, EventArgs e)
+    {
+        var model = GetModel();
+        if (model != null)
+        {
+            model.AutoMode = PlacedDeviceModel.AutoModeLevel.Full;
+            ModeChangedRequested?.Invoke(this, model);
+        }
+    }
+
+    private void OnToggleWinterClicked(object sender, EventArgs e)
+    {
+        var model = GetModel();
+        if (model != null)
+        {
+            model.IsWinterMode = !model.IsWinterMode;
+            ModeChangedRequested?.Invoke(this, model);
         }
     }
 

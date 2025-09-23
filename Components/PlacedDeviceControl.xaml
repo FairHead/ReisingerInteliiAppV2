@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters"
+    xmlns:models="clr-namespace:ReisingerIntelliApp_V4.Models"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     x:Name="placedDeviceControl"
     BackgroundColor="Transparent"
@@ -162,10 +163,10 @@
 
         <!--  Feature Card (Main Device Info) - Centered in 400x400 container  -->
         <Border
-            AbsoluteLayout.LayoutBounds="100,120,200,180"
+            AbsoluteLayout.LayoutBounds="100,120,200,300"
             AbsoluteLayout.LayoutFlags="None"
             Background="{StaticResource PlacedDeviceAddButton}"
-            HeightRequest="200"
+            HeightRequest="300"
             Stroke="{StaticResource PlacedDeviceMoveButton}"
             StrokeThickness="3"
             WidthRequest="250"
@@ -181,6 +182,8 @@
                     Offset="0,0" />
             </Border.Shadow>
 
+            <!-- Wrap the original card grid and the dropdown in a vertical stack so the dropdown appears below the buttons -->
+            <VerticalStackLayout Spacing="8">
             <Grid InputTransparent="False" RowDefinitions="Auto,*,*,Auto">
 
                 <!--  Device Info Container (Top)  -->
@@ -196,20 +199,20 @@
                         FontFamily="SpaceMonoBold"
                         FontSize="25"
                         HorizontalOptions="Center"
-                        LineBreakMode="TailTruncation"
+                        LineBreakMode="WordWrap"
                         MaxLines="1"
                         Text="{Binding Name}"
                         TextColor="{StaticResource PlacedDeviceText}"
                         TextDecorations="Underline" />
 
-                    <!--  IP Address  -->
+                    <!--  Network info: show SSID for WiFi devices, otherwise IP address  -->
                     <Label
                         FontFamily="SpaceMonoRegular"
                         FontSize="10"
                         HorizontalOptions="Center"
                         LineBreakMode="TailTruncation"
                         MaxLines="1"
-                        Text="{Binding IpAddress}"
+                        Text="{Binding NetworkInfo}"
                         TextColor="{StaticResource PlacedDeviceTextSecondary}"
                         TextDecorations="Underline" />
                 </StackLayout>
@@ -289,8 +292,7 @@
                     <!--  Move Device Button (Right)  -->
                     <ImageButton
                         x:Name="DevicePlacementModeBtn"
-                        Grid.Row="3"
-                        Grid.RowSpan="1"
+                        Grid.Row="2"
                         Grid.Column="0"
                         Margin="0,60,5,0"
                         Aspect="Center"
@@ -328,6 +330,53 @@
                     </ImageButton>
                 </Grid>
             </Grid>
+            <!--  Device Modes Dropdown (Toolkit Expander) - below buttons -->
+            <toolkit:Expander x:Name="DeviceModesExpander" Margin="0,0,0,0" IsExpanded="True">
+                <toolkit:Expander.Header>
+                    <Grid ColumnDefinitions="Auto, *" Padding="8,4">
+                        <Image Source="settings.svg" WidthRequest="18" HeightRequest="18" />
+                        <Label Grid.Column="1" Text="Modi" FontFamily="SpaceMonoBold" FontSize="12" VerticalOptions="Center" />
+                    </Grid>
+                </toolkit:Expander.Header>
+                <toolkit:Expander.Content>
+                    <Grid Padding="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*">
+                        <!-- 1. Dauerauf -->
+                        <Button Text="Dauerauf" Margin="0,4" Clicked="OnToggleDauerAufClicked" BackgroundColor="{Binding DauerAuf, Converter={StaticResource BoolToColorConverter}}" />
+                        <!-- 2. Lock -->
+                        <Button Text="Lock/Unlock" Margin="0,4" Clicked="OnToggleLockClicked" BackgroundColor="{Binding IsLocked, Converter={StaticResource BoolToColorConverter}}" />
+                        <!-- 3. Einbahn -->
+                        <Button Text="Einbahn" Margin="0,4" Clicked="OnToggleOneWayClicked" BackgroundColor="{Binding IsOneWay, Converter={StaticResource BoolToColorConverter}}" />
+                        <!-- 4. Automatik (halb/ganz) -->
+                        <Grid ColumnDefinitions="*,*" Margin="0,4">
+                            <Button Text="Auto Halb" Grid.Column="0" Clicked="OnSetAutoModeHalfClicked">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Style.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding AutoMode}" Value="{x:Static Member=models:PlacedDeviceModel+AutoModeLevel.Half}">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource PlacedDeviceConfigButton}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <Button Text="Auto Ganz" Grid.Column="1" Clicked="OnSetAutoModeFullClicked">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Style.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding AutoMode}" Value="{x:Static Member=models:PlacedDeviceModel+AutoModeLevel.Full}">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource PlacedDeviceConfigButton}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
+                        <!-- 5. Winter -->
+                        <Button Text="Winter" Margin="0,4" Clicked="OnToggleWinterClicked" BackgroundColor="{Binding IsWinterMode, Converter={StaticResource BoolToColorConverter}}" />
+                    </Grid>
+                </toolkit:Expander.Content>
+            </toolkit:Expander>
+            </VerticalStackLayout>
         </Border>
     </AbsoluteLayout>
 </ContentView>
