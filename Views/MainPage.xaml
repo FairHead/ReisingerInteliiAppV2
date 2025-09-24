@@ -6,6 +6,8 @@
     xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
     xmlns:controls="clr-namespace:ReisingerIntelliApp_V4.Controls"
     xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
+    xmlns:models="clr-namespace:ReisingerIntelliApp_V4.Models"
+    x:DataType="viewmodels:MainPageViewModel"
     x:Name="Root"
     BackgroundColor="#1E1E1E"
     Shell.NavBarIsVisible="False">
@@ -271,7 +273,7 @@
                             SelectionChanged="OnDropdownItemSelected"
                             SelectionMode="Single"
                             VerticalOptions="Start"
-                            ItemSizingStrategy="MeasureFirstItem"
+                            ItemSizingStrategy="MeasureAllItems"
                             ZIndex="54">
                             <CollectionView.ItemsLayout>
                                 <GridItemsLayout
@@ -282,7 +284,7 @@
                             </CollectionView.ItemsLayout>
 
                             <CollectionView.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="models:DropdownItemModel">
                                     <components:GradientWifiCardComponent
                                         Margin="0"
                                         Padding="0"
@@ -299,7 +301,7 @@
                                         NetworkInfo="{Binding NetworkInfo}"
                                         ShowAddButton="{Binding HasActions}"
                                         ShowDeviceOptionsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.ShowDeviceOptionsCommand}"
-                                        SettingsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.NavigateToStructureEditorCommand}"
+                                        SettingsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CardSettingsCommand}"
                                         ShowNetworkInfo="True"
                                         ShowSettingsButton="{Binding HasActions}"
                                         ShowStatus="{Binding ShowStatus}"

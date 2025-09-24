@@ -77,6 +77,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         NavigateToStructureEditorCommand = new Command<DropdownItemModel>(OnNavigateToStructureEditor);
         DeleteDeviceFromDropdownCommand = new Command<DropdownItemModel>(OnDeleteDeviceFromDropdown);
     ShowDeviceOptionsCommand = new Command<DropdownItemModel>(OnShowDeviceOptions);
+    CardSettingsCommand = new Command<DropdownItemModel>(OnCardSettingsTapped);
     AddDeviceToFloorPlanCommand = new AsyncRelayCommand<DropdownItemModel>(AddDeviceToCurrentFloorAsync);
     IncreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, +0.1));
     DecreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, -0.1));
@@ -84,56 +85,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         
         InitializeDropdownData();
 
-        // Dummy-Devices beim App-Start persistieren, falls keine vorhanden
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var local = await _deviceService.GetSavedLocalDevicesAsync();
-                if (local == null || !local.Any())
-                {
-                    var dummyLocal = new List<DeviceModel>();
-                    for (int i = 1; i <= 3; i++)
-                    {
-                        dummyLocal.Add(new DeviceModel
-                        {
-                            DeviceId = $"dummy_local_{i}",
-                            Name = $"Dummy Local Device {i}",
-                            IpAddress = $"192.168.1.10{i}",
-                            LastSeen = DateTime.Now.AddHours(-1),
-                            IsOnline = false,
-                            ConnectionType = ConnectionType.Local
-                        });
-                    }
-                    await _deviceService.SaveLocalDevicesAsync(dummyLocal);
-                    System.Diagnostics.Debug.WriteLine("[Startup] Dummy Local Devices gespeichert.");
-                }
-
-                var wifi = await _deviceService.GetSavedWifiDevicesAsync();
-                if (wifi == null || !wifi.Any())
-                {
-                    var dummyWifi = new List<DeviceModel>();
-                    for (int i = 1; i <= 3; i++)
-                    {
-                        dummyWifi.Add(new DeviceModel
-                        {
-                            DeviceId = $"dummy_wifi_{i}",
-                            Name = $"Dummy WiFi Device {i}",
-                            Ssid = $"SSID{i}",
-                            LastSeen = DateTime.Now.AddHours(-1),
-                            IsOnline = false,
-                            ConnectionType = ConnectionType.Wifi
-                        });
-                    }
-                    await _deviceService.SaveWifiDevicesAsync(dummyWifi);
-                    System.Diagnostics.Debug.WriteLine("[Startup] Dummy WiFi Devices gespeichert.");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[Startup] Fehler beim Erstellen der Dummy-Devices: {ex.Message}");
-            }
-        });
+        // Removed dummy device seeding (previously added placeholder devices on empty storage)
         
         // Subscribe to device added messages
         #pragma warning disable CS0618 // MessagingCenter is obsolete; migration planned to WeakReferenceMessenger
@@ -188,6 +140,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     public ICommand ScanButtonTappedCommand { get; }
     public ICommand DeleteDeviceFromDropdownCommand { get; }
     public ICommand ShowDeviceOptionsCommand { get; }
+    public ICommand CardSettingsCommand { get; }
     public IAsyncRelayCommand<DropdownItemModel> AddDeviceToFloorPlanCommand { get; }
     public IAsyncRelayCommand<PlacedDeviceModel> IncreaseDeviceScaleCommand { get; }
     public IAsyncRelayCommand<PlacedDeviceModel> DecreaseDeviceScaleCommand { get; }
@@ -610,65 +563,33 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             {
                 RemoveDefaultNoDeviceCard();
                 var placedIds = new HashSet<string>(StructuresVM.SelectedLevel?.PlacedDevices?.Select(pd => pd.DeviceInfo.DeviceId) ?? Enumerable.Empty<string>());
-                System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] PlacedIds on current floor: {string.Join(", ", placedIds)}");
                 foreach (var device in savedDevices)
                 {
                     try
                     {
-                        var dropdownItem = new DropdownItemModel
+                        DropdownItems.Add(new DropdownItemModel
                         {
                             Id = device.DeviceId,
                             Icon = "wifi_icon.svg",
-                            // Primary line: device name; Secondary line: just the SSID instead of last seen
                             Text = device.Name,
                             SubText = device.Ssid,
-                            NetworkInfo = device.Ssid, // Pass SSID to show in the card instead of last seen
+                            NetworkInfo = device.Ssid,
+                            LastSeen = device.LastSeen.ToString("HH:mm"),
                             HasActions = true,
                             ShowStatus = true,
                             IsConnected = false,
                             IsPlacedOnCurrentFloor = placedIds.Contains(device.DeviceId),
                             IsActionEnabled = !placedIds.Contains(device.DeviceId)
-                        };
-                        DropdownItems.Add(dropdownItem);
-                        System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] Added device to DropdownItems: {dropdownItem.Id}, PlacedOnCurrentFloor={dropdownItem.IsPlacedOnCurrentFloor}, ActionEnabled={dropdownItem.IsActionEnabled}");
+                        });
                     }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] ERROR adding device: {ex.Message}");
-                    }
+                    catch { }
                 }
-                System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] DropdownItems count after adding real devices: {DropdownItems.Count}");
                 StartWifiStatusMonitoring();
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(100);
-                    await CheckWifiDeviceStatusAsync();
-                });
+                _ = Task.Run(async () => { await Task.Delay(100); await CheckWifiDeviceStatusAsync(); });
             }
             else
             {
-                var placedIds = new HashSet<string>(StructuresVM.SelectedLevel?.PlacedDevices?.Select(pd => pd.DeviceInfo.DeviceId) ?? Enumerable.Empty<string>());
-                System.Diagnostics.Debug.WriteLine("[LoadWifiDevicesAsync] No real devices found, adding dummy devices");
-                for (int i = 1; i <= 3; i++)
-                {
-                    var dropdownItem = new DropdownItemModel
-                    {
-                        Id = $"dummy_wifi_{i}",
-                        Icon = "wifi_icon.svg",
-                        Text = $"Dummy WiFi Device {i}",
-                        SubText = $"SSID{i}",
-                        NetworkInfo = $"SSID{i}", // Show SSID instead of last seen
-                        HasActions = true,
-                        ShowStatus = true,
-                        IsConnected = false,
-                        IsPlacedOnCurrentFloor = false,
-                        IsActionEnabled = true
-                    };
-                    DropdownItems.Add(dropdownItem);
-                    System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] Added dummy device: {dropdownItem.Id}");
-                }
-                System.Diagnostics.Debug.WriteLine($"[LoadWifiDevicesAsync] DropdownItems count after adding dummy devices: {DropdownItems.Count}");
-                StartWifiStatusMonitoring();
+                DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "Keine WiFi Geräte gespeichert", HasActions = false, IsActionEnabled = false });
             }
         }
         catch (Exception ex)
@@ -720,63 +641,33 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             {
                 RemoveDefaultNoDeviceCard();
                 var placedIds = new HashSet<string>(StructuresVM.SelectedLevel?.PlacedDevices?.Select(pd => pd.DeviceInfo.DeviceId) ?? Enumerable.Empty<string>());
-                System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] PlacedIds on current floor: {string.Join(", ", placedIds)}");
                 foreach (var device in savedDevices)
                 {
                     try
                     {
-                        var dropdownItem = new DropdownItemModel
+                        DropdownItems.Add(new DropdownItemModel
                         {
                             Id = device.DeviceId,
                             Icon = "local_icon.svg",
                             Text = device.Name,
-                            SubText = device.IpAddress, // Show just the IP address instead of last seen
-                            NetworkInfo = device.IpAddress, // Pass IP address to show in the card instead of last seen
+                            SubText = device.IpAddress,
+                            NetworkInfo = device.IpAddress,
+                            LastSeen = device.LastSeen.ToString("HH:mm"),
                             HasActions = true,
                             ShowStatus = true,
                             IsConnected = false,
                             IsPlacedOnCurrentFloor = placedIds.Contains(device.DeviceId),
                             IsActionEnabled = !placedIds.Contains(device.DeviceId)
-                        };
-                        DropdownItems.Add(dropdownItem);
-                        System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] Added device to DropdownItems: {dropdownItem.Id}, PlacedOnCurrentFloor={dropdownItem.IsPlacedOnCurrentFloor}, ActionEnabled={dropdownItem.IsActionEnabled}");
+                        });
                     }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] ERROR adding device: {ex.Message}");
-                    }
+                    catch { }
                 }
-                System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] DropdownItems count after adding real devices: {DropdownItems.Count}");
                 StartLocalDevStatusMonitoring();
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(100);
-                    await CheckLocalDeviceStatusAsync();
-                });
+                _ = Task.Run(async () => { await Task.Delay(100); await CheckLocalDeviceStatusAsync(); });
             }
             else
             {
-                System.Diagnostics.Debug.WriteLine("[LoadLocalDevicesAsync] No real devices found, adding dummy devices");
-                for (int i = 1; i <= 3; i++)
-                {
-                    var dropdownItem = new DropdownItemModel
-                    {
-                        Id = $"dummy_local_{i}",
-                        Icon = "local_icon.svg",
-                        Text = $"Dummy Local Device {i}",
-                        SubText = $"192.168.1.10{i}",
-                        NetworkInfo = $"192.168.1.10{i}", // Show IP address instead of last seen
-                        HasActions = true,
-                        ShowStatus = true,
-                        IsConnected = false,
-                        IsPlacedOnCurrentFloor = false,
-                        IsActionEnabled = true
-                    };
-                    DropdownItems.Add(dropdownItem);
-                    System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] Added dummy device: {dropdownItem.Id}");
-                }
-                System.Diagnostics.Debug.WriteLine($"[LoadLocalDevicesAsync] DropdownItems count after adding dummy devices: {DropdownItems.Count}");
-                StartLocalDevStatusMonitoring();
+                DropdownItems.Add(new DropdownItemModel { Id = NO_DEVICES_ITEM_ID, Icon = "info.svg", Text = "Keine lokalen Geräte gespeichert", HasActions = false, IsActionEnabled = false });
             }
         }
         catch (Exception ex)
@@ -1201,6 +1092,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
             if (confirmDelete)
             {
+                // NEW: Cascade remove any placed instances BEFORE removing from persistence/UI
+                CascadeRemovePlacedDevice(device.Id);
+
                 if (CurrentActiveTab == "WifiDev")
                 {
                     var deviceToDelete = new DeviceModel
@@ -1257,6 +1151,34 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 "Error",
                 $"Failed to delete: {ex.Message}",
                 "OK");
+        }
+    }
+
+    // Remove any PlacedDeviceModel referencing a deleted saved device
+    private void CascadeRemovePlacedDevice(string deviceId)
+    {
+        try
+        {
+            if (StructuresVM?.SelectedLevel?.PlacedDevices == null || string.IsNullOrEmpty(deviceId))
+                return;
+
+            var toRemove = StructuresVM.SelectedLevel.PlacedDevices
+                .Where(pd => pd.DeviceId == deviceId || (pd.DeviceInfo != null && pd.DeviceInfo.DeviceId == deviceId))
+                .ToList();
+            if (toRemove.Count == 0) return;
+
+            foreach (var pd in toRemove)
+            {
+                StructuresVM.SelectedLevel.PlacedDevices.Remove(pd);
+            }
+
+#pragma warning disable CS0618
+            MessagingCenter.Send(this, "ForceDeviceLayoutRefresh");
+#pragma warning restore CS0618
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"[CascadeRemovePlacedDevice] Failed: {e.Message}");
         }
     }
 
@@ -1344,6 +1266,60 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         }
     }
 
+    /// <summary>
+    /// Handles direct tap on the settings (gear) button in a dropdown card.
+    /// Structures / Levels: keep existing behavior (navigate to structure editor)
+    /// WifiDev: navigate to SaveDevicePage ("savedevice") passing serialized network data (SSID only available)
+    /// LocalDev: navigate to SaveLocalDevicePage ("savelocaldevice") passing local device info
+    /// </summary>
+    private async void OnCardSettingsTapped(DropdownItemModel? item)
+    {
+        try
+        {
+            if (item == null) return;
+            switch (CurrentActiveTab)
+            {
+                case "Structures":
+                case "Levels":
+                    OnNavigateToStructureEditor(item);
+                    return;
+                case "WifiDev":
+                    // Build minimal NetworkDataModel (mirrors WifiScan navigation)
+                    var wifiNetwork = new NetworkDataModel
+                    {
+                        Ssid = item.NetworkInfo, // SSID stored in NetworkInfo
+                        SsidName = item.Text,
+                        IsAlreadySaved = true,
+                        DeviceId = item.Id
+                    };
+                    var wifiJson = System.Text.Json.JsonSerializer.Serialize(wifiNetwork);
+                    var encodedWifi = Uri.EscapeDataString(wifiJson);
+                    await Shell.Current.GoToAsync($"savedevice?networkData={encodedWifi}");
+                    return;
+                case "LocalDev":
+                    // SaveLocalDevicePageViewModel expects a query parameter named "deviceData" with
+                    // a JSON payload matching record Payload(string ip, string name, string serial, string firmware, string deviceId)
+                    var localPayload = new
+                    {
+                        ip = item.NetworkInfo,
+                        name = item.Text,
+                        serial = string.Empty,
+                        firmware = string.Empty,
+                        deviceId = item.Id
+                    };
+                    var localJson = System.Text.Json.JsonSerializer.Serialize(localPayload);
+                    var encodedLocal = Uri.EscapeDataString(localJson);
+                    await Shell.Current.GoToAsync($"savelocaldevice?deviceData={encodedLocal}");
+                    return;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[OnCardSettingsTapped] ERROR: {ex.Message}");
+            await ShowAlertAsync("Error", ex.Message, "OK");
+        }
+    }
+
     #region Device placement and scaling
 
     private async Task AddDeviceToCurrentFloorAsync(DropdownItemModel? item)
@@ -1394,50 +1370,19 @@ public class MainPageViewModel : BaseViewModel, IDisposable
             }
             DeviceModel? source = null;
 
-            if (item.Id.StartsWith("dummy_"))
+            // Load selected real device details based on current tab
+            System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Loading device: {item.Id} from {CurrentActiveTab}");
+            if (CurrentActiveTab == "WifiDev")
             {
-                System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Handling dummy device: {item.Id}");
-                if (CurrentActiveTab == "WifiDev" && item.Id.StartsWith("dummy_wifi_"))
-                {
-                    var deviceNumber = item.Id.Replace("dummy_wifi_", "");
-                    source = new DeviceModel
-                    {
-                        DeviceId = item.Id,
-                        Name = $"Dummy WiFi Device {deviceNumber}",
-                        Ssid = $"SSID{deviceNumber}",
-                        LastSeen = DateTime.Now.AddHours(-1),
-                        IsOnline = false
-                    };
-                }
-                else if (CurrentActiveTab == "LocalDev" && item.Id.StartsWith("dummy_local_"))
-                {
-                    var deviceNumber = item.Id.Replace("dummy_local_", "");
-                    source = new DeviceModel
-                    {
-                        DeviceId = item.Id,
-                        Name = $"Dummy Local Device {deviceNumber}",
-                        IpAddress = $"192.168.1.10{deviceNumber}",
-                        LastSeen = DateTime.Now.AddHours(-1),
-                        IsOnline = false,
-                        ConnectionType = ConnectionType.Local
-                    };
-                }
+                var saved = await _deviceService.GetSavedWifiDevicesAsync();
+                System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Loaded {saved?.Count ?? 0} saved wifi devices");
+                source = saved?.FirstOrDefault(d => d.DeviceId == item.Id);
             }
-            else
+            else if (CurrentActiveTab == "LocalDev")
             {
-                System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Loading real device: {item.Id} from {CurrentActiveTab}");
-                if (CurrentActiveTab == "WifiDev")
-                {
-                    var saved = await _deviceService.GetSavedWifiDevicesAsync();
-                    System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Loaded {saved?.Count ?? 0} saved wifi devices");
-                    source = saved?.FirstOrDefault(d => d.DeviceId == item.Id);
-                }
-                else if (CurrentActiveTab == "LocalDev")
-                {
-                    var saved = await _deviceService.GetSavedLocalDevicesAsync();
-                    System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Loaded {saved?.Count ?? 0} saved local devices");
-                    source = saved?.FirstOrDefault(d => d.DeviceId == item.Id);
-                }
+                var saved = await _deviceService.GetSavedLocalDevicesAsync();
+                System.Diagnostics.Debug.WriteLine($"[AddDeviceToCurrentFloorAsync] Loaded {saved?.Count ?? 0} saved local devices");
+                source = saved?.FirstOrDefault(d => d.DeviceId == item.Id);
             }
 
             if (source == null)
