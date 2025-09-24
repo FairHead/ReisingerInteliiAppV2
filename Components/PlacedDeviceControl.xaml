@@ -211,7 +211,7 @@
                         ColumnDefinitions="Auto,Auto,Auto"
                         HorizontalOptions="Center"
                         RowDefinitions="Auto,Auto,Auto"
-                        VerticalOptions="CenterAndExpand">
+                        VerticalOptions="Center">
 
 
 
@@ -251,17 +251,18 @@
 
                             <ImageButton
                                 Padding="10"
-                                BackgroundColor="Green"
                                 BorderColor="{StaticResource PlacedDeviceMoveButton}"
                                 BorderWidth="5"
-                                Clicked="OnToggleDoorClicked"
                                 CornerRadius="50"
                                 HeightRequest="110"
                                 HorizontalOptions="Center"
                                 Pressed="OnInteractivePressed"
                                 Released="OnInteractiveReleased"
                                 VerticalOptions="Center"
-                                WidthRequest="110">
+                                WidthRequest="110"
+                                Command="{Binding Source={x:Reference placedDeviceControl}, Path=ControlViewModel.ToggleDoorCommand}"
+                                IsEnabled="{Binding DoorActionInProgress, Converter={StaticResource BoolToOpenCloseConverter}, ConverterParameter=Invert}"
+                                BackgroundColor="{Binding IsDoorOpen, Converter={StaticResource BoolToOpenCloseConverter}, ConverterParameter=Color}">
                                 <ImageButton.Source>
                                     <FontImageSource
                                         FontFamily="SpaceMonoBold"

@@ -372,7 +372,7 @@ public partial class SaveDevicePageViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var device = DeviceModel.FromNetworkData(SelectedNetwork);
+            var device = SelectedNetwork.ToDeviceModel();
             // Preserve existing DeviceId if present (editing case)
             if (!string.IsNullOrEmpty(SelectedNetwork.DeviceId))
             {

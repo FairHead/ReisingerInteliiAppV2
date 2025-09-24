@@ -1,5 +1,7 @@
 using ReisingerIntelliApp_V4.Models;
 using System;
+using ReisingerIntelliApp_V4.ViewModels;
+using ReisingerIntelliApp_V4.Helpers;
 
 namespace ReisingerIntelliApp_V4.Components;
 
@@ -102,6 +104,34 @@ public partial class PlacedDeviceControl : ContentView
     {
         get => (PlacedDeviceModel)GetValue(PlacedDeviceProperty);
         set => SetValue(PlacedDeviceProperty, value);
+    }
+
+    // Injected DeviceControlViewModel to drive door commands
+    public static readonly BindableProperty ControlViewModelProperty =
+        BindableProperty.Create(
+            nameof(ControlViewModel),
+            typeof(DeviceControlViewModel),
+            typeof(PlacedDeviceControl),
+            default(DeviceControlViewModel),
+            propertyChanged: OnControlViewModelChanged);
+
+    public DeviceControlViewModel? ControlViewModel
+    {
+        get => (DeviceControlViewModel?)GetValue(ControlViewModelProperty);
+        set => SetValue(ControlViewModelProperty, value);
+    }
+
+    private static void OnControlViewModelChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is PlacedDeviceControl control && newValue is DeviceControlViewModel vm)
+        {
+            // Ensure the VM has the device reference
+            if (control.PlacedDevice?.DeviceInfo != null)
+            {
+                vm.SetDevice(control.PlacedDevice.DeviceInfo);
+                control.WireDoorStateSync(vm);
+            }
+        }
     }
 
     // Events for device actions
@@ -233,7 +263,7 @@ public partial class PlacedDeviceControl : ContentView
         switch (SelectedMode)
         {
             case ModeOption.Dauerauf:
-                OnToggleDoorClicked(sender, e);
+                // Toggle handled by command binding now
                 break;
             case ModeOption.LockUnlock:
                 OnToggleLockClicked(sender, e);
@@ -263,6 +293,49 @@ public partial class PlacedDeviceControl : ContentView
             control.BindingContext = placedDevice;
             // Ensure move mode is reset to default when a new device is assigned
             control.IsInMoveMode = false;
+
+            // If a control view model is already assigned, update its device reference
+            if (control.ControlViewModel != null && placedDevice.DeviceInfo != null)
+            {
+                control.ControlViewModel.SetDevice(placedDevice.DeviceInfo);
+                control.WireDoorStateSync(control.ControlViewModel);
+            }
+            else if (control.ControlViewModel == null)
+            {
+                // Lazy resolve from DI if available
+                try
+                {
+                    var vm = ServiceHelper.GetService<DeviceControlViewModel>();
+                    control.ControlViewModel = vm; // triggers property changed hook above
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[PlacedDeviceControl] Failed to resolve DeviceControlViewModel: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    private void WireDoorStateSync(DeviceControlViewModel vm)
+    {
+        // Simple one-way sync: when VM.IsDoorOpen changes, mirror to placed device for visual state
+        // We hook into PropertyChanged only once
+        vm.PropertyChanged -= VmOnPropertyChanged;
+        vm.PropertyChanged += VmOnPropertyChanged;
+        if (PlacedDevice != null)
+        {
+            PlacedDevice.IsDoorOpen = vm.IsDoorOpen;
+        }
+    }
+
+    private void VmOnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is DeviceControlViewModel vm && e.PropertyName == nameof(DeviceControlViewModel.IsDoorOpen))
+        {
+            if (PlacedDevice != null)
+            {
+                PlacedDevice.IsDoorOpen = vm.IsDoorOpen;
+            }
         }
     }
 
@@ -627,15 +700,7 @@ public partial class PlacedDeviceControl : ContentView
         }
     }
 
-    private void OnToggleDoorClicked(object sender, EventArgs e)
-    {
-        var model = GetModel();
-        if (model != null)
-        {
-            model.IsDoorOpen = !model.IsDoorOpen;
-            ToggleDoorRequested?.Invoke(this, model);
-        }
-    }
+    // ToggleDoor now handled via bound command (ToggleDoorCommand) in DeviceControlViewModel.
 
     private void OnToggleDauerAufClicked(object sender, EventArgs e)
     {

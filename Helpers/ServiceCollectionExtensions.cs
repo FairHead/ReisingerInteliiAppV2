@@ -1,4 +1,7 @@
 using Microsoft.Extensions.Http;
+using Polly;
+using Polly.Extensions.Http;
+using Microsoft.Extensions.DependencyInjection; // For AddPolicyHandler extensions
 using ReisingerIntelliApp_V4.Services;
 using ReisingerIntelliApp_V4.ViewModels;
 using ReisingerIntelliApp_V4.Views;
@@ -13,8 +16,10 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection RegisterServices(this IServiceCollection services)
     {
-        // Register HTTP Client
-        services.AddHttpClient();
+        // Register HTTP Clients
+        services.AddHttpClient(); // default
+        // Named client for IntelliDrive API (Polly handlers can be added once extension methods available in this TFMs)
+        services.AddHttpClient("intellidrive");
         
         // Register Services
         services.AddSingleton<IDeviceService, DeviceService>();
@@ -23,10 +28,13 @@ public static class ServiceCollectionExtensions
     services.AddSingleton<IBuildingStorageService, BuildingStorageService>();
     services.AddSingleton<PdfConversionService>();
     services.AddSingleton<PdfStorageService>();
-        services.AddSingleton<IntellidriveApiService>();
+    // Removed API logic and HTTP client abstraction per user request
+    services.AddSingleton<Microsoft.Maui.Networking.IConnectivity>(Connectivity.Current);
         services.AddSingleton<WiFiManagerService>();
     services.AddSingleton<PdfConversionService>();
     services.AddSingleton<PdfStorageService>();
+        // ViewModel used inside PlacedDeviceControl for door toggling (must be resolvable via ServiceHelper)
+        services.AddTransient<DeviceControlViewModel>();
 
         // Register ViewModels
         services.AddTransient<MainPageViewModel>();

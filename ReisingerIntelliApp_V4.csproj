@@ -75,12 +75,21 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
 		<PackageReference Include="WifiManager.Maui" Version="2.0.2" />
+		<PackageReference Include="Polly" Version="8.4.2" />
+		<PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Reference core library only if present; prevents build errors in environments where the core repo folder is not checked out -->
+		<ProjectReference Include="..\ReisingerIntelliCore\ReisingerIntelliCore.csproj" Condition="Exists('..\ReisingerIntelliCore\ReisingerIntelliCore.csproj')" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <Compile Remove="MainPage.xaml.cs" />
 	  <Compile Remove="WifiScanPage.xaml.cs" />
 	  <Compile Remove="LocalDevicesScanPage.xaml.cs" />
+	  <!-- Temporarily keep API & model files included because ReisingerIntelliCore project is currently missing.
+	       Once the core library project is added back, re-introduce these removals to avoid duplication. -->
 	</ItemGroup>
 
 	<ItemGroup>
