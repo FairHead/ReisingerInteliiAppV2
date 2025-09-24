@@ -92,6 +92,7 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
                 IpAddress = payload.ip ?? string.Empty;
                 FirmwareVersion = payload.firmware ?? string.Empty;
                 SerialNumber = payload.serial ?? string.Empty;
+                    _ = PrefillExistingLocalAsync();
                 CanSaveDevice = !string.IsNullOrEmpty(IpAddress) && !string.IsNullOrWhiteSpace(DeviceName);
                 UpdateCanTestConnection();
                 // Start online status monitoring when IP is known
@@ -179,16 +180,44 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
                 Username = Username,
                 Password = Password
             };
-
+            // Determine if existing device (for status message only)
+            var existingList = await _deviceService.GetSavedLocalDevicesAsync();
+            var existing = existingList.FirstOrDefault(d => d.DeviceId == model.DeviceId || d.IpAddress == model.IpAddress);
             await _deviceService.SaveDeviceAsync(model);
-            // Notify listeners that a new local device was added (send DeviceId so scanners can mark the right row)
             MessagingCenter.Send(this, "LocalDeviceAdded", model.DeviceId);
-            // Return to the scan list so the user can add more without restarting the scan
             await Shell.Current.GoToAsync("..");
         }
         catch (Exception ex)
         {
             UpdateStatusMessage($"❌ Speichern fehlgeschlagen: {ex.Message}", Colors.Red, true);
+        }
+    }
+
+    private async Task PrefillExistingLocalAsync()
+    {
+        try
+        {
+            var saved = await _deviceService.GetSavedLocalDevicesAsync();
+            DeviceModel? match = null;
+            if (!string.IsNullOrEmpty(DeviceId))
+            {
+                match = saved.FirstOrDefault(d => d.DeviceId == DeviceId);
+            }
+            if (match == null && !string.IsNullOrEmpty(IpAddress))
+            {
+                match = saved.FirstOrDefault(d => d.IpAddress == IpAddress);
+            }
+            if (match != null)
+            {
+                Username = match.Username;
+                Password = match.Password;
+                DeviceName = match.Name; // In case saved differs from payload
+                CanSaveDevice = !string.IsNullOrWhiteSpace(DeviceName) && !string.IsNullOrWhiteSpace(IpAddress);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ PrefillExistingLocalAsync error: {ex.Message}");
         }
     }
 

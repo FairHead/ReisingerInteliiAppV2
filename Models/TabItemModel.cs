@@ -18,6 +18,8 @@ public partial class DropdownItemModel : ObservableObject
     public string Text { get; set; } = string.Empty;
     public string SubText { get; set; } = string.Empty;
     public string NetworkInfo { get; set; } = string.Empty; // New property for SSID or IP address
+    // Optional formatted timestamp (e.g. last communication time) used by device cards
+    public string LastSeen { get; set; } = string.Empty;
     public bool HasActions { get; set; }
     
     // Controls whether the connection status UI is shown for this item

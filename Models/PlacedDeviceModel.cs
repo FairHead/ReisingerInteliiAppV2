@@ -42,6 +42,12 @@ public partial class PlacedDeviceModel : ObservableObject
 
     public string DeviceType { get; set; } = "Intellidrive";
 
+    // Display helper: SSID for Wifi devices, otherwise IP address
+    public string NetworkInfo
+        => DeviceInfo != null && DeviceInfo.Type == AppDeviceType.WifiDevice
+            ? (!string.IsNullOrWhiteSpace(DeviceInfo.Ssid) ? DeviceInfo.Ssid : IpAddress)
+            : IpAddress;
+
     // Position properties for DevicePinOverlay compatibility
     public double X 
     { 
@@ -154,6 +160,24 @@ public partial class PlacedDeviceModel : ObservableObject
     [ObservableProperty]
     private string deviceColor = "#4CAF50";
 
+    // Mode toggles for dropdown UI
+    [ObservableProperty]
+    private bool dauerAuf; // Always open mode
+
+    [ObservableProperty]
+    private bool isLocked; // Locked/unlocked
+
+    [ObservableProperty]
+    private bool isOneWay; // One-way mode
+
+    public enum AutoModeLevel { None, Half, Full }
+
+    [ObservableProperty]
+    private AutoModeLevel autoMode = AutoModeLevel.None; // Automatic mode selection
+
+    [ObservableProperty]
+    private bool isWinterMode; // Winter mode
+
     // Constructor
     public PlacedDeviceModel()
     {
@@ -167,6 +191,7 @@ public partial class PlacedDeviceModel : ObservableObject
         Name = deviceModel.Name;
         IpAddress = deviceModel.IpAddress;
         IsOnline = deviceModel.IsOnline;
+        OnPropertyChanged(nameof(NetworkInfo));
         // Defaults for normalized sizing and scale
         if (double.IsNaN(BaseWidthNorm) || BaseWidthNorm <= 0) BaseWidthNorm = 0.15;
         if (double.IsNaN(BaseHeightNorm) || BaseHeightNorm <= 0) BaseHeightNorm = 0.18;
@@ -184,5 +209,6 @@ public partial class PlacedDeviceModel : ObservableObject
         IpAddress = device.IpAddress;
         IsOnline = device.IsOnline;
         IsDoorOpen = !device.IsDoorClosed;
+        OnPropertyChanged(nameof(NetworkInfo));
     }
 }

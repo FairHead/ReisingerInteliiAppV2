@@ -258,10 +258,44 @@ public class DeviceService : IDeviceService
             System.Diagnostics.Debug.WriteLine("❌ Device is null, cannot save");
             return;
         }
-        
         System.Diagnostics.Debug.WriteLine($"📊 Device details: ID={device.DeviceId}, Name={device.Name}, SSID={device.Ssid}");
-        await AddDeviceAndReturnUpdatedListAsync(device);
-        System.Diagnostics.Debug.WriteLine("✅ Device saved successfully");
+
+        // Load existing list
+        var (success, _, devices) = await LoadDeviceListAsync();
+        if (!success)
+        {
+            devices = new List<DeviceModel>();
+        }
+
+        // Try match by DeviceId first (most reliable)
+        var existing = devices.FirstOrDefault(d => !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId == device.DeviceId);
+
+        // For WiFi devices where DeviceId might have changed earlier versions, fall back to SSID match
+        if (existing == null && device.ConnectionType == ConnectionType.Wifi && !string.IsNullOrEmpty(device.Ssid))
+        {
+            existing = devices.FirstOrDefault(d => d.ConnectionType == ConnectionType.Wifi && d.Ssid == device.Ssid);
+            if (existing != null && string.IsNullOrEmpty(device.DeviceId))
+            {
+                // Adopt existing DeviceId if incoming one is empty
+                device.DeviceId = existing.DeviceId;
+            }
+        }
+
+        if (existing != null)
+        {
+            System.Diagnostics.Debug.WriteLine($"📝 Updating existing device (DeviceId={existing.DeviceId})");
+            // Preserve DeviceId and replace mutable fields
+            var index = devices.IndexOf(existing);
+            devices[index] = device;
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine("➕ Adding new device entry");
+            devices.Add(device);
+        }
+
+        await SaveDeviceListToSecureStoreAsync(devices);
+        System.Diagnostics.Debug.WriteLine("✅ Device list persisted (upsert)");
     }
 
     public async Task DeleteDeviceAsync(DeviceModel device)

@@ -224,16 +224,23 @@ namespace ReisingerIntelliApp_V4.Components
         // Event Handlers
         private void OnMonitorClicked(object sender, EventArgs e)
         {
+            // Execute bound command if present
+            if (AddToFloorPlanCommand?.CanExecute(CommandParameter) == true)
+                AddToFloorPlanCommand.Execute(CommandParameter);
             MonitorClicked?.Invoke(this, e);
         }
 
         private void OnSettingsClicked(object sender, EventArgs e)
         {
+            if (SettingsCommand?.CanExecute(CommandParameter) == true)
+                SettingsCommand.Execute(CommandParameter);
             SettingsClicked?.Invoke(this, e);
         }
 
         private void OnDeleteClicked(object sender, EventArgs e)
         {
+            if (DeleteCommand?.CanExecute(CommandParameter) == true)
+                DeleteCommand.Execute(CommandParameter);
             DeleteClicked?.Invoke(this, e);
         }
     }

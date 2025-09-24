@@ -3,6 +3,8 @@
     x:Class="ReisingerIntelliApp_V4.Components.GradientWifiCardComponent"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:DataType="components:GradientWifiCardComponent"
+    xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
     x:Name="GradientCardRoot">
 
 
@@ -22,7 +24,8 @@
                 </Setter>
                 <Setter Property="Padding" Value="12" />
                 <Setter Property="WidthRequest" Value="180" />
-                <Setter Property="HeightRequest" Value="180" />
+                <!-- Remove fixed HeightRequest to allow dynamic growth when name wraps -->
+                <!--<Setter Property="HeightRequest" Value="180" />-->
                 <Setter Property="Background">
                     <Setter.Value>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
@@ -132,7 +135,11 @@
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="FontAttributes" Value="Bold" />
                 <Setter Property="TextColor" Value="White" />
-                <Setter Property="LineBreakMode" Value="TailTruncation" />
+                <!-- Allow wrapping to multiple lines -->
+                <Setter Property="LineBreakMode" Value="WordWrap" />
+                <!-- Limit to max lines to avoid uncontrolled growth -->
+                <Setter Property="MaxLines" Value="3" />
+                <Setter Property="HorizontalTextAlignment" Value="Center" />
             </Style>
 
             <Style x:Key="LastSeenCompact" TargetType="Label">
@@ -248,8 +255,7 @@
                     Spacing="8">
                     <ImageButton
                         x:Name="MonitorButton"
-                        Command="{Binding Source={x:Reference GradientCardRoot}, Path=AddToFloorPlanCommand}"
-                        CommandParameter="{Binding Source={x:Reference GradientCardRoot}, Path=CommandParameter}"
+                        Clicked="OnMonitorClicked"
                         IsEnabled="{Binding Source={x:Reference GradientCardRoot}, Path=AddButtonEnabled}"
                         IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowAddButton}"
                         Source="add_to_floorplan.svg"
@@ -257,8 +263,7 @@
 
                     <ImageButton
                         x:Name="SettingsButton"
-                        Command="{Binding Source={x:Reference GradientCardRoot}, Path=SettingsCommand}"
-                        CommandParameter="{Binding Source={x:Reference GradientCardRoot}, Path=CommandParameter}"
+                        Clicked="OnSettingsClicked"
                         IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowSettingsButton}"
                         Source="settings.svg"
                         Style="{StaticResource CompactGradientImageButtonStyle}" />
@@ -266,8 +271,7 @@
                     <ImageButton
                         x:Name="DeleteButton"
                         Margin="-12,0,0,0"
-                        Command="{Binding Source={x:Reference GradientCardRoot}, Path=DeleteCommand}"
-                        CommandParameter="{Binding Source={x:Reference GradientCardRoot}, Path=CommandParameter}"
+                        Clicked="OnDeleteClicked"
                         Source="deletedevicebutton.svg"
                         Style="{StaticResource CompactGradientImageButtonStyle}" />
                 </StackLayout>

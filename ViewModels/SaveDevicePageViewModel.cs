@@ -97,6 +97,8 @@ public partial class SaveDevicePageViewModel : ObservableObject, IDisposable
                         System.Diagnostics.Debug.WriteLine($"✅ Network deserialized: SSID={network.Ssid}");
                         SelectedNetwork = network;
                         DeviceName = network.Ssid ?? string.Empty; // Default device name to SSID
+                        // Attempt to prefill existing saved device credentials
+                        _ = PrefillExistingDeviceAsync(network);
                         UpdateCanTestConnection();
                         UpdateCanSaveDevice();
                     }
@@ -300,6 +302,38 @@ public partial class SaveDevicePageViewModel : ObservableObject, IDisposable
         }
     }
 
+    private async Task PrefillExistingDeviceAsync(NetworkDataModel network)
+    {
+        try
+        {
+            // Load all saved wifi devices and try match by DeviceId first, then SSID
+            var saved = await _deviceService.GetSavedWifiDevicesAsync();
+            DeviceModel? match = null;
+            if (!string.IsNullOrEmpty(network.DeviceId))
+            {
+                match = saved.FirstOrDefault(d => d.DeviceId == network.DeviceId);
+            }
+            if (match == null && !string.IsNullOrEmpty(network.Ssid))
+            {
+                match = saved.FirstOrDefault(d => d.Ssid == network.Ssid);
+            }
+            if (match != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"📝 Prefilling existing device credentials for {match.Name} ({match.DeviceId})");
+                // Preserve original DeviceId
+                network.DeviceId = match.DeviceId;
+                DeviceName = match.Name;
+                Username = match.Username;
+                Password = match.Password;
+                UpdateCanSaveDevice();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ PrefillExistingDeviceAsync error: {ex.Message}");
+        }
+    }
+
     [RelayCommand]
     private async Task SaveDeviceAsync()
     {
@@ -339,9 +373,15 @@ public partial class SaveDevicePageViewModel : ObservableObject, IDisposable
             }
 
             var device = DeviceModel.FromNetworkData(SelectedNetwork);
-            
-            // Set device properties
-            device.DeviceId = Guid.NewGuid().ToString();
+            // Preserve existing DeviceId if present (editing case)
+            if (!string.IsNullOrEmpty(SelectedNetwork.DeviceId))
+            {
+                device.DeviceId = SelectedNetwork.DeviceId;
+            }
+            else if (string.IsNullOrEmpty(device.DeviceId))
+            {
+                device.DeviceId = Guid.NewGuid().ToString();
+            }
             device.Name = !string.IsNullOrEmpty(DeviceName) ? DeviceName : (SelectedNetwork.Ssid ?? "Unknown Device");
             device.Username = Username;
             device.Password = Password;
@@ -352,22 +392,15 @@ public partial class SaveDevicePageViewModel : ObservableObject, IDisposable
 
             System.Diagnostics.Debug.WriteLine($"💾 Device created: ID={device.DeviceId}, Name={device.Name}");
 
-            // Check if device already exists by SSID
-            var exists = await _deviceService.DeviceExistsBySsidAsync(SelectedNetwork.Ssid ?? string.Empty);
-            System.Diagnostics.Debug.WriteLine($"🔍 Device exists check: {exists}");
-            
-            if (exists)
-            {
-                UpdateStatusMessage("❌ Gerät mit dieser SSID bereits gespeichert", Colors.Red, true);
-                return;
-            }
+            // Determine if this is an update (existing stored) by checking current list
+            var savedList = await _deviceService.GetSavedWifiDevicesAsync();
+            var existing = savedList.FirstOrDefault(d => d.DeviceId == device.DeviceId || (!string.IsNullOrEmpty(device.Ssid) && d.Ssid == device.Ssid));
 
-            // Save device
-            System.Diagnostics.Debug.WriteLine("💾 Calling SaveDeviceAsync...");
+            System.Diagnostics.Debug.WriteLine("💾 Calling SaveDeviceAsync (upsert)...");
             await _deviceService.SaveDeviceAsync(device);
-            System.Diagnostics.Debug.WriteLine("✅ SaveDeviceAsync completed");
-            
-            UpdateStatusMessage("✅ Gerät erfolgreich gespeichert", Colors.Green, true);
+            System.Diagnostics.Debug.WriteLine("✅ SaveDeviceAsync upsert completed");
+
+            UpdateStatusMessage(existing != null ? "✅ Gerät aktualisiert" : "✅ Gerät gespeichert", Colors.Green, true);
             
             // Navigate back to WifiScanPage after successful save
             await Task.Delay(1500);

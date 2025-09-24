@@ -361,6 +361,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
                     control.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
                     control.DeleteDeviceRequested -= OnDeviceDeleteRequested;
                     control.MoveDeviceRequested -= OnDeviceMoveRequested;
+                    control.ModeChangedRequested -= OnDeviceModeChangedRequested;
                     
                     DevicesOverlay.Children.Remove(control);
                     Console.WriteLine($"[SyncDevicesOverlay] All event handlers unwired for device: {currentModel.Name}");
@@ -385,6 +386,8 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 control.DeleteDeviceRequested += OnDeviceDeleteRequested;
                 control.MoveDeviceRequested -= OnDeviceMoveRequested;
                 control.MoveDeviceRequested += OnDeviceMoveRequested;
+                control.ModeChangedRequested -= OnDeviceModeChangedRequested;
+                control.ModeChangedRequested += OnDeviceModeChangedRequested;
                 
                 DevicesOverlay.Children.Add(control);
                 Console.WriteLine($"[SyncDevicesOverlay] All event handlers wired for device: {model.Name}");
@@ -423,12 +426,14 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 child.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
                 child.DeleteDeviceRequested -= OnDeviceDeleteRequested; // <--- FEHLTE!
                 child.MoveDeviceRequested -= OnDeviceMoveRequested;
+                child.ModeChangedRequested -= OnDeviceModeChangedRequested;
                 
                 // Then add them back
                 child.AddDeviceRequested += OnDeviceIncreaseRequested;
                 child.RemoveDeviceRequested += OnDeviceDecreaseRequested;
                 child.DeleteDeviceRequested += OnDeviceDeleteRequested; // <--- HINZUFÜGEN!
                 child.MoveDeviceRequested += OnDeviceMoveRequested;
+                child.ModeChangedRequested += OnDeviceModeChangedRequested;
 
                 PositionDeviceView(child, pd);
             }
@@ -623,6 +628,21 @@ public partial class MainPage : ContentPage, IPlanViewportService
             finally
             {
                 InvalidateDevicesLayout();
+            }
+        }
+
+        private void OnDeviceModeChangedRequested(object? sender, PlacedDeviceModel e)
+        {
+            try
+            {
+                Console.WriteLine($"[MainPage] OnDeviceModeChangedRequested for device: {e?.Name ?? "(null)"}");
+                // Persist current floor with updated mode flags
+                _ = _viewModel?.SaveCurrentFloorAsync();
+                // UI is bound to model; triggers should update automatically
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MainPage] Exception in OnDeviceModeChangedRequested: {ex.Message}");
             }
         }
 

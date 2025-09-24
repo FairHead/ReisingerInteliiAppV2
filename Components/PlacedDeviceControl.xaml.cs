@@ -129,9 +129,7 @@ public partial class PlacedDeviceControl : ContentView
             }
         }
 
-        public new event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
-        protected new virtual void OnPropertyChanged(string propertyName) =>
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+        // Use base MAUI change notifications; do not shadow PropertyChanged/OnPropertyChanged
 
     public PlacedDeviceControl()
     {
@@ -170,6 +168,90 @@ public partial class PlacedDeviceControl : ContentView
     }
 
     // Settings toggler removed; we reverted to a visible Expander header and the Move button
+
+    // Dropdown split-button backing state
+    public enum ModeOption
+    {
+        Dauerauf,
+        LockUnlock,
+        Einbahn,
+        AutoHalb,
+        AutoGanz,
+        Winter
+    }
+
+    private ModeOption _selectedMode = ModeOption.Dauerauf;
+    public ModeOption SelectedMode
+    {
+        get => _selectedMode;
+        set
+        {
+            if (_selectedMode != value)
+            {
+                _selectedMode = value;
+                OnPropertyChanged(nameof(SelectedMode));
+                OnPropertyChanged(nameof(SelectedModeText));
+            }
+        }
+    }
+
+    public string SelectedModeText => _selectedMode switch
+    {
+        ModeOption.Dauerauf => "Dauerauf",
+        ModeOption.LockUnlock => "Lock/Unlock",
+        ModeOption.Einbahn => "Einbahn",
+        ModeOption.AutoHalb => "Auto Halb",
+        ModeOption.AutoGanz => "Auto Ganz",
+        ModeOption.Winter => "Winter",
+        _ => "Modus"
+    };
+
+    private async void OnOpenModeSelectorClicked(object sender, EventArgs e)
+    {
+        var page = this.Window?.Page;
+        if (page is null)
+            return;
+        var options = new[] { "Dauerauf", "Lock/Unlock", "Einbahn", "Auto Halb", "Auto Ganz", "Winter" };
+        var selection = await page.DisplayActionSheet("Modus wählen", "Abbrechen", null, options);
+        if (string.IsNullOrEmpty(selection) || selection == "Abbrechen")
+            return;
+
+        SelectedMode = selection switch
+        {
+            "Dauerauf" => ModeOption.Dauerauf,
+            "Lock/Unlock" => ModeOption.LockUnlock,
+            "Einbahn" => ModeOption.Einbahn,
+            "Auto Halb" => ModeOption.AutoHalb,
+            "Auto Ganz" => ModeOption.AutoGanz,
+            "Winter" => ModeOption.Winter,
+            _ => SelectedMode
+        };
+    }
+
+    private void OnExecuteSelectedModeClicked(object sender, EventArgs e)
+    {
+        switch (SelectedMode)
+        {
+            case ModeOption.Dauerauf:
+                OnToggleDoorClicked(sender, e);
+                break;
+            case ModeOption.LockUnlock:
+                OnToggleLockClicked(sender, e);
+                break;
+            case ModeOption.Einbahn:
+                OnToggleOneWayClicked(sender, e);
+                break;
+            case ModeOption.AutoHalb:
+                OnSetAutoModeHalfClicked(sender, e);
+                break;
+            case ModeOption.AutoGanz:
+                OnSetAutoModeFullClicked(sender, e);
+                break;
+            case ModeOption.Winter:
+                OnToggleWinterClicked(sender, e);
+                break;
+        }
+    }
 
     private static void OnPlacedDeviceChanged(BindableObject bindable, object oldValue, object newValue)
     {
