@@ -208,6 +208,7 @@
                                         Text="+"
                                         TextColor="White"
                                         ToolTipProperties.Text="Add as device"
+                                        VerticalOptions="Center"
                                         WidthRequest="35" />
                                 </Grid>
                             </Border>

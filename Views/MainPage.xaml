@@ -5,10 +5,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
     xmlns:controls="clr-namespace:ReisingerIntelliApp_V4.Controls"
-    xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
     xmlns:models="clr-namespace:ReisingerIntelliApp_V4.Models"
-    x:DataType="viewmodels:MainPageViewModel"
+    xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
     x:Name="Root"
+    x:DataType="viewmodels:MainPageViewModel"
     BackgroundColor="#1E1E1E"
     Shell.NavBarIsVisible="False">
 
@@ -23,7 +23,6 @@
             <components:AppHeader
                 Title="{Binding Title}"
                 Grid.Row="0"
-               
                 FontSize="20"
                 TitleColor="White"
                 ZIndex="2" />
@@ -147,7 +146,7 @@
                         x:Name="PlanImage"
                         Aspect="AspectFit"
                         ZIndex="10" />
-                    <!-- Use AbsoluteLayout so device controls can be positioned precisely -->
+                    <!--  Use AbsoluteLayout so device controls can be positioned precisely  -->
                     <AbsoluteLayout
                         x:Name="DevicesOverlay"
                         InputTransparent="False"
@@ -266,14 +265,14 @@
 
                     <Grid RowDefinitions="Auto,Auto" ZIndex="52">
                         <CollectionView
-                            Grid.Row="0"
                             x:Name="DropdownItemsView"
+                            Grid.Row="0"
                             Background="Transparent"
+                            ItemSizingStrategy="MeasureAllItems"
                             ItemsSource="{Binding DropdownItems}"
                             SelectionChanged="OnDropdownItemSelected"
                             SelectionMode="Single"
                             VerticalOptions="Start"
-                            ItemSizingStrategy="MeasureAllItems"
                             ZIndex="54">
                             <CollectionView.ItemsLayout>
                                 <GridItemsLayout
@@ -299,9 +298,9 @@
                                         IsSelected="{Binding IsSelected}"
                                         LastSeen="{Binding LastSeen}"
                                         NetworkInfo="{Binding NetworkInfo}"
+                                        SettingsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CardSettingsCommand}"
                                         ShowAddButton="{Binding HasActions}"
                                         ShowDeviceOptionsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.ShowDeviceOptionsCommand}"
-                                        SettingsCommand="{Binding Source={x:Reference DropdownItemsView}, Path=BindingContext.CardSettingsCommand}"
                                         ShowNetworkInfo="True"
                                         ShowSettingsButton="{Binding HasActions}"
                                         ShowStatus="{Binding ShowStatus}"

@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDeviceService, DeviceService>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IAuthenticationService, AuthenticationService>();
+        services.AddSingleton<IntellidriveApiService>();
     services.AddSingleton<IBuildingStorageService, BuildingStorageService>();
     services.AddSingleton<PdfConversionService>();
     services.AddSingleton<PdfStorageService>();

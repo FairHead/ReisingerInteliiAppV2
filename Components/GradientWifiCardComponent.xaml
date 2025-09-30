@@ -3,9 +3,9 @@
     x:Class="ReisingerIntelliApp_V4.Components.GradientWifiCardComponent"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    x:DataType="components:GradientWifiCardComponent"
     xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
-    x:Name="GradientCardRoot">
+    x:Name="GradientCardRoot"
+    x:DataType="components:GradientWifiCardComponent">
 
 
 
@@ -24,7 +24,7 @@
                 </Setter>
                 <Setter Property="Padding" Value="12" />
                 <Setter Property="WidthRequest" Value="180" />
-                <!-- Remove fixed HeightRequest to allow dynamic growth when name wraps -->
+                <!--  Remove fixed HeightRequest to allow dynamic growth when name wraps  -->
                 <!--<Setter Property="HeightRequest" Value="180" />-->
                 <Setter Property="Background">
                     <Setter.Value>
@@ -135,9 +135,9 @@
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="FontAttributes" Value="Bold" />
                 <Setter Property="TextColor" Value="White" />
-                <!-- Allow wrapping to multiple lines -->
+                <!--  Allow wrapping to multiple lines  -->
                 <Setter Property="LineBreakMode" Value="WordWrap" />
-                <!-- Limit to max lines to avoid uncontrolled growth -->
+                <!--  Limit to max lines to avoid uncontrolled growth  -->
                 <Setter Property="MaxLines" Value="3" />
                 <Setter Property="HorizontalTextAlignment" Value="Center" />
             </Style>
