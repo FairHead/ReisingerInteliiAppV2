@@ -25,6 +25,25 @@ public partial class AppFooter : ContentView
     public static readonly BindableProperty RightTextProperty = BindableProperty.Create(
         nameof(RightText), typeof(string), typeof(AppFooter), "Preferences", propertyChanged: OnRightTextChanged);
 
+    // Command properties for MVVM binding
+    public static readonly BindableProperty LeftSectionCommandProperty = BindableProperty.Create(
+        nameof(LeftSectionCommand), 
+        typeof(System.Windows.Input.ICommand), 
+        typeof(AppFooter), 
+        null);
+
+    public static readonly BindableProperty CenterButtonCommandProperty = BindableProperty.Create(
+        nameof(CenterButtonCommand), 
+        typeof(System.Windows.Input.ICommand), 
+        typeof(AppFooter), 
+        null);
+
+    public static readonly BindableProperty RightSectionCommandProperty = BindableProperty.Create(
+        nameof(RightSectionCommand), 
+        typeof(System.Windows.Input.ICommand), 
+        typeof(AppFooter), 
+        null);
+
     // Properties
     public string LeftIcon
     {
@@ -62,6 +81,24 @@ public partial class AppFooter : ContentView
         set => SetValue(RightTextProperty, value);
     }
 
+    public System.Windows.Input.ICommand? LeftSectionCommand
+    {
+        get => (System.Windows.Input.ICommand?)GetValue(LeftSectionCommandProperty);
+        set => SetValue(LeftSectionCommandProperty, value);
+    }
+
+    public System.Windows.Input.ICommand? CenterButtonCommand
+    {
+        get => (System.Windows.Input.ICommand?)GetValue(CenterButtonCommandProperty);
+        set => SetValue(CenterButtonCommandProperty, value);
+    }
+
+    public System.Windows.Input.ICommand? RightSectionCommand
+    {
+        get => (System.Windows.Input.ICommand?)GetValue(RightSectionCommandProperty);
+        set => SetValue(RightSectionCommandProperty, value);
+    }
+
     // Events
     public event EventHandler? LeftSectionTapped;
     public event EventHandler? CenterButtonTapped;
@@ -76,15 +113,36 @@ public partial class AppFooter : ContentView
     private void SetupGestureRecognizers()
     {
         var leftTap = new TapGestureRecognizer();
-        leftTap.Tapped += (s, e) => LeftSectionTapped?.Invoke(this, EventArgs.Empty);
+        leftTap.Tapped += (s, e) => 
+        {
+            // Execute command if bound, otherwise fire event for backward compatibility
+            if (LeftSectionCommand?.CanExecute(null) == true)
+                LeftSectionCommand.Execute(null);
+            else
+                LeftSectionTapped?.Invoke(this, EventArgs.Empty);
+        };
         LeftSection.GestureRecognizers.Add(leftTap);
 
         var centerTap = new TapGestureRecognizer();
-        centerTap.Tapped += (s, e) => CenterButtonTapped?.Invoke(this, EventArgs.Empty);
+        centerTap.Tapped += (s, e) => 
+        {
+            // Execute command if bound, otherwise fire event for backward compatibility
+            if (CenterButtonCommand?.CanExecute(null) == true)
+                CenterButtonCommand.Execute(null);
+            else
+                CenterButtonTapped?.Invoke(this, EventArgs.Empty);
+        };
         CenterButton.GestureRecognizers.Add(centerTap);
 
         var rightTap = new TapGestureRecognizer();
-        rightTap.Tapped += (s, e) => RightSectionTapped?.Invoke(this, EventArgs.Empty);
+        rightTap.Tapped += (s, e) => 
+        {
+            // Execute command if bound, otherwise fire event for backward compatibility
+            if (RightSectionCommand?.CanExecute(null) == true)
+                RightSectionCommand.Execute(null);
+            else
+                RightSectionTapped?.Invoke(this, EventArgs.Empty);
+        };
         RightSection.GestureRecognizers.Add(rightTap);
     }
 

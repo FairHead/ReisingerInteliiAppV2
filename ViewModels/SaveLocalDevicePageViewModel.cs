@@ -18,11 +18,13 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
 
     public SaveLocalDevicePageViewModel(IDeviceService deviceService, IAuthenticationService authService, IntellidriveApiService apiService)
     {
+        Debug.WriteLine("🔧 [SaveLocalDevicePageViewModel] Constructor called");
         _deviceService = deviceService;
         _authService = authService;
         _apiService = apiService;
-    TestButtonText = "Verbindung testen";
-    CanTestConnection = true;
+        TestButtonText = "Verbindung testen";
+        CanTestConnection = true;
+        Debug.WriteLine("🔧 [SaveLocalDevicePageViewModel] Constructor completed");
     }
 
     [ObservableProperty]
@@ -80,11 +82,21 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
 
     partial void OnDeviceDataChanged(string value)
     {
+        Debug.WriteLine($"🔧 [SaveLocalDevicePageViewModel] OnDeviceDataChanged called with value: '{value}'");
         try
         {
-            if (string.IsNullOrWhiteSpace(value)) return;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                Debug.WriteLine("❌ [SaveLocalDevicePageViewModel] DeviceData is null or whitespace!");
+                return;
+            }
+            
             var json = Uri.UnescapeDataString(value);
+            Debug.WriteLine($"📥 [SaveLocalDevicePageViewModel] Unescaped JSON: {json}");
+            
             var payload = JsonSerializer.Deserialize<Payload>(json);
+            Debug.WriteLine($"📦 [SaveLocalDevicePageViewModel] Deserialized payload: ip={payload?.ip}, name={payload?.name}, deviceId={payload?.deviceId}");
+            
             if (payload != null)
             {
                 DeviceId = payload.deviceId ?? string.Empty;
@@ -92,19 +104,36 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
                 IpAddress = payload.ip ?? string.Empty;
                 FirmwareVersion = payload.firmware ?? string.Empty;
                 SerialNumber = payload.serial ?? string.Empty;
-                    _ = PrefillExistingLocalAsync();
+                
+                Debug.WriteLine($"✅ [SaveLocalDevicePageViewModel] Properties set:");
+                Debug.WriteLine($"   DeviceId: '{DeviceId}'");
+                Debug.WriteLine($"   DeviceName: '{DeviceName}'");
+                Debug.WriteLine($"   IpAddress: '{IpAddress}'");
+                Debug.WriteLine($"   FirmwareVersion: '{FirmwareVersion}'");
+                Debug.WriteLine($"   SerialNumber: '{SerialNumber}'");
+                
+                _ = PrefillExistingLocalAsync();
                 CanSaveDevice = !string.IsNullOrEmpty(IpAddress) && !string.IsNullOrWhiteSpace(DeviceName);
+                Debug.WriteLine($"   CanSaveDevice: {CanSaveDevice}");
+                
                 UpdateCanTestConnection();
+                
                 // Start online status monitoring when IP is known
                 if (!string.IsNullOrWhiteSpace(IpAddress))
                 {
+                    Debug.WriteLine($"🔄 [SaveLocalDevicePageViewModel] Starting online status monitoring for IP: {IpAddress}");
                     StartOnlineStatusMonitoring();
                 }
+            }
+            else
+            {
+                Debug.WriteLine("❌ [SaveLocalDevicePageViewModel] Failed to deserialize payload!");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ Error parsing deviceData: {ex.Message}");
+            Debug.WriteLine($"❌ [SaveLocalDevicePageViewModel] Error parsing deviceData: {ex.Message}");
+            Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
         }
     }
 
@@ -128,7 +157,7 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
 
         IsTestingConnection = true;
         TestButtonText = "Teste Verbindung...";
-    UpdateStatusMessage("Verbindung wird getestet...", Colors.Orange, true);
+        UpdateStatusMessage("Verbindung wird getestet...", Colors.Orange, true);
 
         try
         {

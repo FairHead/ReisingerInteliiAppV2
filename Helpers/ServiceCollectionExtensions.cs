@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
     services.AddSingleton<PdfStorageService>();
         // ViewModel used inside PlacedDeviceControl for door toggling (must be resolvable via ServiceHelper)
         services.AddTransient<DeviceControlViewModel>();
+        services.AddTransient<PlacedDeviceControlViewModel>();
 
         // Register ViewModels
         services.AddTransient<MainPageViewModel>();

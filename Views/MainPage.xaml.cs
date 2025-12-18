@@ -18,12 +18,22 @@ public partial class MainPage : ContentPage, IPlanViewportService
 
     public MainPage(MainPageViewModel viewModel)
     {
-        InitializeComponent();
+        // ⭐ CRITICAL FIX: Set BindingContext BEFORE InitializeComponent
+        // This ensures commands are available when DataTemplates render
         _viewModel = viewModel;
         BindingContext = _viewModel;
+        System.Diagnostics.Debug.WriteLine("✅ MainPage - BindingContext set BEFORE InitializeComponent");
+        
+        InitializeComponent();
+        
+        System.Diagnostics.Debug.WriteLine("✅ MainPage constructor - ViewModel assigned");
+        
         _viewModel.AttachViewport(this);
         SetupFooterEvents();
         SetupViewModelEvents();
+        
+        // ✅ FIX: Wire up CollectionView child events for command execution
+        SetupDropdownCardEvents();
         
         // Listen for force device layout refresh messages
         #pragma warning disable CS0618 // MessagingCenter is obsolete; suppression until migrated
@@ -93,18 +103,24 @@ public partial class MainPage : ContentPage, IPlanViewportService
         {
             DevicesOverlay.ChildAdded += (sender, args) =>
             {
-                if (args.Element is Components.PlacedDeviceControl ctrl && ctrl.BindingContext is PlacedDeviceModel pd)
+                // ✅ CRITICAL FIX: Use PlacedDevice property, NOT BindingContext!
+                // BindingContext is now PlacedDeviceControlViewModel, not PlacedDeviceModel
+                if (args.Element is Components.PlacedDeviceControl ctrl)
                 {
-                    // Wire scale events and position the control
-                    ctrl.AddDeviceRequested -= OnDeviceIncreaseRequested;
-                    ctrl.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
-                    ctrl.DeleteDeviceRequested -= OnDeviceDeleteRequested;
-                    ctrl.MoveDeviceRequested -= OnDeviceMoveRequested;
-                    ctrl.AddDeviceRequested += OnDeviceIncreaseRequested;
-                    ctrl.RemoveDeviceRequested += OnDeviceDecreaseRequested;
-                    ctrl.DeleteDeviceRequested += OnDeviceDeleteRequested;
-                    ctrl.MoveDeviceRequested += OnDeviceMoveRequested;
-                    PositionDeviceView(ctrl, pd);
+                    var pd = ctrl.PlacedDevice;
+                    if (pd != null)
+                    {
+                        // Wire scale events and position the control
+                        ctrl.AddDeviceRequested -= OnDeviceIncreaseRequested;
+                        ctrl.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
+                        ctrl.DeleteDeviceRequested -= OnDeviceDeleteRequested;
+                        ctrl.MoveDeviceRequested -= OnDeviceMoveRequested;
+                        ctrl.AddDeviceRequested += OnDeviceIncreaseRequested;
+                        ctrl.RemoveDeviceRequested += OnDeviceDecreaseRequested;
+                        ctrl.DeleteDeviceRequested += OnDeviceDeleteRequested;
+                        ctrl.MoveDeviceRequested += OnDeviceMoveRequested;
+                        PositionDeviceView(ctrl, pd);
+                    }
                 }
             };
         }
@@ -112,7 +128,124 @@ public partial class MainPage : ContentPage, IPlanViewportService
     System.Diagnostics.Debug.WriteLine("MainPage initialized");
     }
 
+    /// <summary>
+    /// ✅ FIX: Wire up event handlers for GradientWifiCardComponent instances created in CollectionView DataTemplate
+    /// This ensures commands execute properly even when x:Reference bindings fail in DataTemplate context
+    /// </summary>
+    private void SetupDropdownCardEvents()
+    {
+        if (DropdownItemsView == null) return;
+        
+        // Monitor when children are added to the CollectionView
+        DropdownItemsView.ChildAdded += (sender, args) =>
+        {
+            try
+            {
+                // Find all GradientWifiCardComponent instances in the visual tree
+                if (args.Element is View view)
+                {
+                    WireDropdownCardEvents(view);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error wiring dropdown card events: {ex.Message}");
+            }
+        };
+        
+        // Also wire up any existing children
+        try
+        {
+            foreach (var child in DropdownItemsView.GetVisualTreeDescendants())
+            {
+                if (child is View view)
+                {
+                    WireDropdownCardEvents(view);
+                }
+            }
+        }
+        catch { }
+    }
 
+    private void WireDropdownCardEvents(View view)
+    {
+        if (view is Components.GradientWifiCardComponent card)
+        {
+            Console.WriteLine($"✅ Wiring events for GradientWifiCardComponent: {card.DeviceName}");
+            
+            // Unwire first to prevent duplicates
+            card.MonitorClicked -= OnDeviceCard_AddToFloorPlanClicked;
+            card.SettingsClicked -= OnDeviceCard_SettingsClicked;
+            card.DeleteClicked -= OnDeviceCard_DeleteClicked;
+            
+            // Wire up events
+            card.MonitorClicked += OnDeviceCard_AddToFloorPlanClicked;
+            card.SettingsClicked += OnDeviceCard_SettingsClicked;
+            card.DeleteClicked += OnDeviceCard_DeleteClicked;
+            
+            Console.WriteLine($"   ✅ Events wired successfully");
+        }
+        
+        // Recursively check children
+        if (view is Layout layout)
+        {
+            foreach (var child in layout.Children)
+            {
+                if (child is View childView)
+                {
+                    WireDropdownCardEvents(childView);
+                }
+            }
+        }
+    }
+
+    private void OnDeviceCard_AddToFloorPlanClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (sender is Components.GradientWifiCardComponent card && card.CommandParameter is DropdownItemModel item)
+            {
+                Console.WriteLine($"✅ AddToFloorPlan clicked for: {item.Text}");
+                _viewModel?.AddDeviceToFloorPlanCommand?.Execute(item);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error in OnDeviceCard_AddToFloorPlanClicked: {ex.Message}");
+        }
+    }
+
+    private void OnDeviceCard_SettingsClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (sender is Components.GradientWifiCardComponent card && card.CommandParameter is DropdownItemModel item)
+            {
+                Console.WriteLine($"✅ SettingsClicked event received for: {item.Text}");
+                _viewModel?.CardSettingsCommand?.Execute(item);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error in OnDeviceCard_SettingsClicked: {ex.Message}");
+        }
+    }
+
+    private void OnDeviceCard_DeleteClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (sender is Components.GradientWifiCardComponent card && card.CommandParameter is DropdownItemModel item)
+            {
+                Console.WriteLine($"✅ DeleteClicked event received for: {item.Text}");
+                _viewModel?.DeleteDeviceFromDropdownCommand?.Execute(item);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error in OnDeviceCard_DeleteClicked: {ex.Message}");
+        }
+    }
 
     private void SetupViewModelEvents()
     {
@@ -121,6 +254,22 @@ public partial class MainPage : ContentPage, IPlanViewportService
             _viewModel.TabActivated += (sender, tabName) =>
             {
                 SetActiveTab(tabName);
+                
+                // ✅ Re-wire dropdown card events when tab changes and new items are loaded
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    try
+                    {
+                        System.Threading.Tasks.Task.Delay(100).ContinueWith(_ =>
+                        {
+                            MainThread.BeginInvokeOnMainThread(() =>
+                            {
+                                SetupDropdownCardEvents();
+                            });
+                        });
+                    }
+                    catch { }
+                });
             };
             
             _viewModel.TabDeactivated += (sender, e) =>
@@ -342,11 +491,13 @@ public partial class MainPage : ContentPage, IPlanViewportService
             // Update existing controls with new model instances (don't recreate!)
             foreach (var control in existingControls)
             {
-                var currentModel = (PlacedDeviceModel)control.BindingContext!;
-                if (currentModelsById.TryGetValue(currentModel.PlacedDeviceId, out var updatedModel))
+                var currentModel = control.PlacedDevice;
+                if (currentModel != null && currentModelsById.TryGetValue(currentModel.PlacedDeviceId, out var updatedModel))
                 {
-                    // Update the binding context with the new model instance
-                    control.BindingContext = updatedModel;
+                    // ✅ FIX: Only update PlacedDevice property, NOT BindingContext!
+                    // BindingContext is set in PlacedDeviceControl constructor to PlacedDeviceControlViewModel
+                    // Setting it here would override the ViewModel and break all bindings
+                    control.PlacedDevice = updatedModel;
                     Console.WriteLine($"[SyncDevicesOverlay] Updated control for device: {updatedModel.Name}");
                     // Remove from lookup so we don't add it again
                     currentModelsById.Remove(currentModel.PlacedDeviceId);
@@ -354,17 +505,19 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 else
                 {
                     // Model no longer exists, remove the control
-                    Console.WriteLine($"[SyncDevicesOverlay] Removing control for device: {currentModel.Name}");
+                    if (currentModel != null)
+                    {
+                        Console.WriteLine($"[SyncDevicesOverlay] Removing control for device: {currentModel.Name}");
+                    }
                     
-                    // Unwire ALL event handlers before removing
-                    control.AddDeviceRequested -= OnDeviceIncreaseRequested;
-                    control.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
-                    control.DeleteDeviceRequested -= OnDeviceDeleteRequested;
-                    control.MoveDeviceRequested -= OnDeviceMoveRequested;
-                    control.ModeChangedRequested -= OnDeviceModeChangedRequested;
+                    // ✅ Unwire ALL event handlers before removing (including MoveModeChanged)
+                    UnwireDeviceControl(control);
                     
                     DevicesOverlay.Children.Remove(control);
-                    Console.WriteLine($"[SyncDevicesOverlay] All event handlers unwired for device: {currentModel.Name}");
+                    if (currentModel != null)
+                    {
+                        Console.WriteLine($"[SyncDevicesOverlay] All event handlers unwired for device: {currentModel.Name}");
+                    }
                 }
             }
 
@@ -374,26 +527,52 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 Console.WriteLine($"[SyncDevicesOverlay] Adding control for device: {model.Name}");
                 var control = new Components.PlacedDeviceControl
                 {
-                    BindingContext = model
+                    // ✅ CRITICAL FIX: Do NOT set BindingContext here!
+                    // PlacedDeviceControl constructor already sets BindingContext = PlacedDeviceControlViewModel
+                    // Setting it here would override the ViewModel and break all bindings
+                    PlacedDevice = model  // ✅ Only set PlacedDevice - this triggers OnPlacedDeviceChanged in code-behind
                 };
                 
-                // Wire up ALL event handlers for the new control (remove first to prevent duplicates)
-                control.AddDeviceRequested -= OnDeviceIncreaseRequested;
-                control.AddDeviceRequested += OnDeviceIncreaseRequested;
-                control.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
-                control.RemoveDeviceRequested += OnDeviceDecreaseRequested;
-                control.DeleteDeviceRequested -= OnDeviceDeleteRequested;
-                control.DeleteDeviceRequested += OnDeviceDeleteRequested;
-                control.MoveDeviceRequested -= OnDeviceMoveRequested;
-                control.MoveDeviceRequested += OnDeviceMoveRequested;
-                control.ModeChangedRequested -= OnDeviceModeChangedRequested;
-                control.ModeChangedRequested += OnDeviceModeChangedRequested;
+                // ✅ Wire up ALL event handlers for the new control
+                WireDeviceControl(control);
                 
                 DevicesOverlay.Children.Add(control);
                 Console.WriteLine($"[SyncDevicesOverlay] All event handlers wired for device: {model.Name}");
             }
 
             Console.WriteLine($"[SyncDevicesOverlay] Sync complete. DevicesOverlay now has {DevicesOverlay.Children.Count} controls");
+        }
+
+        /// <summary>
+        /// ✅ Centralized event wiring for PlacedDeviceControl to prevent duplicates and ensure all events are registered
+        /// </summary>
+        private void WireDeviceControl(Components.PlacedDeviceControl control)
+        {
+            // Remove ALL handlers first to prevent duplicates
+            control.AddDeviceRequested -= OnDeviceIncreaseRequested;
+            control.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
+            control.DeleteDeviceRequested -= OnDeviceDeleteRequested;
+            control.MoveDeviceRequested -= OnDeviceMoveRequested;
+            control.ModeChangedRequested -= OnDeviceModeChangedRequested;
+            
+            // Wire up all handlers
+            control.AddDeviceRequested += OnDeviceIncreaseRequested;
+            control.RemoveDeviceRequested += OnDeviceDecreaseRequested;
+            control.DeleteDeviceRequested += OnDeviceDeleteRequested;
+            control.MoveDeviceRequested += OnDeviceMoveRequested;
+            control.ModeChangedRequested += OnDeviceModeChangedRequested;
+        }
+
+        /// <summary>
+        /// ✅ Centralized event unwiring for PlacedDeviceControl to ensure clean removal
+        /// </summary>
+        private void UnwireDeviceControl(Components.PlacedDeviceControl control)
+        {
+            control.AddDeviceRequested -= OnDeviceIncreaseRequested;
+            control.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
+            control.DeleteDeviceRequested -= OnDeviceDeleteRequested;
+            control.MoveDeviceRequested -= OnDeviceMoveRequested;
+            control.ModeChangedRequested -= OnDeviceModeChangedRequested;
         }
 
         private void InvalidateDevicesLayout()
@@ -411,30 +590,19 @@ public partial class MainPage : ContentPage, IPlanViewportService
 
             Console.WriteLine($"[InvalidateDevicesLayout] Processing {DevicesOverlay.Children.Count} visual children");
 
-            // Iterate through visual children and position them based on the bound model
+            // Iterate through visual children and position them based on the PlacedDevice property
             foreach (var child in DevicesOverlay.Children.OfType<Components.PlacedDeviceControl>())
             {
-                if (child.BindingContext is not PlacedDeviceModel pd)
+                var pd = child.PlacedDevice;
+                
+                if (pd == null)
                 {
-                    Console.WriteLine("[InvalidateDevicesLayout] Skipping child with null or invalid BindingContext.");
+                    Console.WriteLine("[InvalidateDevicesLayout] Skipping child with null PlacedDevice.");
                     continue;
                 }
-                Console.WriteLine($"[InvalidateDevicesLayout] Processing device: {pd.Name}, Scale: {pd.Scale:F3}, X: {pd.RelativeX}, Y: {pd.RelativeY}");
                 
-                // Wire events only once - remove first to prevent duplicates
-                child.AddDeviceRequested -= OnDeviceIncreaseRequested;
-                child.RemoveDeviceRequested -= OnDeviceDecreaseRequested;
-                child.DeleteDeviceRequested -= OnDeviceDeleteRequested; // <--- FEHLTE!
-                child.MoveDeviceRequested -= OnDeviceMoveRequested;
-                child.ModeChangedRequested -= OnDeviceModeChangedRequested;
+                Console.WriteLine($"[InvalidateDevicesLayout] Processing device: {pd.Name}, Scale: {pd.Scale:F3}, X: {pd.RelativeX:F6}, Y: {pd.RelativeY:F6}");
                 
-                // Then add them back
-                child.AddDeviceRequested += OnDeviceIncreaseRequested;
-                child.RemoveDeviceRequested += OnDeviceDecreaseRequested;
-                child.DeleteDeviceRequested += OnDeviceDeleteRequested; // <--- HINZUFÜGEN!
-                child.MoveDeviceRequested += OnDeviceMoveRequested;
-                child.ModeChangedRequested += OnDeviceModeChangedRequested;
-
                 PositionDeviceView(child, pd);
             }
             
@@ -481,15 +649,15 @@ public partial class MainPage : ContentPage, IPlanViewportService
 
         private void PositionDeviceView(Components.PlacedDeviceControl view, PlacedDeviceModel pd)
         {
-            if (!IsPlanReady) return;
-            
-            // SIMPLIFIED APPROACH for Smart Building: 
-            // DevicesOverlay is INSIDE PanPinchContainer, so it automatically zooms/pans with the plan
-            // We only need to position devices relative to the plan image WITHOUT any transformation
+            if (!IsPlanReady || PlanContainer == null || PlanImage == null) return;
+
+            // ✅ DevicesOverlay ist jetzt INNERHALB des PanPinchContainer!
+            // Transformationen (Zoom/Pan) werden automatisch vom PanPinchContainer übernommen.
+            // Wir müssen nur die Position relativ zum PlanImage berechnen.
             var (drawnX, drawnY, drawnW, drawnH) = GetImageDrawnRect();
 
             Console.WriteLine($"");
-            Console.WriteLine($"🏢 PositionDeviceView - SMART BUILDING SIMPLIFIED - Device: {pd.Name}");
+            Console.WriteLine($"🏢 PositionDeviceView - Device: {pd.Name}");
             Console.WriteLine($"═══════════════════════════════════════════════════════════════════");
             
             Console.WriteLine($"🖼️ PLAN IMAGE POSITIONING:");
@@ -497,6 +665,8 @@ public partial class MainPage : ContentPage, IPlanViewportService
             Console.WriteLine($"   📍 drawnY: {drawnY:F2}");
             Console.WriteLine($"   📏 drawnW: {drawnW:F2}");
             Console.WriteLine($"   📏 drawnH: {drawnH:F2}");
+            Console.WriteLine($"   📏 _planIntrinsicWidth: {_planIntrinsicWidth:F2}");
+            Console.WriteLine($"   📏 _planIntrinsicHeight: {_planIntrinsicHeight:F2}");
             
             Console.WriteLine($"🔧 DEVICE MODEL STATE:");
             Console.WriteLine($"   📍 RelativeX: {pd.RelativeX:F4} (should be [0.0, 1.0])");
@@ -505,7 +675,8 @@ public partial class MainPage : ContentPage, IPlanViewportService
             Console.WriteLine($"   📏 BaseWidthNorm: {pd.BaseWidthNorm:F4}");
             Console.WriteLine($"   📏 BaseHeightNorm: {pd.BaseHeightNorm:F4}");
 
-            // Calculate device center in plan coordinates (NO transformation needed - PanPinchContainer handles it)
+            // Calculate device center in plan coordinates
+            // DevicesOverlay ist im selben Koordinatensystem wie PlanImage (beide sind Kinder des PanPinchContainer)
             var xCenter = drawnX + pd.RelativeX * drawnW;
             var yCenter = drawnY + pd.RelativeY * drawnH;
             
@@ -513,59 +684,69 @@ public partial class MainPage : ContentPage, IPlanViewportService
             Console.WriteLine($"   🔹 xCenter = {drawnX:F2} + {pd.RelativeX:F4} * {drawnW:F2} = {xCenter:F2}");
             Console.WriteLine($"   🔹 yCenter = {drawnY:F2} + {pd.RelativeY:F4} * {drawnH:F2} = {yCenter:F2}");
 
-            // Intrinsic sizes
-            // - Card (the visible device panel inside the container): 200 x 180 (see XAML)
-            // - Container (hosts arrows/scale buttons): 400 x 400 (see XAML)
-            const double cardIntrinsicW = 200.0;
-            const double containerW = 400.0;
-            const double containerH = 400.0;
+            // ✅ IMPORTANT: Container sizes must match the XAML definitions!
+            // MainContainer in PlacedDeviceControl.xaml: 600x600
+            // Card (Border) is positioned at (175, 175) with width 250 and auto height
+            const double cardIntrinsicW = 250.0;  // Actual card width from XAML
+            const double containerW = 600.0;       // MainContainer size from XAML
+            const double containerH = 600.0;       // MainContainer size from XAML
 
-            // Calculate scale based on plan size and user preference, targeting the CARD width
-            var targetWidth = pd.BaseWidthNorm * drawnW; // desired visible card width in pixels
+            // ✅ CRITICAL FIX: Use a FIXED reference width for scale calculation
+            // The device scale should NEVER change based on current viewport/UI state
+            // We use a fixed reference (e.g., 800px) so devices maintain consistent size
+            // This prevents the bug where moving devices left/right changes their size
+            const double fixedScaleReference = 800.0;
+            
+            // Calculate scale based on fixed reference and user preference
+            var targetWidth = pd.BaseWidthNorm * fixedScaleReference; // desired visible card width in pixels
             var baseScale = cardIntrinsicW > 0 ? (targetWidth / cardIntrinsicW) : 1.0;
 
             // Apply user's scale multiplier (scales the whole container, and thus the card inside it)
             var userScaledSize = baseScale * (pd.Scale <= 0 ? 1.0 : pd.Scale);
 
-            Console.WriteLine($"📊 SCALE CALCULATION (plan adaptation only):");
-            Console.WriteLine($"   🔹 targetWidth = {pd.BaseWidthNorm:F4} * {drawnW:F2} = {targetWidth:F2}");
+            Console.WriteLine($"📊 SCALE CALCULATION (using FIXED reference):");
+            Console.WriteLine($"   🔹 fixedScaleReference = {fixedScaleReference:F2} (constant, never changes)");
+            Console.WriteLine($"   🔹 cardIntrinsicW = {cardIntrinsicW:F2} (from XAML)");
+            Console.WriteLine($"   🔹 containerW/H = {containerW:F2} (from XAML)");
+            Console.WriteLine($"   🔹 targetWidth = {pd.BaseWidthNorm:F4} * {fixedScaleReference:F2} = {targetWidth:F2}");
             Console.WriteLine($"   🔹 baseScale = {targetWidth:F2} / {cardIntrinsicW:F1} = {baseScale:F4}");
             Console.WriteLine($"   🔹 userScaledSize = {baseScale:F4} * {pd.Scale:F4} = {userScaledSize:F4}");
 
             // Enforce minimum size for usability
-            const double minScale = 0.0125; // Minimum 1.25% size
+            const double minScale = 0.15; // Minimum 15% size (increased to ensure buttons stay visible)
             var appliedScale = Math.Max(userScaledSize, minScale);
 
             Console.WriteLine($"🔒 MINIMUM SIZE PROTECTION:");
             Console.WriteLine($"   🔹 appliedScale = Math.Max({userScaledSize:F4}, {minScale:F4}) = {appliedScale:F4}");
 
-            // Position device with center anchor (SIMPLE positioning - no transformation)
+            // Position device with center anchor
             view.AnchorX = 0.5;
             view.AnchorY = 0.5;
             view.Scale = appliedScale;
 
-            // Center the 400x400 container at the computed device center
+            // Center the 600x600 container at the computed device center
             var xLeft = xCenter - containerW / 2.0;
             var yTop = yCenter - containerH / 2.0;
             
-            Console.WriteLine($"📍 FINAL POSITIONING (PanPinchContainer handles zoom/pan automatically):");
+            Console.WriteLine($"📍 FINAL POSITIONING:");
             Console.WriteLine($"   🔹 view.AnchorX: 0.5, view.AnchorY: 0.5");
             Console.WriteLine($"   🔹 view.Scale: {appliedScale:F4}");
             Console.WriteLine($"   🔹 xLeft = {xCenter:F2} - {containerW:F1}/2 = {xLeft:F2}");
             Console.WriteLine($"   🔹 yTop = {yCenter:F2} - {containerH:F1}/2 = {yTop:F2}");
             Console.WriteLine($"   📏 LayoutBounds: ({xLeft:F2}, {yTop:F2}, {containerW:F1}, {containerH:F1})");
             
-            // SMART BUILDING: Device stays at fixed position on plan, zooms with plan automatically
             Console.WriteLine($"🏢 SMART BUILDING BEHAVIOR:");
             Console.WriteLine($"   ✅ Device positioned at fixed plan location (door position)");
-            Console.WriteLine($"   ✅ Will zoom/pan with plan automatically via PanPinchContainer");
-            Console.WriteLine($"   ✅ Manual movement ONLY changes RelativeX/Y, NOT plan state");
-            Console.WriteLine($"   ✅ Represents physical door control at building location");
+            Console.WriteLine($"   ✅ DevicesOverlay ist INNERHALB des PanPinchContainer");
+            Console.WriteLine($"   ✅ Zoom/Pan Transformationen werden automatisch übernommen!");
+            Console.WriteLine($"   ✅ MoveMode: Pfeilbuttons ändern RelativeX/Y für Neupositionierung");
+            Console.WriteLine($"   ✅ Scale uses FIXED reference - won't change with UI state!");
 
             // Use the full container size so all interactive buttons are inside the hit area
             AbsoluteLayout.SetLayoutBounds(view, new Rect(xLeft, yTop, containerW, containerH));
             AbsoluteLayout.SetLayoutFlags(view, Microsoft.Maui.Layouts.AbsoluteLayoutFlags.None);
-            // Nudge layout system on Android to apply new bounds immediately
+            
+            // Nudge layout system to apply new bounds immediately
             try
             {
                 view.InvalidateMeasure();
@@ -656,6 +837,10 @@ public partial class MainPage : ContentPage, IPlanViewportService
         protected override void OnHandlerChanged()
         {
             base.OnHandlerChanged();
+            
+            // BindingContext is now set in constructor BEFORE InitializeComponent
+            // No need to set it again here - commands are already bound correctly
+            System.Diagnostics.Debug.WriteLine("✅ OnHandlerChanged: BindingContext already set in constructor");
             
             Console.WriteLine($"🔄 MainPage.OnHandlerChanged - Setting up PlanContainer monitoring");
             
@@ -791,9 +976,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
 
     #region Footer and tab handlers
 
-    private void
-
-    SetupFooterEvents()
+    private void SetupFooterEvents()
     {
         if (_viewModel != null)
         {
@@ -1013,7 +1196,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
         {
             #pragma warning disable CS0618
             MessagingCenter.Unsubscribe<MainPageViewModel>(this, "ForceDeviceLayoutRefresh");
-                MessagingCenter.Unsubscribe<MainPageViewModel>(this, "ResetPlanAndOverlay");
+            MessagingCenter.Unsubscribe<MainPageViewModel>(this, "ResetPlanAndOverlay");
             #pragma warning restore CS0618
             Console.WriteLine("🧹 MainPage messaging subscriptions cleaned up");
         }

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     x:Class="ReisingerIntelliApp_V4.Views.WifiScanPage"
+    x:Name="WifiScanPageRoot"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
@@ -135,7 +136,8 @@
                                 StrokeShape="RoundRectangle 8"
                                 StrokeThickness="1">
                                 <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:WifiScanViewModel}}, Path=NetworkSelectedCommand}" CommandParameter="{Binding}" />
+                                    <!-- FIXED: Using x:Reference instead of RelativeSource -->
+                                    <TapGestureRecognizer Command="{Binding Source={x:Reference WifiScanPageRoot}, Path=BindingContext.NetworkSelectedCommand}" CommandParameter="{Binding}" />
                                 </Border.GestureRecognizers>
 
                                 <Grid ColumnDefinitions="Auto,*,Auto">
@@ -192,12 +194,12 @@
                                             TextColor="#FFA500" />
                                     </StackLayout>
 
-                                    <!--  Add Device Button (visible only for non-saved devices)  -->
+                                    <!--  Add Device Button (visible only for non-saved devices) - FIXED: Using x:Reference  -->
                                     <Button
                                         Grid.Column="2"
                                         Margin="2,0"
                                         BackgroundColor="#4CAF50"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:WifiScanViewModel}}, Path=AddDeviceCommand}"
+                                        Command="{Binding Source={x:Reference WifiScanPageRoot}, Path=BindingContext.AddDeviceCommand}"
                                         CommandParameter="{Binding}"
                                         CornerRadius="17"
                                         FontSize="18"

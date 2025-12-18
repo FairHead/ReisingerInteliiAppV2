@@ -1,5 +1,5 @@
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Controls.Shapes;
+using System.Diagnostics;
 using System.Windows.Input;
 
 namespace ReisingerIntelliApp_V4.Components
@@ -8,19 +8,44 @@ namespace ReisingerIntelliApp_V4.Components
     {
         // Commands exposed so parent DataTemplate can bind application commands
         public static readonly BindableProperty AddToFloorPlanCommandProperty =
-            BindableProperty.Create(nameof(AddToFloorPlanCommand), typeof(ICommand), typeof(GradientWifiCardComponent), default(ICommand));
+            BindableProperty.Create(
+                nameof(AddToFloorPlanCommand), 
+                typeof(ICommand), 
+                typeof(GradientWifiCardComponent), 
+                default(ICommand),
+                propertyChanged: OnCommandPropertyChanged);
 
         public static readonly BindableProperty ShowDeviceOptionsCommandProperty =
-            BindableProperty.Create(nameof(ShowDeviceOptionsCommand), typeof(ICommand), typeof(GradientWifiCardComponent), default(ICommand));
+            BindableProperty.Create(
+                nameof(ShowDeviceOptionsCommand), 
+                typeof(ICommand), 
+                typeof(GradientWifiCardComponent), 
+                default(ICommand),
+                propertyChanged: OnCommandPropertyChanged);
 
         public static readonly BindableProperty DeleteCommandProperty =
-            BindableProperty.Create(nameof(DeleteCommand), typeof(ICommand), typeof(GradientWifiCardComponent), default(ICommand));
+            BindableProperty.Create(
+                nameof(DeleteCommand), 
+                typeof(ICommand), 
+                typeof(GradientWifiCardComponent), 
+                default(ICommand),
+                propertyChanged: OnCommandPropertyChanged);
 
         public static readonly BindableProperty SettingsCommandProperty =
-            BindableProperty.Create(nameof(SettingsCommand), typeof(ICommand), typeof(GradientWifiCardComponent), default(ICommand));
+            BindableProperty.Create(
+                nameof(SettingsCommand), 
+                typeof(ICommand), 
+                typeof(GradientWifiCardComponent), 
+                default(ICommand),
+                propertyChanged: OnCommandPropertyChanged);
 
         public static readonly BindableProperty CommandParameterProperty =
-            BindableProperty.Create(nameof(CommandParameter), typeof(object), typeof(GradientWifiCardComponent), null);
+            BindableProperty.Create(
+                nameof(CommandParameter), 
+                typeof(object), 
+                typeof(GradientWifiCardComponent), 
+                null,
+                propertyChanged: OnCommandParameterChanged);
 
         public static readonly BindableProperty IconProperty =
             BindableProperty.Create(nameof(Icon), typeof(string), typeof(GradientWifiCardComponent), string.Empty);
@@ -60,6 +85,11 @@ namespace ReisingerIntelliApp_V4.Components
         public static readonly BindableProperty IsConnectedProperty =
             BindableProperty.Create(nameof(IsConnected), typeof(bool), typeof(GradientWifiCardComponent), false, propertyChanged: OnConnectionStatusChanged);
 
+        // Internal Relay Commands for XAML binding
+        public ICommand InternalAddToFloorPlanCommand { get; }
+        public ICommand InternalSettingsCommand { get; }
+        public ICommand InternalDeleteCommand { get; }
+
         // Properties
         public string DeviceName
         {
@@ -85,10 +115,10 @@ namespace ReisingerIntelliApp_V4.Components
             set => SetValue(IsConnectedProperty, value);
         }
 
-    // Events
-    public event EventHandler? MonitorClicked;
-    public event EventHandler? SettingsClicked;
-    public event EventHandler? DeleteClicked;
+        // Events - ALWAYS fire these so code-behind can handle them
+        public event EventHandler? MonitorClicked;
+        public event EventHandler? SettingsClicked;
+        public event EventHandler? DeleteClicked;
 
         // Properties for commands and toggles
         public ICommand? AddToFloorPlanCommand
@@ -171,9 +201,102 @@ namespace ReisingerIntelliApp_V4.Components
 
         public GradientWifiCardComponent()
         {
+            Debug.WriteLine($"?? [GradientCard] Constructor START for DeviceName: {DeviceName}");
+            
+            // ? FIX: Create relay commands that ALWAYS fire events, regardless of whether Commands are bound
+            InternalAddToFloorPlanCommand = new Command(() =>
+            {
+                Debug.WriteLine($"?? [GradientCard] InternalAddToFloorPlanCommand triggered for: {DeviceName}");
+                
+                // ALWAYS fire the event first - code-behind will handle it
+                Debug.WriteLine($"   ?? Firing MonitorClicked event...");
+                MonitorClicked?.Invoke(this, EventArgs.Empty);
+                
+                // Then try to execute the command if it's bound
+                if (AddToFloorPlanCommand != null && AddToFloorPlanCommand.CanExecute(CommandParameter))
+                {
+                    Debug.WriteLine($"   ? Also executing AddToFloorPlanCommand");
+                    AddToFloorPlanCommand.Execute(CommandParameter);
+                }
+                else
+                {
+                    Debug.WriteLine($"   ?? Command not bound, relying on event handling");
+                }
+            });
+
+            InternalSettingsCommand = new Command(() =>
+            {
+                Debug.WriteLine($"?? [GradientCard] InternalSettingsCommand triggered for: {DeviceName}");
+                
+                // ALWAYS fire the event first
+                Debug.WriteLine($"   ?? Firing SettingsClicked event...");
+                SettingsClicked?.Invoke(this, EventArgs.Empty);
+                
+                // Then try to execute the command if it's bound
+                if (SettingsCommand != null && SettingsCommand.CanExecute(CommandParameter))
+                {
+                    Debug.WriteLine($"   ? Also executing SettingsCommand");
+                    SettingsCommand.Execute(CommandParameter);
+                }
+                else
+                {
+                    Debug.WriteLine($"   ?? Command not bound, relying on event handling");
+                }
+            });
+
+            InternalDeleteCommand = new Command(() =>
+            {
+                Debug.WriteLine($"?? [GradientCard] InternalDeleteCommand triggered for: {DeviceName}");
+                
+                // ALWAYS fire the event first
+                Debug.WriteLine($"   ?? Firing DeleteClicked event...");
+                DeleteClicked?.Invoke(this, EventArgs.Empty);
+                
+                // Then try to execute the command if it's bound
+                if (DeleteCommand != null && DeleteCommand.CanExecute(CommandParameter))
+                {
+                    Debug.WriteLine($"   ? Also executing DeleteCommand");
+                    DeleteCommand.Execute(CommandParameter);
+                }
+                else
+                {
+                    Debug.WriteLine($"   ?? Command not bound, relying on event handling");
+                }
+            });
+
             InitializeComponent();
             UpdateConnectionStatus();
             UpdateSelectionState();
+            
+            Debug.WriteLine($"?? [GradientCard] Constructor END for DeviceName: {DeviceName}");
+        }
+
+        // Property changed handlers for command bindings
+        private static void OnCommandPropertyChanged(BindableObject bindable, object oldValue, object newValue)
+        {
+            if (bindable is GradientWifiCardComponent card)
+            {
+                Debug.WriteLine($"?? [GradientCard] Command property changed for '{card.DeviceName}'");
+                Debug.WriteLine($"   ?? New: {(newValue == null ? "NULL" : "NOT NULL ?")}");
+                
+                if (newValue != null)
+                {
+                    Debug.WriteLine($"   ? Command binding successful");
+                }
+                else
+                {
+                    Debug.WriteLine($"   ?? Command is NULL - will use event handling instead");
+                }
+            }
+        }
+
+        private static void OnCommandParameterChanged(BindableObject bindable, object oldValue, object newValue)
+        {
+            if (bindable is GradientWifiCardComponent card)
+            {
+                Debug.WriteLine($"?? [GradientCard] CommandParameter changed for '{card.DeviceName}'");
+                Debug.WriteLine($"   ?? New: {newValue?.GetType().Name ?? "null"}");
+            }
         }
 
         // Property Changed Handlers
@@ -221,27 +344,27 @@ namespace ReisingerIntelliApp_V4.Components
             // No direct UI manipulation needed here
         }
 
-        // Event Handlers
+        // Event Handlers (kept for backward compatibility, but events are now fired in Internal commands)
         private void OnMonitorClicked(object sender, EventArgs e)
         {
-            // Execute bound command if present
+            // This might be called from other sources - also fire event
+            MonitorClicked?.Invoke(this, e);
             if (AddToFloorPlanCommand?.CanExecute(CommandParameter) == true)
                 AddToFloorPlanCommand.Execute(CommandParameter);
-            MonitorClicked?.Invoke(this, e);
         }
 
         private void OnSettingsClicked(object sender, EventArgs e)
         {
+            SettingsClicked?.Invoke(this, e);
             if (SettingsCommand?.CanExecute(CommandParameter) == true)
                 SettingsCommand.Execute(CommandParameter);
-            SettingsClicked?.Invoke(this, e);
         }
 
         private void OnDeleteClicked(object sender, EventArgs e)
         {
+            DeleteClicked?.Invoke(this, e);
             if (DeleteCommand?.CanExecute(CommandParameter) == true)
                 DeleteCommand.Execute(CommandParameter);
-            DeleteClicked?.Invoke(this, e);
         }
     }
 }

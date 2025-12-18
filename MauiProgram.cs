@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using ReisingerIntelliApp_V4.Helpers;
 using CommunityToolkit.Maui;
+using ReisingerIntelliApp_V4.Services;
 
 namespace ReisingerIntelliApp_V4;
 
@@ -22,6 +23,8 @@ public static class MauiProgram
 
         // Register services and ViewModels
         builder.Services.RegisterServices();
+
+
 
 
 #if DEBUG

@@ -259,7 +259,7 @@ public class IntellidriveApiService
             .Unwrap();
 
     public Task<string> CloseDoorAsync(DeviceModel device, CancellationToken ct = default)
-        => SendAuthedPostAsync(device.Ip, "/intellidrive/door/close", device.Username, device.Password, null, ct)
+        => SendAuthedPostAsync(device.Ip, "/intellidrive/door/open", device.Username, device.Password, null, ct)
             .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
             .Unwrap();
 

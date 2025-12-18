@@ -68,32 +68,56 @@ public partial class PlacedDeviceModel : ObservableObject
     private bool isVisible = true;
 
     // Normalized center coordinates in plan space [0..1]
-    private double _relativeX; // Back-compat alias for XCenterNorm
+    private double _relativeX;
     public double RelativeX
     {
         get => _relativeX;
         set
         {
-            if (Math.Abs(_relativeX - value) > 0.0001)
+            // ✅ CRITICAL FIX: Strict clamping to [0.0, 1.0] to prevent out-of-bounds positioning
+            var clampedValue = Math.Clamp(value, 0.0, 1.0);
+            
+            if (Math.Abs(_relativeX - clampedValue) > 0.0001)
             {
-                var old = _relativeX; _relativeX = value;
-                OnPropertyChanged(); OnPropertyChanged(nameof(XCenterNorm));
-                Debug.WriteLine($"📍 X center: {old:F3} → {value:F3}");
+                var old = _relativeX; 
+                _relativeX = clampedValue;
+                
+                // ✅ Log if value was clamped to detect issues
+                if (Math.Abs(value - clampedValue) > 0.0001)
+                {
+                    Debug.WriteLine($"⚠️ RelativeX CLAMPED: {value:F6} → {clampedValue:F6} (out of bounds!)");
+                }
+                
+                OnPropertyChanged(); 
+                OnPropertyChanged(nameof(XCenterNorm));
+                Debug.WriteLine($"📍 X center: {old:F3} → {clampedValue:F3}");
             }
         }
     }
 
-    private double _relativeY; // Back-compat alias for YCenterNorm
+    private double _relativeY;
     public double RelativeY
     {
         get => _relativeY;
         set
         {
-            if (Math.Abs(_relativeY - value) > 0.0001)
+            // ✅ CRITICAL FIX: Strict clamping to [0.0, 1.0] to prevent out-of-bounds positioning
+            var clampedValue = Math.Clamp(value, 0.0, 1.0);
+            
+            if (Math.Abs(_relativeY - clampedValue) > 0.0001)
             {
-                var old = _relativeY; _relativeY = value;
-                OnPropertyChanged(); OnPropertyChanged(nameof(YCenterNorm));
-                Debug.WriteLine($"📍 Y center: {old:F3} → {value:F3}");
+                var old = _relativeY; 
+                _relativeY = clampedValue;
+                
+                // ✅ Log if value was clamped to detect issues
+                if (Math.Abs(value - clampedValue) > 0.0001)
+                {
+                    Debug.WriteLine($"⚠️ RelativeY CLAMPED: {value:F6} → {clampedValue:F6} (out of bounds!)");
+                }
+                
+                OnPropertyChanged(); 
+                OnPropertyChanged(nameof(YCenterNorm));
+                Debug.WriteLine($"📍 Y center: {old:F3} → {clampedValue:F3}");
             }
         }
     }

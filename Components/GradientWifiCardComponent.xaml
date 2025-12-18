@@ -243,39 +243,78 @@
                 BackgroundColor="#334155"
                 HeightRequest="1" />
 
-            <!--  Action Buttons Row  -->
-            <Grid Grid.Row="5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <StackLayout
-                    Padding="4"
-                    HorizontalOptions="Center"
-                    Orientation="Horizontal"
-                    Spacing="8">
-                    <ImageButton
-                        x:Name="MonitorButton"
-                        Clicked="OnMonitorClicked"
-                        IsEnabled="{Binding Source={x:Reference GradientCardRoot}, Path=AddButtonEnabled}"
-                        IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowAddButton}"
-                        Source="add_to_floorplan.svg"
-                        Style="{StaticResource CompactGradientImageButtonStyle}" />
+            <!--  Action Buttons Row - FIXED COMMAND BINDING  -->
+<Grid Grid.Row="5" InputTransparent="False">
+    <HorizontalStackLayout
+        Padding="4"
+        HorizontalOptions="Center"
+        InputTransparent="False"
+        Spacing="8">
+        
+        <!--  Add to Floor Plan Button  -->
+        <Border
+            Padding="8"
+            BackgroundColor="Transparent"
+            InputTransparent="False"
+            IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowAddButton}"
+            StrokeThickness="0">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer 
+                    Command="{Binding Source={x:Reference GradientCardRoot}, Path=InternalAddToFloorPlanCommand}" />
+            </Border.GestureRecognizers>
+            <Image
+                HeightRequest="28"
+                InputTransparent="True"
+                Source="add_to_floorplan.svg"
+                WidthRequest="28">
+                <Image.Triggers>
+                    <DataTrigger
+                        Binding="{Binding Source={x:Reference GradientCardRoot}, Path=AddButtonEnabled}"
+                        TargetType="Image"
+                        Value="False">
+                        <Setter Property="Opacity" Value="0.4" />
+                    </DataTrigger>
+                </Image.Triggers>
+            </Image>
+        </Border>
 
-                    <ImageButton
-                        x:Name="SettingsButton"
-                        Clicked="OnSettingsClicked"
-                        IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowSettingsButton}"
-                        Source="settings.svg"
-                        Style="{StaticResource CompactGradientImageButtonStyle}" />
+        <!--  Settings Button  -->
+        <Border
+            Padding="8"
+            BackgroundColor="Transparent"
+            InputTransparent="False"
+            IsVisible="{Binding Source={x:Reference GradientCardRoot}, Path=ShowSettingsButton}"
+            StrokeThickness="0">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer 
+                    Command="{Binding Source={x:Reference GradientCardRoot}, Path=InternalSettingsCommand}" />
+            </Border.GestureRecognizers>
+            <Image
+                HeightRequest="28"
+                InputTransparent="True"
+                Source="settings.svg"
+                WidthRequest="28" />
+        </Border>
 
-                    <ImageButton
-                        x:Name="DeleteButton"
-                        Margin="-12,0,0,0"
-                        Clicked="OnDeleteClicked"
-                        Source="deletedevicebutton.svg"
-                        Style="{StaticResource CompactGradientImageButtonStyle}" />
-                </StackLayout>
-            </Grid>
+        <!--  Delete Button  -->
+        <Border
+            Padding="8"
+            BackgroundColor="Transparent"
+            InputTransparent="False"
+            StrokeThickness="0">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer 
+                    Command="{Binding Source={x:Reference GradientCardRoot}, Path=InternalDeleteCommand}" />
+            </Border.GestureRecognizers>
+            <Image
+                HeightRequest="28"
+                InputTransparent="True"
+                Source="deletedevicebutton.svg"
+                WidthRequest="28" />
+        </Border>
+        
+    </HorizontalStackLayout>
+</Grid>
 
         </Grid>
     </Border>

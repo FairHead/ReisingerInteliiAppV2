@@ -2,7 +2,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ReisingerIntelliApp_V4.Models; // core library DeviceModel
-// API logic removed
+using ReisingerIntelliApp_V4.Services; // For IntellidriveApiService
+using ReisingerIntelliApp_V4.Helpers; // For ServiceHelper
 using System.Diagnostics;
 
 namespace ReisingerIntelliApp_V4.ViewModels;
@@ -10,8 +11,6 @@ namespace ReisingerIntelliApp_V4.ViewModels;
 public partial class DeviceControlViewModel : ObservableObject
 {
     // API logic removed: local simulation only
-
-    public DeviceControlViewModel() { }
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
@@ -59,12 +58,59 @@ public partial class DeviceControlViewModel : ObservableObject
         DoorActionInProgress = true;
         try
         {
-            // 1. Always fetch current state to base decision on real device, not cached flag
-            bool currentlyOpen = IsDoorOpen;
+            // 1. Fetch current state from real device
+            var apiService = ServiceHelper.GetService<IntellidriveApiService>();
+            if (apiService == null)
+            {
+                Debug.WriteLine("❌ IntellidriveApiService not available!");
+                Error = "API Service not available";
+                return;
+            }
+
+            if (Device == null)
+            {
+                Debug.WriteLine("❌ Device is NULL!");
+                Error = "No device selected";
+                return;
+            }
+
+            Debug.WriteLine($"🔄 Fetching current door state for device: {Device.Name} ({Device.Ip})");
+            
+            // Get current state from device
+            var stateResponse = await apiService.GetDoorStateAsync(Device, ct);
+            Debug.WriteLine($"📥 Door state response: {stateResponse}");
+            
+            // Parse state to determine if door is open
+            // Expected response format: {"Success":true,"Message":"open"} or {"Success":true,"Message":"closed"}
+            bool currentlyOpen = stateResponse?.Contains("open", StringComparison.OrdinalIgnoreCase) == true;
+            Debug.WriteLine($"🚪 Current door state: {(currentlyOpen ? "OPEN" : "CLOSED")}");
+            
             bool intendToOpen = !currentlyOpen; // toggle
-            // Simulate instant toggle
-            await Task.Delay(150, ct);
+            Debug.WriteLine($"🎯 Intended action: {(intendToOpen ? "OPEN" : "CLOSE")} door");
+
+            // 2. Send appropriate command to device
+            string response;
+            if (intendToOpen)
+            {
+                Debug.WriteLine("📤 Sending OPEN command to device...");
+                response = await apiService.OpenDoorAsync(Device, ct);
+                Debug.WriteLine($"📥 OPEN response: {response}");
+            }
+            else
+            {
+                Debug.WriteLine("📤 Sending CLOSE command to device...");
+                response = await apiService.CloseDoorAsync(Device, ct);
+                Debug.WriteLine($"📥 CLOSE response: {response}");
+            }
+
+            // 3. Update UI state based on intended action
             IsDoorOpen = intendToOpen;
+            Debug.WriteLine($"✅ Door state updated in UI: {(IsDoorOpen ? "OPEN" : "CLOSED")}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ ToggleDoorAsync error: {ex.Message}");
+            Error = $"Door control failed: {ex.Message}";
         }
         finally
         {

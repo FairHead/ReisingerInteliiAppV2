@@ -75,13 +75,35 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         RightSectionTappedCommand = new Command(OnRightSectionTapped);
         ScanButtonTappedCommand = new Command(OnScanButtonTapped);
         NavigateToStructureEditorCommand = new Command<DropdownItemModel>(OnNavigateToStructureEditor);
-        DeleteDeviceFromDropdownCommand = new Command<DropdownItemModel>(OnDeleteDeviceFromDropdown);
-    ShowDeviceOptionsCommand = new Command<DropdownItemModel>(OnShowDeviceOptions);
-    CardSettingsCommand = new Command<DropdownItemModel>(OnCardSettingsTapped);
-    AddDeviceToFloorPlanCommand = new AsyncRelayCommand<DropdownItemModel>(AddDeviceToCurrentFloorAsync);
-    IncreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, +0.1));
-    DecreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, -0.1));
-    DebugClearStorageCommand = new AsyncRelayCommand(DebugClearStorageAsync);
+        DeleteDeviceFromDropdownCommand = new AsyncRelayCommand<DropdownItemModel>(
+            async (item) =>
+            {
+                try
+                {
+                    bool confirm = await Application.Current!.MainPage!.DisplayAlert(
+                        "Gerät löschen",
+                        $"Möchtest du '{item.Text}' wirklich entfernen?",
+                        "Ja",
+                        "Nein");
+
+                    if (!confirm)
+                        return;
+
+                    OnDeleteDeviceFromDropdown(item);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"❌ Delete Confirm Exception: {ex}");
+                }
+            });
+
+        ShowDeviceOptionsCommand = new Command<DropdownItemModel>(OnShowDeviceOptions);
+        CardSettingsCommand = new AsyncRelayCommand<DropdownItemModel>(OnCardSettingsTapped,
+            (item) => item != null);
+        AddDeviceToFloorPlanCommand = new AsyncRelayCommand<DropdownItemModel>(AddDeviceToCurrentFloorAsync);
+        IncreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, +0.1));
+        DecreaseDeviceScaleCommand = new AsyncRelayCommand<PlacedDeviceModel>(pd => ChangeDeviceScaleAsync(pd, -0.1));
+        DebugClearStorageCommand = new AsyncRelayCommand(DebugClearStorageAsync);
         
         InitializeDropdownData();
 
@@ -138,9 +160,9 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     public ICommand CenterButtonTappedCommand { get; }
     public ICommand RightSectionTappedCommand { get; }
     public ICommand ScanButtonTappedCommand { get; }
-    public ICommand DeleteDeviceFromDropdownCommand { get; }
+    public IAsyncRelayCommand<DropdownItemModel> DeleteDeviceFromDropdownCommand { get; }
     public ICommand ShowDeviceOptionsCommand { get; }
-    public ICommand CardSettingsCommand { get; }
+    public IAsyncRelayCommand<DropdownItemModel> CardSettingsCommand { get; }
     public IAsyncRelayCommand<DropdownItemModel> AddDeviceToFloorPlanCommand { get; }
     public IAsyncRelayCommand<PlacedDeviceModel> IncreaseDeviceScaleCommand { get; }
     public IAsyncRelayCommand<PlacedDeviceModel> DecreaseDeviceScaleCommand { get; }
@@ -686,11 +708,28 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
     private async Task LoadStructuresAsync()
     {
+        System.Diagnostics.Debug.WriteLine("[LoadStructuresAsync] === ENTRY ===");
+        System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync] Current DropdownItems.Count: {DropdownItems.Count}");
+        
+        // Log existing items BEFORE clearing
+        if (DropdownItems.Count > 0)
+        {
+            System.Diagnostics.Debug.WriteLine("[LoadStructuresAsync] Existing items in dropdown BEFORE clear:");
+            foreach (var existingItem in DropdownItems)
+            {
+                System.Diagnostics.Debug.WriteLine($"   - Id: '{existingItem.Id}', Text: '{existingItem.Text}', Icon: '{existingItem.Icon}'");
+            }
+        }
+        
         DropdownTitle = "Structures";
         // Add Building moved to main '+'
         ShowScanButton = false;
         ScanButtonText = string.Empty;
+        
+        // CRITICAL: Clear items FIRST
         DropdownItems.Clear();
+        System.Diagnostics.Debug.WriteLine("[LoadStructuresAsync] DropdownItems cleared. Count now: {DropdownItems.Count}");
+        
         DropdownItems.Add(new DropdownItemModel { Id = "loading", Icon = "loading.svg", Text = "Loading buildings..." });
         IsDropdownVisible = true;
 
@@ -698,44 +737,52 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         {
             // Remove ConfigureAwait(false) to prevent deadlock when accessing UI elements
             var buildings = await _buildingStorage.LoadAsync();
+            System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync] Loaded {buildings.Count} buildings from storage");
             
             // Use synchronous UI update since we're already on the correct thread
             DropdownItems.Clear();
+            System.Diagnostics.Debug.WriteLine("[LoadStructuresAsync] DropdownItems cleared again after load. Count: {DropdownItems.Count}");
             
             // Update empty state visibility
             ShowStructuresEmptyState = buildings.Count == 0;
             
             if (buildings.Count == 0)
             {
+                System.Diagnostics.Debug.WriteLine("[LoadStructuresAsync] No buildings found - showing empty state");
                 // Don't add the old no-buildings card since we now have a dedicated empty state
                 return;
             }
             
-                foreach (var b in buildings)
+            System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync] Adding {buildings.Count} buildings to dropdown:");
+            foreach (var b in buildings)
+            {
+                try
                 {
-                    try
-                    {
-                        DropdownItems.Add(new DropdownItemModel 
-                        { 
-                            Id = b.BuildingName, 
-                            Icon = "home.svg", 
-                            Text = b.BuildingName,
-                            SubText = string.Empty,
-                            HasActions = true, // Enable actions for buildings to show delete button
-                            ShowStatus = false, 
-                            IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) 
-                        });
-                    }
+                    System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync]   Adding building: '{b.BuildingName}'");
+                    DropdownItems.Add(new DropdownItemModel 
+                    { 
+                        Id = b.BuildingName, 
+                        Icon = "home.svg", 
+                        Text = b.BuildingName,
+                        SubText = string.Empty,
+                        HasActions = true, // Enable actions for buildings to show delete button
+                        ShowStatus = false, 
+                        IsSelected = string.Equals(SelectedBuildingName, b.BuildingName, StringComparison.OrdinalIgnoreCase) 
+                    });
+                }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync] Fehler beim Hinzufügen eines Buildings: {ex.Message}");
                     // Building nicht anzeigen, einfach überspringen
                 }
             }
+            
+            System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync] === EXIT === Final DropdownItems.Count: {DropdownItems.Count}");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error in LoadStructuresAsync: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync] ERROR: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[LoadStructuresAsync] Stack trace: {ex.StackTrace}");
             DropdownItems.Clear();
             DropdownItems.Add(new DropdownItemModel 
             { 
@@ -1053,7 +1100,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                         }
                         
                         // Clear all devices from the floor before deletion
-                        Console.WriteLine($"[OnDeleteDeviceFromDropdown] Clearing {floor.PlacedDevices?.Count ?? 0} devices from floor '{floor.FloorName}'");
+                        Console.WriteLine($"[OnDeleteDeviceFromDropdown] Clearing {floor?.PlacedDevices?.Count ?? 0} devices from floor '{floor.FloorName}'");
                         floor.PlacedDevices?.Clear();
                         
                         // Delete PDF/PNG assets
@@ -1272,18 +1319,28 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     /// WifiDev: navigate to SaveDevicePage ("savedevice") passing serialized network data (SSID only available)
     /// LocalDev: navigate to SaveLocalDevicePage ("savelocaldevice") passing local device info
     /// </summary>
-    private async void OnCardSettingsTapped(DropdownItemModel? item)
+    private async Task OnCardSettingsTapped(DropdownItemModel? item)
     {
         try
         {
-            if (item == null) return;
+            System.Diagnostics.Debug.WriteLine($"🔧 [OnCardSettingsTapped] Called with item: {item?.Text}, CurrentActiveTab: {CurrentActiveTab}");
+            
+            if (item == null)
+            {
+                System.Diagnostics.Debug.WriteLine("❌ [OnCardSettingsTapped] item is NULL!");
+                return;
+            }
+            
             switch (CurrentActiveTab)
             {
                 case "Structures":
                 case "Levels":
+                    System.Diagnostics.Debug.WriteLine($"🔧 [OnCardSettingsTapped] Navigating to structure editor");
                     OnNavigateToStructureEditor(item);
                     return;
+                    
                 case "WifiDev":
+                    System.Diagnostics.Debug.WriteLine($"🔧 [OnCardSettingsTapped] Handling WifiDev case");
                     // Build minimal NetworkDataModel (mirrors WifiScan navigation)
                     var wifiNetwork = new NetworkDataModel
                     {
@@ -1294,28 +1351,41 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                     };
                     var wifiJson = System.Text.Json.JsonSerializer.Serialize(wifiNetwork);
                     var encodedWifi = Uri.EscapeDataString(wifiJson);
+                    System.Diagnostics.Debug.WriteLine($"📤 [OnCardSettingsTapped] WifiDev navigation: savedevice?networkData={encodedWifi}");
                     await Shell.Current.GoToAsync($"savedevice?networkData={encodedWifi}");
                     return;
+                    
                 case "LocalDev":
+                    System.Diagnostics.Debug.WriteLine($"🔧 [OnCardSettingsTapped] Handling LocalDev case");
+                    System.Diagnostics.Debug.WriteLine($"   Item.Id: '{item.Id}'");
+                    System.Diagnostics.Debug.WriteLine($"   Item.Text: '{item.Text}'");
+                    System.Diagnostics.Debug.WriteLine($"   Item.NetworkInfo: '{item.NetworkInfo}'");
+                    
                     // SaveLocalDevicePageViewModel expects a query parameter named "deviceData" with
                     // a JSON payload matching record Payload(string ip, string name, string serial, string firmware, string deviceId)
                     var localPayload = new
                     {
-                        ip = item.NetworkInfo,
-                        name = item.Text,
+                        ip = item.NetworkInfo ?? string.Empty,
+                        name = item.Text ?? string.Empty,
                         serial = string.Empty,
                         firmware = string.Empty,
-                        deviceId = item.Id
+                        deviceId = item.Id ?? string.Empty
                     };
                     var localJson = System.Text.Json.JsonSerializer.Serialize(localPayload);
                     var encodedLocal = Uri.EscapeDataString(localJson);
+                    
+                    System.Diagnostics.Debug.WriteLine($"📦 [OnCardSettingsTapped] LocalDev payload: {localJson}");
+                    System.Diagnostics.Debug.WriteLine($"📤 [OnCardSettingsTapped] LocalDev navigation: savelocaldevice?deviceData={encodedLocal}");
+                    
                     await Shell.Current.GoToAsync($"savelocaldevice?deviceData={encodedLocal}");
+                    System.Diagnostics.Debug.WriteLine($"✅ [OnCardSettingsTapped] Navigation completed");
                     return;
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[OnCardSettingsTapped] ERROR: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"❌ [OnCardSettingsTapped] ERROR: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
             await ShowAlertAsync("Error", ex.Message, "OK");
         }
     }
@@ -1661,8 +1731,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 var ipAddress = match.Value;
                 
                 // Query /intellidrive/version and mark online on successful JSON response
-                var (success, _, _) = await _apiService.TestIntellidriveConnectionAsync(ipAddress);
-                var isConnected = success;
+                var (successStatus, _, _) = await _apiService.TestIntellidriveConnectionAsync(ipAddress);
+                var isConnected = successStatus;
                 
                 // Update the UI if status changed - use simpler approach to avoid deadlocks
                 if (dropdownItem.IsConnected != isConnected)

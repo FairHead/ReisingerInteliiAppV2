@@ -308,7 +308,7 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Versuche zusätzliche Geräteinformationen zu holen
+            // Extract device information from /intellidrive/version response
             string deviceId = ExtractValueFromJson(jsonResponse, "DeviceId") ?? 
                             ExtractValueFromJson(jsonResponse, "deviceId") ?? 
                             Guid.NewGuid().ToString();
@@ -318,33 +318,12 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
                                    ExtractValueFromJson(jsonResponse, "firmware") ??
                                    "Unknown";
 
-            // Versuche Serial Number aus der Version-Response (Content.DEVICE_SERIALNO) zu lesen,
-            // und falle nur bei Bedarf auf den separaten API-Call zurück
-            string serialNumber = ExtractValueFromJson(jsonResponse, "DEVICE_SERIALNO") ?? "Unknown";
-            if (string.IsNullOrWhiteSpace(serialNumber) || serialNumber == "Unknown")
-            {
-                try
-                {
-                    using var serialRequest = new HttpRequestMessage(HttpMethod.Get, $"http://{ipAddress}/intellidrive/device_id");
-                    var serialResponse = await _httpClient.SendAsync(serialRequest, cancellationToken);
-                    if (serialResponse.IsSuccessStatusCode)
-                    {
-                        var serialContent = await serialResponse.Content.ReadAsStringAsync(cancellationToken);
-                        serialNumber = ExtractValueFromJson(serialContent, "DEVICE_ID") ?? 
-                                     ExtractValueFromJson(serialContent, "device_id") ?? 
-                                     ExtractValueFromJson(serialContent, "SerialNumber") ?? 
-                                     "Unknown";
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    throw; // Re-throw cancellation
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"⚠️ Could not get serial for {ipAddress}: {ex.Message}");
-                }
-            }
+            // Try to get serial number from version response, fallback to DeviceId
+            // Note: /intellidrive/device_id endpoint does not exist on devices
+            string serialNumber = ExtractValueFromJson(jsonResponse, "DEVICE_SERIALNO") ?? 
+                                 ExtractValueFromJson(jsonResponse, "SerialNumber") ??
+                                 ExtractValueFromJson(jsonResponse, "serialNumber") ??
+                                 deviceId; // Use DeviceId as fallback since it's often the same as serial
 
             var model = new LocalNetworkDeviceModel
             {
@@ -360,6 +339,7 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
                 ResponseTime = DateTime.Now,
                 DiscoveredAt = DateTime.Now
             };
+            
             try
             {
                 var saved = await _deviceService.GetSavedLocalDevicesAsync();
@@ -369,6 +349,7 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
                 }
             }
             catch { }
+            
             return model;
         }
         catch (OperationCanceledException)
@@ -379,10 +360,11 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
         {
             Debug.WriteLine($"⚠️ Error creating device model for {ipAddress}: {ex.Message}");
             
+            var fallbackId = Guid.NewGuid().ToString();
             var fallback = new LocalNetworkDeviceModel
             {
-                Id = Guid.NewGuid().ToString(),
-                DeviceId = Guid.NewGuid().ToString(),
+                Id = fallbackId,
+                DeviceId = fallbackId,
                 Name = $"Intellidrive {ipAddress}",
                 IpAddress = ipAddress,
                 LastSeen = DateTime.Now,
@@ -393,6 +375,7 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
                 ResponseTime = DateTime.Now,
                 DiscoveredAt = DateTime.Now
             };
+            
             try
             {
                 var saved = await _deviceService.GetSavedLocalDevicesAsync();
@@ -402,6 +385,7 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
                 }
             }
             catch { }
+            
             return fallback;
         }
     }
