@@ -278,6 +278,64 @@ public class IntellidriveApiService
             .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
             .Unwrap();
 
+    // Parameters - Simple GET without authentication (for direct device access)
+    /// <summary>
+    /// Gets device parameters directly via IP without authentication.
+    /// Used for local network devices that don't require auth.
+    /// </summary>
+    public async Task<IntellidriveParametersResponse?> GetParametersByIpAsync(string ipAddress, int timeoutSeconds = 10, CancellationToken ct = default)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+            
+            var endpoint = $"http://{ipAddress}/intellidrive/parameters";
+            Debug.WriteLine($"🔧 Fetching parameters from: {endpoint}");
+            
+            var response = await _httpClient.GetAsync(endpoint, cts.Token);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync(cts.Token);
+                Debug.WriteLine($"📥 Parameters response: {json.Substring(0, Math.Min(200, json.Length))}...");
+                
+                var parametersResponse = JsonSerializer.Deserialize<IntellidriveParametersResponse>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                
+                if (parametersResponse?.Success == true)
+                {
+                    Debug.WriteLine($"✅ Successfully fetched {parametersResponse.Values?.Count ?? 0} parameters");
+                    return parametersResponse;
+                }
+                else
+                {
+                    Debug.WriteLine($"⚠️ Parameters response was not successful: {parametersResponse?.Message}");
+                }
+            }
+            else
+            {
+                Debug.WriteLine($"❌ HTTP error fetching parameters: {response.StatusCode}");
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            Debug.WriteLine($"⏰ Timeout fetching parameters from {ipAddress}");
+        }
+        catch (HttpRequestException ex)
+        {
+            Debug.WriteLine($"❌ Network error fetching parameters: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error fetching parameters: {ex.Message}");
+        }
+        
+        return null;
+    }
+
     // Parameters
     public async Task<IntellidriveParametersResponse?> GetParametersAsync(DeviceModel device, CancellationToken ct = default)
     {

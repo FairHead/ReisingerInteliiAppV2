@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ReisingerIntelliApp_V4.Views.DeviceParametersPage"
+    x:Name="DeviceParametersPageRoot"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
+    xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters"
+    xmlns:models="clr-namespace:ReisingerIntelliApp_V4.Models"
+    xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
+    x:DataType="viewmodels:DeviceParametersPageViewModel"
+    BackgroundColor="#1E1E1E"
+    Shell.NavBarIsVisible="False">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
+            <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+        <!--  Row 0: Header with Back Button and Title  -->
+        <Border
+            Grid.Row="0"
+            Padding="20,15"
+            StrokeThickness="0">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0.0" Color="#2D2D2D" />
+                    <GradientStop Offset="1.0" Color="Transparent" />
+                </LinearGradientBrush>
+            </Border.Background>
+
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="*">
+                <!--  Back Button  -->
+                <Button
+                    x:Name="BackButton"
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Margin="0,0,0,7"
+                    Padding="0,0,0,0"
+                    BackgroundColor="Transparent"
+                    BorderWidth="0"
+                    Clicked="OnBackButtonClicked"
+                    FontSize="30"
+                    HeightRequest="40"
+                    HorizontalOptions="Start"
+                    Text="&#8249;"
+                    TextColor="White"
+                    VerticalOptions="Center"
+                    WidthRequest="40" />
+
+                <!--  Title  -->
+                <Label
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Margin="10,0,0,0"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="20"
+                    HorizontalOptions="Start"
+                    Text="Device Parameters"
+                    TextColor="White"
+                    VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!--  Row 1: Device Info Card (Compact) - Fixed  -->
+        <Border
+            Grid.Row="1"
+            Margin="15,5,15,5"
+            Padding="12"
+            BackgroundColor="#2A2A2A"
+            Stroke="#404040"
+            StrokeThickness="1">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="10" />
+            </Border.StrokeShape>
+            
+            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                <!--  Device Icon and Name  -->
+                <Label
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    FontSize="20"
+                    Text="📱"
+                    VerticalOptions="Center" />
+                <StackLayout
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Margin="10,0,0,0"
+                    Spacing="2">
+                    <Label
+                        FontFamily="SpaceMonoBold"
+                        FontSize="16"
+                        Text="{Binding DeviceName}"
+                        TextColor="White" />
+                    <Label
+                        FontFamily="SpaceMonoRegular"
+                        FontSize="12"
+                        Text="{Binding DeviceIp}"
+                        TextColor="#4CAF50" />
+                </StackLayout>
+                
+                <!--  Connection Type Badge  -->
+                <Border
+                    Grid.Row="0"
+                    Grid.Column="2"
+                    Padding="8,4"
+                    BackgroundColor="#007AFF"
+                    VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="8" />
+                    </Border.StrokeShape>
+                    <Label
+                        FontFamily="SpaceMonoBold"
+                        FontSize="10"
+                        Text="{Binding ConnectionType}"
+                        TextColor="White" />
+                </Border>
+                
+                <!--  Last Refresh Info  -->
+                <Label
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    Grid.ColumnSpan="3"
+                    Margin="0,8,0,0"
+                    FontSize="11"
+                    HorizontalOptions="End"
+                    IsVisible="{Binding LastRefreshTime, Converter={StaticResource StringToBoolConverter}}"
+                    Text="{Binding LastRefreshTime, StringFormat='Letzte Aktualisierung: {0}'}"
+                    TextColor="#808080" />
+            </Grid>
+        </Border>
+
+        <!--  Row 2: Search, Status Messages and Header  -->
+        <StackLayout Grid.Row="2" Padding="15,0" Spacing="8">
+            <!--  Search Bar  -->
+            <Border
+                Padding="4"
+                BackgroundColor="#2A2A2A"
+                Stroke="#404040"
+                StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                    <!--  Search Icon  -->
+                    <Label
+                        Grid.Column="0"
+                        Margin="8,0,0,0"
+                        FontSize="16"
+                        Text="🔍"
+                        TextColor="#808080"
+                        VerticalOptions="Center" />
+                    
+                    <!--  Search Entry  -->
+                    <Entry
+                        Grid.Column="1"
+                        BackgroundColor="Transparent"
+                        FontFamily="SpaceMonoRegular"
+                        FontSize="14"
+                        Placeholder="Suche nach ID oder Name..."
+                        PlaceholderColor="#606060"
+                        Text="{Binding SearchText}"
+                        TextColor="White"
+                        VerticalOptions="Center" />
+                    
+                    <!--  Clear Button  -->
+                    <Button
+                        Grid.Column="2"
+                        Padding="8,4"
+                        BackgroundColor="Transparent"
+                        Command="{Binding ClearSearchCommand}"
+                        FontSize="14"
+                        HeightRequest="36"
+                        IsVisible="{Binding IsSearchActive}"
+                        Text="✕"
+                        TextColor="#808080"
+                        WidthRequest="36" />
+                </Grid>
+            </Border>
+            
+            <!--  Filter Info (when filter is active)  -->
+            <Label
+                FontSize="11"
+                HorizontalOptions="Center"
+                IsVisible="{Binding IsSearchActive}"
+                TextColor="#007AFF">
+                <Label.Text>
+                    <MultiBinding StringFormat="Zeige {0} von {1} Parametern">
+                        <Binding Path="FilteredCount" />
+                        <Binding Path="ParameterCount" />
+                    </MultiBinding>
+                </Label.Text>
+            </Label>
+
+            <!--  Error Message (red)  -->
+            <Border
+                Padding="10"
+                BackgroundColor="#3A1A1A"
+                IsVisible="{Binding HasError}"
+                Stroke="#FF3B30"
+                StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <Label
+                    FontSize="12"
+                    HorizontalOptions="Center"
+                    Text="{Binding StatusMessage}"
+                    TextColor="#FF3B30" />
+            </Border>
+
+            <!--  Info Message (blue) - shown when loading  -->
+            <Border
+                Padding="10"
+                BackgroundColor="#1A3A5C"
+                IsVisible="{Binding IsLoading}"
+                Stroke="#007AFF"
+                StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <StackLayout HorizontalOptions="Center" Orientation="Horizontal" Spacing="10">
+                    <ActivityIndicator
+                        HeightRequest="20"
+                        IsRunning="{Binding IsLoading}"
+                        WidthRequest="20"
+                        Color="#007AFF" />
+                    <Label
+                        FontSize="12"
+                        Text="{Binding StatusMessage}"
+                        TextColor="#007AFF"
+                        VerticalOptions="Center" />
+                </StackLayout>
+            </Border>
+
+            <!--  Parameters Header  -->
+            <Grid ColumnDefinitions="*,Auto">
+                <Label
+                    Grid.Column="0"
+                    FontAttributes="Bold"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="16"
+                    Text="⚙️ Parameter"
+                    TextColor="White"
+                    VerticalOptions="Center" />
+                <StackLayout
+                    Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    VerticalOptions="Center">
+                    <ActivityIndicator
+                        HeightRequest="14"
+                        IsRunning="{Binding IsLoading}"
+                        IsVisible="{Binding IsLoading}"
+                        WidthRequest="14"
+                        Color="#007AFF" />
+                    <Label
+                        FontSize="12"
+                        IsVisible="{Binding ParameterCount, Converter={StaticResource IntToBoolConverter}}"
+                        Text="{Binding ParameterCount, StringFormat='{0} Parameter'}"
+                        TextColor="#808080" />
+                </StackLayout>
+            </Grid>
+            
+            <!--  Column Headers  -->
+            <Grid
+                Margin="0,8,0,0"
+                Padding="12,8"
+                BackgroundColor="#252525"
+                ColumnDefinitions="50,*,90"
+                ColumnSpacing="8">
+                <Label
+                    Grid.Column="0"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="11"
+                    HorizontalOptions="Center"
+                    Text="ID"
+                    TextColor="#808080" />
+                <Label
+                    Grid.Column="1"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="11"
+                    Text="PARAMETER"
+                    TextColor="#808080" />
+                <Label
+                    Grid.Column="2"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="11"
+                    HorizontalOptions="Center"
+                    Text="WERT"
+                    TextColor="#808080" />
+            </Grid>
+        </StackLayout>
+
+        <!--  Row 3: Parameters List - VIRTUALIZED CollectionView (NOT inside ScrollView!)  -->
+        <CollectionView
+            Grid.Row="3"
+            Margin="15,5,15,0"
+            ItemsSource="{Binding Parameters}"
+            ItemSizingStrategy="MeasureFirstItem">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:DeviceParameterDisplayModel">
+                    <Grid Padding="0,3">
+                        <Border
+                            Padding="12,10"
+                            BackgroundColor="#2D2D2D"
+                            Stroke="#404040"
+                            StrokeThickness="1">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="8" />
+                            </Border.StrokeShape>
+                            
+                            <Grid ColumnDefinitions="50,*,90" ColumnSpacing="8">
+                                <!--  Parameter ID Badge  -->
+                                <Border
+                                    Grid.Column="0"
+                                    Padding="6,4"
+                                    BackgroundColor="#3A3A3A"
+                                    HorizontalOptions="Start"
+                                    VerticalOptions="Center">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="6" />
+                                    </Border.StrokeShape>
+                                    <Label
+                                        FontFamily="SpaceMonoBold"
+                                        FontSize="11"
+                                        HorizontalOptions="Center"
+                                        Text="{Binding Id, StringFormat='#{0:D2}'}"
+                                        TextColor="#B0B0B0" />
+                                </Border>
+                                
+                                <!--  Parameter Name  -->
+                                <Label
+                                    Grid.Column="1"
+                                    FontFamily="SpaceMonoRegular"
+                                    FontSize="13"
+                                    LineBreakMode="TailTruncation"
+                                    Text="{Binding Name}"
+                                    TextColor="White"
+                                    VerticalOptions="Center" />
+                                
+                                <!--  Parameter Value - simplified single view  -->
+                                <Border
+                                    Grid.Column="2"
+                                    Padding="6,4"
+                                    BackgroundColor="#1E1E1E"
+                                    Stroke="#505050"
+                                    StrokeThickness="1"
+                                    VerticalOptions="Center">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="6" />
+                                    </Border.StrokeShape>
+                                    <Entry
+                                        BackgroundColor="Transparent"
+                                        FontFamily="SpaceMonoBold"
+                                        FontSize="14"
+                                        HorizontalTextAlignment="End"
+                                        IsEnabled="{Binding IsValueLoading, Converter={StaticResource InvertedBoolConverter}}"
+                                        Keyboard="Numeric"
+                                        Placeholder="···"
+                                        PlaceholderColor="#606060"
+                                        Text="{Binding Value}"
+                                        TextColor="#4CAF50" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            
+            <!--  Empty View - different for search vs no data  -->
+            <CollectionView.EmptyView>
+                <Border
+                    Padding="20"
+                    BackgroundColor="#2D2D2D"
+                    Stroke="#404040"
+                    StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="10" />
+                    </Border.StrokeShape>
+                    <StackLayout HorizontalOptions="Center" Spacing="10">
+                        <Label
+                            FontSize="32"
+                            HorizontalOptions="Center"
+                            Text="🔍" />
+                        <Label
+                            FontSize="14"
+                            HorizontalOptions="Center"
+                            Text="Keine Parameter gefunden"
+                            TextColor="#B0B0B0" />
+                        <Label
+                            FontSize="12"
+                            HorizontalOptions="Center"
+                            Text="Versuchen Sie einen anderen Suchbegriff"
+                            TextColor="#666666" />
+                    </StackLayout>
+                </Border>
+            </CollectionView.EmptyView>
+        </CollectionView>
+
+        <!--  Row 4: Fixed Action Button Area  -->
+        <Border
+            Grid.Row="4"
+            Padding="15,10,15,10"
+            BackgroundColor="#1E1E1E"
+            StrokeThickness="0">
+            <Button
+                Padding="15,12"
+                BackgroundColor="#4CAF50"
+                BorderColor="#388E3C"
+                BorderWidth="2"
+                Command="{Binding SaveParametersCommand}"
+                CornerRadius="10"
+                FontFamily="SpaceMonoBold"
+                FontSize="16"
+                HorizontalOptions="Fill"
+                IsEnabled="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}"
+                Text="💾 Parameter Speichern"
+                TextColor="White" />
+        </Border>
+
+        <!--  Row 5: Footer Component  -->
+        <components:AppFooter
+            x:Name="Footer"
+            Grid.Row="5"
+            CenterIcon="refresh.svg" />
+    </Grid>
+
+</ContentPage>

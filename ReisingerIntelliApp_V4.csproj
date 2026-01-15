@@ -74,6 +74,14 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Remove="Views\FloorPlanDemoPage.xaml.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <MauiXaml Remove="Views\FloorPlanDemoPage.xaml" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Maui" Version="11.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.8" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
@@ -107,6 +115,9 @@
 
 	<ItemGroup>
 	  <MauiXaml Update="Components\GradientWifiCardComponent.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Views\DeviceParametersPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	</ItemGroup>

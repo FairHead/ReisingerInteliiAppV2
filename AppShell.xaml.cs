@@ -14,5 +14,6 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute("savedevice", typeof(SaveDevicePage));
 		Routing.RegisterRoute("savelocaldevice", typeof(SaveLocalDevicePage));
 		Routing.RegisterRoute("structureeditor", typeof(StructureEditorPage));
+		Routing.RegisterRoute("deviceparameters", typeof(DeviceParametersPage));
 	}
 }

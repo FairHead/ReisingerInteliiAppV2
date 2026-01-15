@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ReisingerIntelliApp_V4.Models;
 using System.Collections.ObjectModel;
+using System.Text.Json;
 
 namespace ReisingerIntelliApp_V4.ViewModels;
 
@@ -219,6 +220,38 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
         
         System.Diagnostics.Debug.WriteLine($"?? ConfigureDevice - Device: {PlacedDevice.Name}");
         ConfigureDeviceRequested?.Invoke(this, PlacedDevice);
+    }
+
+    [RelayCommand]
+    private async Task OpenDeviceParametersAsync()
+    {
+        if (PlacedDevice == null) return;
+        
+        System.Diagnostics.Debug.WriteLine($"?? OpenDeviceParameters - Device: {PlacedDevice.Name}");
+        
+        try
+        {
+            // Serialize device data for navigation including auth credentials
+            var deviceData = new
+            {
+                deviceId = PlacedDevice.DeviceId,
+                name = PlacedDevice.Name,
+                ip = PlacedDevice.DeviceInfo?.Ip ?? PlacedDevice.DeviceInfo?.IpAddress ?? string.Empty,
+                ssid = PlacedDevice.DeviceInfo?.Ssid ?? string.Empty,
+                username = PlacedDevice.DeviceInfo?.Username ?? string.Empty,
+                password = PlacedDevice.DeviceInfo?.Password ?? string.Empty
+            };
+            
+            var json = JsonSerializer.Serialize(deviceData);
+            var encoded = Uri.EscapeDataString(json);
+            
+            await Shell.Current.GoToAsync($"deviceparameters?deviceData={encoded}");
+            System.Diagnostics.Debug.WriteLine($"? Navigated to DeviceParametersPage for {PlacedDevice.Name}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"? Error navigating to DeviceParametersPage: {ex.Message}");
+        }
     }
 
     #endregion

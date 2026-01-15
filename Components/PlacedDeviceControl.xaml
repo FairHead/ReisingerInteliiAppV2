@@ -252,7 +252,7 @@
                     <!--  Button Row at Bottom  -->
                     <Grid
                         Grid.Row="1"
-                        Margin="0,10,0,0"
+                        Margin="10,10,10,0"
                         ColumnDefinitions="Auto,Auto,Auto"
                         HorizontalOptions="Center"
                         RowDefinitions="Auto,Auto,Auto"
@@ -372,11 +372,11 @@
                         </ImageButton>
                     </Grid>
 
-                    <!--  Dropdown split-button: primary action + selector  -->
+                    <!--  Dropdown split-button: primary action + selector + options  -->
                     <Grid
                         Grid.Row="2"
                         Margin="10,10,10,12"
-                        ColumnDefinitions="*,Auto"
+                        ColumnDefinitions="*,Auto,Auto"
                         HorizontalOptions="Center">
                         <Button
                             Grid.Column="0"
@@ -401,6 +401,20 @@
                             FontFamily="SpaceMonoBold"
                             FontSize="12"
                             Text="▼" />
+                        <!--  Options/Settings Button - navigates to DeviceParametersPage  -->
+                        <Button
+                            Grid.Column="2"
+                            Margin="8,0,0,0"
+                            Padding="10,8"
+                            BackgroundColor="{StaticResource PlacedDeviceConfigButton}"
+                            BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                            BorderWidth="2"
+                            Command="{Binding OpenDeviceParametersCommand}"
+                            CornerRadius="10"
+                            FontFamily="SpaceMonoBold"
+                            FontSize="20"
+                            TextColor="Black"
+                            Text="⚙️" />
                     </Grid>
                 </Grid>
             </Grid>

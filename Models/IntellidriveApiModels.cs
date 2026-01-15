@@ -18,7 +18,9 @@ public class IntellidriveApiEnvelope
 public class IntellidriveParametersResponse
 {
     [JsonPropertyName("Success")] public bool Success { get; set; }
+    [JsonPropertyName("Message")] public string Message { get; set; } = string.Empty;
     [JsonPropertyName("Values")] public List<IntellidriveParameterValue>? Values { get; set; }
+    [JsonPropertyName("Units")] public List<object>? Units { get; set; }
 }
 
 public class IntellidriveParameterValue
