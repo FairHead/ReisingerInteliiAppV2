@@ -1,3 +1,4 @@
+using ReisingerIntelliApp_V4.Models;
 using ReisingerIntelliApp_V4.ViewModels;
 using System.Text.Json;
 
@@ -22,7 +23,7 @@ public partial class DeviceParametersPage : ContentPage
 
     public DeviceParametersPage(DeviceParametersPageViewModel viewModel)
     {
-        Console.WriteLine($"??? DeviceParametersPage constructor - START");
+        Console.WriteLine($"?? DeviceParametersPage constructor - START");
         
         // Set BindingContext BEFORE InitializeComponent
         _viewModel = viewModel;
@@ -35,7 +36,7 @@ public partial class DeviceParametersPage : ContentPage
         
         SetupFooterEvents();
         
-        Console.WriteLine($"??? DeviceParametersPage constructor - COMPLETE");
+        Console.WriteLine($"?? DeviceParametersPage constructor - COMPLETE");
     }
 
     private void ProcessDeviceData()
@@ -58,7 +59,7 @@ public partial class DeviceParametersPage : ContentPage
             var password = root.TryGetProperty("password", out var passProp) ? passProp.GetString() : null;
             
             // Create a DeviceModel with auth credentials for the ViewModel
-            var device = new Models.DeviceModel
+            var device = new DeviceModel
             {
                 DeviceId = deviceId ?? string.Empty,
                 Name = name ?? "Unbekanntes Gerät",
@@ -111,7 +112,7 @@ public partial class DeviceParametersPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        Console.WriteLine($"?? DeviceParametersPage.OnAppearing - page is now visible");
+        Console.WriteLine($"??? DeviceParametersPage.OnAppearing - page is now visible");
         
         // If parameters haven't started loading yet (edge case), start now
         if (_viewModel != null && !_parametersLoadStarted)
@@ -132,5 +133,41 @@ public partial class DeviceParametersPage : ContentPage
     {
         System.Diagnostics.Debug.WriteLine($"[DeviceParametersPage] OnBackButtonClicked - navigating back");
         await Shell.Current.GoToAsync("..");
+    }
+
+    /// <summary>
+    /// Handle tap on parameter value to edit it
+    /// </summary>
+    private async void OnParameterValueTapped(object sender, TappedEventArgs e)
+    {
+        if (e.Parameter is not DeviceParameterDisplayModel param)
+            return;
+
+        // Don't allow editing read-only or reserved parameters
+        if (!param.IsEditable)
+        {
+            System.Diagnostics.Debug.WriteLine($"?? Parameter {param.Id} ({param.Name}) is read-only");
+            return;
+        }
+
+        System.Diagnostics.Debug.WriteLine($"?? Editing Parameter {param.Id} ({param.Name}), current value: {param.Value}");
+
+        // Show prompt to edit value
+        var result = await DisplayPromptAsync(
+            $"Parameter #{param.Id:D2}",
+            $"{param.Name}\nBereich: {param.RangeText}",
+            "OK",
+            "Abbrechen",
+            placeholder: param.Value,
+            initialValue: param.Value,
+            keyboard: Keyboard.Numeric
+        );
+
+        if (result != null)
+        {
+            System.Diagnostics.Debug.WriteLine($"?? User entered: '{result}' for Parameter {param.Id}");
+            param.Value = result;
+            _viewModel?.UpdateValidationState();
+        }
     }
 }

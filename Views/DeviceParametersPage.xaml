@@ -17,6 +17,7 @@
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
             <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -196,6 +197,48 @@
                 </Label.Text>
             </Label>
 
+            <!--  Validation/Modified Status Bar  -->
+            <Grid
+                ColumnDefinitions="*,*"
+                ColumnSpacing="10"
+                IsVisible="{Binding ParameterCount, Converter={StaticResource IntToBoolConverter}}">
+                <!--  Modified Count  -->
+                <Border
+                    Grid.Column="0"
+                    Padding="8,4"
+                    BackgroundColor="#1A3A1A"
+                    IsVisible="{Binding HasModifiedParameters}"
+                    Stroke="#4CAF50"
+                    StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="6" />
+                    </Border.StrokeShape>
+                    <Label
+                        FontSize="11"
+                        HorizontalOptions="Center"
+                        Text="{Binding ModifiedCount, StringFormat='✏️ {0} geändert'}"
+                        TextColor="#4CAF50" />
+                </Border>
+                
+                <!--  Invalid Count  -->
+                <Border
+                    Grid.Column="1"
+                    Padding="8,4"
+                    BackgroundColor="#3A1A1A"
+                    IsVisible="{Binding HasValidationErrors}"
+                    Stroke="#FF3B30"
+                    StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="6" />
+                    </Border.StrokeShape>
+                    <Label
+                        FontSize="11"
+                        HorizontalOptions="Center"
+                        Text="{Binding InvalidCount, StringFormat='⚠️ {0} ungültig'}"
+                        TextColor="#FF3B30" />
+                </Border>
+            </Grid>
+
             <!--  Error Message (red)  -->
             <Border
                 Padding="10"
@@ -268,111 +311,189 @@
             
             <!--  Column Headers  -->
             <Grid
-                Margin="0,8,0,0"
-                Padding="12,8"
+                Margin="0,4,0,0"
+                Padding="12,6"
                 BackgroundColor="#252525"
-                ColumnDefinitions="50,*,90"
-                ColumnSpacing="8">
+                ColumnDefinitions="45,*,70,55,50"
+                ColumnSpacing="6">
                 <Label
                     Grid.Column="0"
                     FontFamily="SpaceMonoBold"
-                    FontSize="11"
+                    FontSize="10"
                     HorizontalOptions="Center"
                     Text="ID"
                     TextColor="#808080" />
                 <Label
                     Grid.Column="1"
                     FontFamily="SpaceMonoBold"
-                    FontSize="11"
-                    Text="PARAMETER"
+                    FontSize="10"
+                    Text="NAME"
                     TextColor="#808080" />
                 <Label
                     Grid.Column="2"
                     FontFamily="SpaceMonoBold"
-                    FontSize="11"
+                    FontSize="10"
+                    HorizontalOptions="Center"
+                    Text="BEREICH"
+                    TextColor="#808080" />
+                <Label
+                    Grid.Column="3"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="10"
+                    HorizontalOptions="Center"
+                    Text="STD"
+                    TextColor="#808080" />
+                <Label
+                    Grid.Column="4"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="10"
                     HorizontalOptions="Center"
                     Text="WERT"
                     TextColor="#808080" />
             </Grid>
         </StackLayout>
 
-        <!--  Row 3: Parameters List - VIRTUALIZED CollectionView (NOT inside ScrollView!)  -->
+        <!--  Row 3: Parameters List - CollectionView with virtualization  -->
         <CollectionView
             Grid.Row="3"
-            Margin="15,5,15,0"
-            ItemsSource="{Binding Parameters}"
-            ItemSizingStrategy="MeasureFirstItem">
+            Margin="15,2,15,0"
+            ItemsSource="{Binding Parameters}">
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="models:DeviceParameterDisplayModel">
-                    <Grid Padding="0,3">
+                    <Grid Padding="0,2">
                         <Border
-                            Padding="12,10"
-                            BackgroundColor="#2D2D2D"
-                            Stroke="#404040"
+                            Padding="10,8"
+                            BackgroundColor="{Binding HasValidationError, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#3A2020|#2D2D2D'}"
+                            Stroke="{Binding HasValidationError, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#FF3B30|#404040'}"
                             StrokeThickness="1">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="8" />
                             </Border.StrokeShape>
                             
-                            <Grid ColumnDefinitions="50,*,90" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="45,*,70,55,65" ColumnSpacing="6" RowDefinitions="Auto,Auto">
                                 <!--  Parameter ID Badge  -->
                                 <Border
+                                    Grid.Row="0"
                                     Grid.Column="0"
-                                    Padding="6,4"
-                                    BackgroundColor="#3A3A3A"
-                                    HorizontalOptions="Start"
+                                    Padding="4,2"
+                                    BackgroundColor="{Binding IsModified, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#3A5A3A|#3A3A3A'}"
+                                    HorizontalOptions="Center"
                                     VerticalOptions="Center">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="6" />
+                                        <RoundRectangle CornerRadius="4" />
                                     </Border.StrokeShape>
                                     <Label
                                         FontFamily="SpaceMonoBold"
-                                        FontSize="11"
+                                        FontSize="10"
                                         HorizontalOptions="Center"
                                         Text="{Binding Id, StringFormat='#{0:D2}'}"
                                         TextColor="#B0B0B0" />
                                 </Border>
                                 
-                                <!--  Parameter Name  -->
-                                <Label
+                                <!--  Parameter Name + Unit  -->
+                                <StackLayout
+                                    Grid.Row="0"
                                     Grid.Column="1"
+                                    Spacing="0"
+                                    VerticalOptions="Center">
+                                    <Label
+                                        FontFamily="SpaceMonoRegular"
+                                        FontSize="12"
+                                        LineBreakMode="TailTruncation"
+                                        Text="{Binding Name}"
+                                        TextColor="LightGray" />
+                                    <Label
+                                        FontSize="9"
+                                        IsVisible="{Binding UnitText, Converter={StaticResource StringToBoolConverter}}"
+                                        Text="{Binding UnitText, StringFormat='[{0}]'}"
+                                        TextColor="#606060" />
+                                </StackLayout>
+                                
+                                <!--  Range Text  -->
+                                <Label
+                                    Grid.Row="0"
+                                    Grid.Column="2"
                                     FontFamily="SpaceMonoRegular"
-                                    FontSize="13"
-                                    LineBreakMode="TailTruncation"
-                                    Text="{Binding Name}"
-                                    TextColor="White"
+                                    FontSize="10"
+                                    HorizontalOptions="Center"
+                                    Text="{Binding RangeText}"
+                                    TextColor="#707070"
                                     VerticalOptions="Center" />
                                 
-                                <!--  Parameter Value - simplified single view  -->
+                                <!--  Default Text  -->
+                                <Label
+                                    Grid.Row="0"
+                                    Grid.Column="3"
+                                    FontFamily="SpaceMonoRegular"
+                                    FontSize="10"
+                                    HorizontalOptions="Center"
+                                    Text="{Binding DefaultText}"
+                                    TextColor="#606060"
+                                    VerticalOptions="Center" />
+                                
+                                <!--  Value Display - Tap to Edit (Label only, no TwoWay binding)  -->
                                 <Border
-                                    Grid.Column="2"
-                                    Padding="6,4"
-                                    BackgroundColor="#1E1E1E"
-                                    Stroke="#505050"
+                                    Grid.Row="0"
+                                    Grid.Column="4"
+                                    Padding="4,2"
+                                    BackgroundColor="{Binding IsValueLoading, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#252525|#1E1E1E'}"
+                                    Stroke="{Binding HasValidationError, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#FF3B30|#505050'}"
                                     StrokeThickness="1"
                                     VerticalOptions="Center">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="6" />
+                                        <RoundRectangle CornerRadius="4" />
                                     </Border.StrokeShape>
-                                    <Entry
+                                    <Label
                                         BackgroundColor="Transparent"
                                         FontFamily="SpaceMonoBold"
-                                        FontSize="14"
+                                        FontSize="12"
+                                        HorizontalOptions="End"
                                         HorizontalTextAlignment="End"
-                                        IsEnabled="{Binding IsValueLoading, Converter={StaticResource InvertedBoolConverter}}"
-                                        Keyboard="Numeric"
-                                        Placeholder="···"
-                                        PlaceholderColor="#606060"
                                         Text="{Binding Value}"
-                                        TextColor="#4CAF50" />
+                                        TextColor="{Binding IsValueLoading, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#505050|#4CAF50'}"
+                                        VerticalOptions="Center"
+                                        WidthRequest="55">
+                                        <Label.Triggers>
+                                            <!--  Show placeholder when loading  -->
+                                            <DataTrigger
+                                                Binding="{Binding IsValueLoading}"
+                                                TargetType="Label"
+                                                Value="True">
+                                                <Setter Property="Text" Value="···" />
+                                            </DataTrigger>
+                                            <!--  Show red if validation error  -->
+                                            <DataTrigger
+                                                Binding="{Binding HasValidationError}"
+                                                TargetType="Label"
+                                                Value="True">
+                                                <Setter Property="TextColor" Value="#FF3B30" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                CommandParameter="{Binding .}"
+                                                Tapped="OnParameterValueTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
                                 </Border>
+                                
+                                <!--  Validation Error Row  -->
+                                <Label
+                                    Grid.Row="1"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="5"
+                                    FontSize="9"
+                                    HorizontalOptions="End"
+                                    IsVisible="{Binding HasValidationError}"
+                                    Text="{Binding ValidationError}"
+                                    TextColor="#FF3B30" />
                             </Grid>
                         </Border>
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
             
-            <!--  Empty View - different for search vs no data  -->
+            <!--  Empty View  -->
             <CollectionView.EmptyView>
                 <Border
                     Padding="20"
@@ -410,8 +531,8 @@
             StrokeThickness="0">
             <Button
                 Padding="15,12"
-                BackgroundColor="#4CAF50"
-                BorderColor="#388E3C"
+                BackgroundColor="{Binding HasValidationErrors, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#666666|#4CAF50'}"
+                BorderColor="{Binding HasValidationErrors, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#505050|#388E3C'}"
                 BorderWidth="2"
                 Command="{Binding SaveParametersCommand}"
                 CornerRadius="10"

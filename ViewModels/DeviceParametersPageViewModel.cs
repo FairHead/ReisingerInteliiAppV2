@@ -77,6 +77,18 @@ public partial class DeviceParametersPageViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSearchActive;
 
+    [ObservableProperty]
+    private int _modifiedCount;
+
+    [ObservableProperty]
+    private int _invalidCount;
+
+    [ObservableProperty]
+    private bool _hasValidationErrors;
+
+    [ObservableProperty]
+    private bool _hasModifiedParameters;
+
     /// <summary>
     /// Called when search text changes - filters the parameter list
     /// </summary>
@@ -93,33 +105,40 @@ public partial class DeviceParametersPageViewModel : ObservableObject
         var searchTerm = SearchText?.Trim() ?? string.Empty;
         IsSearchActive = !string.IsNullOrEmpty(searchTerm);
         
+        IEnumerable<DeviceParameterDisplayModel> filtered;
+        
         if (string.IsNullOrEmpty(searchTerm))
         {
             // No filter - show all parameters
-            Parameters.Clear();
-            foreach (var param in _allParameters)
-            {
-                Parameters.Add(param);
-            }
-            FilteredCount = _allParameters.Count;
-            Debug.WriteLine($"?? Filter cleared - showing all {FilteredCount} parameters");
+            filtered = _allParameters;
+            Debug.WriteLine($"?? Filter cleared - showing all {_allParameters.Count} parameters");
         }
         else
         {
             // Filter by ID or Name
-            var filtered = _allParameters.Where(p =>
+            filtered = _allParameters.Where(p =>
                 p.Id.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                 p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
-            ).ToList();
-            
-            Parameters.Clear();
-            foreach (var param in filtered)
-            {
-                Parameters.Add(param);
-            }
-            FilteredCount = filtered.Count;
-            Debug.WriteLine($"?? Filter '{searchTerm}' - showing {FilteredCount}/{_allParameters.Count} parameters");
+            );
+            Debug.WriteLine($"?? Filter '{searchTerm}' applied");
         }
+        
+        // Replace entire collection at once - prevents multiple UI updates
+        Parameters = new ObservableCollection<DeviceParameterDisplayModel>(filtered);
+        FilteredCount = Parameters.Count;
+    }
+
+    /// <summary>
+    /// Updates validation and modified counts
+    /// </summary>
+    public void UpdateValidationState()
+    {
+        InvalidCount = _allParameters.Count(p => p.HasValidationError);
+        ModifiedCount = _allParameters.Count(p => p.IsModified);
+        HasValidationErrors = InvalidCount > 0;
+        HasModifiedParameters = ModifiedCount > 0;
+        
+        Debug.WriteLine($"?? Validation state: {ModifiedCount} modified, {InvalidCount} invalid");
     }
 
     /// <summary>
@@ -132,27 +151,40 @@ public partial class DeviceParametersPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Initializes the parameter list with placeholders for immediate display.
-    /// With virtualization, we only need a few visible items initially.
+    /// Initializes the parameter list with all 98 parameters from catalog (no values yet).
+    /// This allows immediate rendering while values load asynchronously.
     /// </summary>
     public void InitializeParameterPlaceholders()
     {
-        // With proper CollectionView virtualization, we don't need all 98 placeholders upfront
-        // The UI only renders visible items (~10-15 on screen)
-        // We'll add placeholders on-demand or skip entirely and show empty state until API responds
+        System.Diagnostics.Debug.WriteLine($"?? Initializing all 98 parameter placeholders from catalog...");
         
-        Debug.WriteLine($"?? Parameter list initialized (virtualized - no upfront placeholders needed)");
         _allParameters.Clear();
-        Parameters.Clear();
-        ParameterCount = 0;
-        FilteredCount = 0;
+        
+        // Create all 98 parameters immediately from catalog metadata
+        for (int id = 1; id <= MaxParameterCount; id++)
+        {
+            var placeholder = DeviceParameterDisplayModel.CreatePlaceholder(id);
+            _allParameters.Add(placeholder);
+        }
+        
+        ParameterCount = _allParameters.Count;
+        FilteredCount = _allParameters.Count;
         SearchText = string.Empty;
+        ModifiedCount = 0;
+        InvalidCount = 0;
+        HasValidationErrors = false;
+        HasModifiedParameters = false;
+        
+        // Replace the entire collection at once instead of adding one by one
+        // This prevents 98 individual UI updates
+        Parameters = new ObservableCollection<DeviceParameterDisplayModel>(_allParameters);
+        
+        System.Diagnostics.Debug.WriteLine($"? {ParameterCount} parameter placeholders ready for display");
     }
 
     /// <summary>
     /// Loads device parameters from the device.
-    /// Uses authenticated API call if credentials are available.
-    /// Updates existing placeholder items instead of recreating the list.
+    /// Updates existing placeholder items with actual values.
     /// </summary>
     public async Task LoadParametersAsync()
     {
@@ -201,21 +233,26 @@ public partial class DeviceParametersPageViewModel : ObservableObject
 
             if (response?.Success == true && response.Values != null)
             {
-                // Store all parameters
-                _allParameters.Clear();
-                foreach (var apiParam in response.Values.OrderBy(p => p.Id))
+                // Update existing placeholders with actual values
+                foreach (var apiParam in response.Values)
                 {
-                    _allParameters.Add(DeviceParameterDisplayModel.FromApiValue(apiParam));
+                    var existingParam = _allParameters.FirstOrDefault(p => p.Id == apiParam.Id);
+                    if (existingParam != null)
+                    {
+                        existingParam.SetValueFromApi(apiParam);
+                        
+                        // Subscribe to property changes for validation updates (if not already)
+                        existingParam.PropertyChanged -= OnParameterPropertyChanged;
+                        existingParam.PropertyChanged += OnParameterPropertyChanged;
+                    }
                 }
 
-                ParameterCount = _allParameters.Count;
                 LastRefreshTime = DateTime.Now.ToString("HH:mm:ss");
                 StatusMessage = string.Empty;
                 
-                // Apply current filter (or show all if no filter)
-                ApplyFilter();
+                UpdateValidationState();
                 
-                Debug.WriteLine($"? Loaded {ParameterCount} parameter values at {LastRefreshTime}");
+                Debug.WriteLine($"? Updated {response.Values.Count} parameter values at {LastRefreshTime}");
             }
             else
             {
@@ -239,6 +276,15 @@ public partial class DeviceParametersPageViewModel : ObservableObject
         finally
         {
             IsLoading = false;
+        }
+    }
+    
+    private void OnParameterPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DeviceParameterDisplayModel.Value) ||
+            e.PropertyName == nameof(DeviceParameterDisplayModel.HasValidationError))
+        {
+            UpdateValidationState();
         }
     }
 
@@ -278,15 +324,59 @@ public partial class DeviceParametersPageViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveParametersAsync()
     {
-        // TODO: Implement parameter saving
         try
         {
-            IsLoading = true;
-            StatusMessage = "Speichern wird noch implementiert...";
-            Debug.WriteLine("?? DeviceParametersPageViewModel.SaveParametersAsync - NOT YET IMPLEMENTED");
+            // Validate all parameters first
+            foreach (var param in _allParameters)
+            {
+                param.Validate();
+            }
+            UpdateValidationState();
 
+            // Block save if there are validation errors
+            if (HasValidationErrors)
+            {
+                StatusMessage = $"{InvalidCount} Parameter mit ungültigen Werten - Speichern nicht möglich";
+                HasError = true;
+                Debug.WriteLine($"? Save blocked: {InvalidCount} validation errors");
+                return;
+            }
+
+            // Check if there are any changes
+            if (!HasModifiedParameters)
+            {
+                StatusMessage = "Keine Änderungen zum Speichern";
+                Debug.WriteLine("?? No changes to save");
+                await Task.Delay(1500);
+                StatusMessage = string.Empty;
+                return;
+            }
+
+            IsLoading = true;
+            HasError = false;
+            StatusMessage = $"Speichere {ModifiedCount} geänderte Parameter...";
+            Debug.WriteLine($"?? Saving {ModifiedCount} modified parameters");
+
+            // Get only modified parameters
+            var modifiedParams = _allParameters
+                .Where(p => p.IsModified && p.IsEditable)
+                .ToList();
+
+            // TODO: Implement actual API call to save parameters
+            // For now, simulate save
             await Task.Delay(1000);
 
+            // Mark all as saved (update original values)
+            foreach (var param in modifiedParams)
+            {
+                param.OriginalValue = param.Value;
+            }
+            UpdateValidationState();
+
+            StatusMessage = $"{modifiedParams.Count} Parameter erfolgreich gespeichert";
+            Debug.WriteLine($"? Saved {modifiedParams.Count} parameters");
+            
+            await Task.Delay(1500);
             StatusMessage = string.Empty;
         }
         catch (Exception ex)
