@@ -70,12 +70,10 @@ public partial class DeviceParametersPage : ContentPage
                 Password = password ?? string.Empty
             };
             
+            // Only set device info - don't initialize parameters yet!
+            // Let the page render first, then load in OnAppearing
             _viewModel.SetDevice(device);
             Console.WriteLine($"? Device set: {device.Name} ({device.Ip}) with auth: {!string.IsNullOrEmpty(device.Username)}");
-            
-            // Start loading parameters in background (fire-and-forget)
-            // This allows the page to render immediately with placeholders
-            StartLoadingParametersInBackground();
         }
         catch (Exception ex)
         {
@@ -83,41 +81,21 @@ public partial class DeviceParametersPage : ContentPage
         }
     }
 
-    /// <summary>
-    /// Starts loading parameters in background without blocking the UI.
-    /// Uses fire-and-forget pattern to allow immediate page rendering.
-    /// </summary>
-    private void StartLoadingParametersInBackground()
-    {
-        if (_viewModel == null || _parametersLoadStarted) return;
-        _parametersLoadStarted = true;
-        
-        Console.WriteLine($"?? Starting background parameter load...");
-        
-        // Fire-and-forget: Don't await, let it run in background
-        // The UI will show placeholders immediately, then update when data arrives
-        _ = Task.Run(async () =>
-        {
-            // Small delay to ensure UI has rendered first
-            await Task.Delay(100);
-            
-            // Load on main thread to update UI bindings properly
-            await MainThread.InvokeOnMainThreadAsync(async () =>
-            {
-                await _viewModel.LoadParametersAsync();
-            });
-        });
-    }
-
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
         Console.WriteLine($"??? DeviceParametersPage.OnAppearing - page is now visible");
         
-        // If parameters haven't started loading yet (edge case), start now
+        // Now that page is visible, initialize placeholders and start loading
         if (_viewModel != null && !_parametersLoadStarted)
         {
-            StartLoadingParametersInBackground();
+            _parametersLoadStarted = true;
+            
+            // Small delay to ensure page has rendered
+            await Task.Delay(50);
+            
+            // Initialize placeholders and load all data (parallel API calls)
+            await _viewModel.InitializeAndLoadAsync();
         }
     }
 
@@ -152,7 +130,7 @@ public partial class DeviceParametersPage : ContentPage
 
         System.Diagnostics.Debug.WriteLine($"?? Editing Parameter {param.Id} ({param.Name}), current value: {param.Value}");
 
-        // Show prompt to edit value
+        // Show prompt to edit value - now shows dynamic range if available
         var result = await DisplayPromptAsync(
             $"Parameter #{param.Id:D2}",
             $"{param.Name}\nBereich: {param.RangeText}",

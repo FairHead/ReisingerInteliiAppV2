@@ -353,13 +353,123 @@ public class IntellidriveApiService
         return await res.Content.ReadAsStringAsync(ct);
     }
 
-    public Task<string> GetMinParameterValuesAsync(DeviceModel device, CancellationToken ct = default)
-        => SendAuthedGetAsync(device.Ip, "/intellidrive/parameters/min-values", device.Username, device.Password, ct)
-            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
-            .Unwrap();
+    /// <summary>
+    /// Gets minimum parameter values for variable-range parameters.
+    /// These are device-specific limits (e.g., door width limits).
+    /// </summary>
+    public async Task<IntellidriveMinValuesResponse?> GetMinParameterValuesAsync(DeviceModel device, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await SendAuthedGetAsync(device.Ip, "/intellidrive/parameters/min-values", device.Username, device.Password, ct);
+            if (!res.IsSuccessStatusCode)
+            {
+                Debug.WriteLine($"❌ HTTP error fetching min-values: {res.StatusCode}");
+                return null;
+            }
+            
+            var json = await res.Content.ReadAsStringAsync(ct);
+            Debug.WriteLine($"📥 Min-values response: {json.Substring(0, Math.Min(200, json.Length))}...");
+            
+            var response = JsonSerializer.Deserialize<IntellidriveMinValuesResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (response?.Success == true)
+            {
+                Debug.WriteLine($"✅ Successfully fetched {response.Values?.Count ?? 0} min-values");
+            }
+            return response;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error fetching min-values: {ex.Message}");
+            return null;
+        }
+    }
 
-    public Task<string> GetMaxParameterValuesAsync(DeviceModel device, CancellationToken ct = default)
-        => SendAuthedGetAsync(device.Ip, "/intellidrive/parameters/max-values", device.Username, device.Password, ct)
-            .ContinueWith(async t => (await t.Result.Content.ReadAsStringAsync(ct)), ct)
-            .Unwrap();
+    /// <summary>
+    /// Gets maximum parameter values for variable-range parameters.
+    /// These are device-specific limits (e.g., door width limits).
+    /// </summary>
+    public async Task<IntellidriveMaxValuesResponse?> GetMaxParameterValuesAsync(DeviceModel device, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await SendAuthedGetAsync(device.Ip, "/intellidrive/parameters/max-values", device.Username, device.Password, ct);
+            if (!res.IsSuccessStatusCode)
+            {
+                Debug.WriteLine($"❌ HTTP error fetching max-values: {res.StatusCode}");
+                return null;
+            }
+            
+            var json = await res.Content.ReadAsStringAsync(ct);
+            Debug.WriteLine($"📥 Max-values response: {json.Substring(0, Math.Min(200, json.Length))}...");
+            
+            var response = JsonSerializer.Deserialize<IntellidriveMaxValuesResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (response?.Success == true)
+            {
+                Debug.WriteLine($"✅ Successfully fetched {response.Values?.Count ?? 0} max-values");
+            }
+            return response;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error fetching max-values: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets minimum parameter values directly via IP without authentication.
+    /// </summary>
+    public async Task<IntellidriveMinValuesResponse?> GetMinParameterValuesByIpAsync(string ipAddress, int timeoutSeconds = 10, CancellationToken ct = default)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+            
+            var endpoint = $"http://{ipAddress}/intellidrive/parameters/min-values";
+            Debug.WriteLine($"🔧 Fetching min-values from: {endpoint}");
+            
+            var response = await _httpClient.GetAsync(endpoint, cts.Token);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync(cts.Token);
+                return JsonSerializer.Deserialize<IntellidriveMinValuesResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error fetching min-values by IP: {ex.Message}");
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Gets maximum parameter values directly via IP without authentication.
+    /// </summary>
+    public async Task<IntellidriveMaxValuesResponse?> GetMaxParameterValuesByIpAsync(string ipAddress, int timeoutSeconds = 10, CancellationToken ct = default)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+            
+            var endpoint = $"http://{ipAddress}/intellidrive/parameters/max-values";
+            Debug.WriteLine($"🔧 Fetching max-values from: {endpoint}");
+            
+            var response = await _httpClient.GetAsync(endpoint, cts.Token);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync(cts.Token);
+                return JsonSerializer.Deserialize<IntellidriveMaxValuesResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error fetching max-values by IP: {ex.Message}");
+        }
+        return null;
+    }
 }

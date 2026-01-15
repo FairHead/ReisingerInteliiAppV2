@@ -4,6 +4,7 @@ using ReisingerIntelliApp_V4.Models;
 using ReisingerIntelliApp_V4.Services;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace ReisingerIntelliApp_V4.ViewModels;
 
@@ -151,145 +152,8 @@ public partial class DeviceParametersPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Initializes the parameter list with all 98 parameters from catalog (no values yet).
-    /// This allows immediate rendering while values load asynchronously.
-    /// </summary>
-    public void InitializeParameterPlaceholders()
-    {
-        System.Diagnostics.Debug.WriteLine($"?? Initializing all 98 parameter placeholders from catalog...");
-        
-        _allParameters.Clear();
-        
-        // Create all 98 parameters immediately from catalog metadata
-        for (int id = 1; id <= MaxParameterCount; id++)
-        {
-            var placeholder = DeviceParameterDisplayModel.CreatePlaceholder(id);
-            _allParameters.Add(placeholder);
-        }
-        
-        ParameterCount = _allParameters.Count;
-        FilteredCount = _allParameters.Count;
-        SearchText = string.Empty;
-        ModifiedCount = 0;
-        InvalidCount = 0;
-        HasValidationErrors = false;
-        HasModifiedParameters = false;
-        
-        // Replace the entire collection at once instead of adding one by one
-        // This prevents 98 individual UI updates
-        Parameters = new ObservableCollection<DeviceParameterDisplayModel>(_allParameters);
-        
-        System.Diagnostics.Debug.WriteLine($"? {ParameterCount} parameter placeholders ready for display");
-    }
-
-    /// <summary>
-    /// Loads device parameters from the device.
-    /// Updates existing placeholder items with actual values.
-    /// </summary>
-    public async Task LoadParametersAsync()
-    {
-        if (string.IsNullOrEmpty(DeviceIp) || DeviceIp == "N/A")
-        {
-            StatusMessage = "Keine gültige IP-Adresse vorhanden";
-            HasError = true;
-            Debug.WriteLine("? Cannot load parameters - no valid IP address");
-            return;
-        }
-
-        if (CurrentDevice == null)
-        {
-            StatusMessage = "Kein Gerät ausgewählt";
-            HasError = true;
-            Debug.WriteLine("? Cannot load parameters - no device set");
-            return;
-        }
-
-        try
-        {
-            IsLoading = true;
-            HasError = false;
-            StatusMessage = "Lade Werte vom Gerät...";
-            
-            var stopwatch = Stopwatch.StartNew();
-            Debug.WriteLine($"?? Loading parameter values from {DeviceIp}");
-            Debug.WriteLine($"   Auth: Username='{CurrentDevice.Username}', HasPassword={!string.IsNullOrEmpty(CurrentDevice.Password)}");
-
-            IntellidriveParametersResponse? response;
-
-            // Use authenticated call if credentials are available
-            if (!string.IsNullOrEmpty(CurrentDevice.Username) && !string.IsNullOrEmpty(CurrentDevice.Password))
-            {
-                Debug.WriteLine("?? Using authenticated API call");
-                response = await _apiService.GetParametersAsync(CurrentDevice);
-            }
-            else
-            {
-                Debug.WriteLine("?? Using unauthenticated API call (no credentials)");
-                response = await _apiService.GetParametersByIpAsync(DeviceIp);
-            }
-
-            stopwatch.Stop();
-            Debug.WriteLine($"?? API call completed in {stopwatch.ElapsedMilliseconds}ms");
-
-            if (response?.Success == true && response.Values != null)
-            {
-                // Update existing placeholders with actual values
-                foreach (var apiParam in response.Values)
-                {
-                    var existingParam = _allParameters.FirstOrDefault(p => p.Id == apiParam.Id);
-                    if (existingParam != null)
-                    {
-                        existingParam.SetValueFromApi(apiParam);
-                        
-                        // Subscribe to property changes for validation updates (if not already)
-                        existingParam.PropertyChanged -= OnParameterPropertyChanged;
-                        existingParam.PropertyChanged += OnParameterPropertyChanged;
-                    }
-                }
-
-                LastRefreshTime = DateTime.Now.ToString("HH:mm:ss");
-                StatusMessage = string.Empty;
-                
-                UpdateValidationState();
-                
-                Debug.WriteLine($"? Updated {response.Values.Count} parameter values at {LastRefreshTime}");
-            }
-            else
-            {
-                StatusMessage = response?.Message ?? "Fehler beim Laden der Parameter";
-                HasError = true;
-                Debug.WriteLine($"? Failed to load parameters - response was null or not successful: {response?.Message}");
-            }
-        }
-        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            StatusMessage = "Authentifizierung fehlgeschlagen - bitte Zugangsdaten prüfen";
-            HasError = true;
-            Debug.WriteLine($"? 401 Unauthorized - credentials may be incorrect");
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Fehler: {ex.Message}";
-            HasError = true;
-            Debug.WriteLine($"? Error loading parameters: {ex.Message}");
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
-    
-    private void OnParameterPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(DeviceParameterDisplayModel.Value) ||
-            e.PropertyName == nameof(DeviceParameterDisplayModel.HasValidationError))
-        {
-            UpdateValidationState();
-        }
-    }
-
-    /// <summary>
-    /// Sets the device to configure and initializes placeholders.
+    /// Sets the device to configure. Does NOT initialize placeholders here - 
+    /// let the page render first, then call InitializeAndLoadAsync separately.
     /// </summary>
     public void SetDevice(DeviceModel device)
     {
@@ -310,15 +174,252 @@ public partial class DeviceParametersPageViewModel : ObservableObject
         Debug.WriteLine($"   Username: {device?.Username ?? "N/A"}");
         Debug.WriteLine($"   Has Password: {!string.IsNullOrEmpty(device?.Password)}");
         
-        // Initialize placeholders immediately so UI can render
-        InitializeParameterPlaceholders();
+        // DON'T initialize placeholders here - let page render first!
+        // Page.OnAppearing will call InitializeAndLoadAsync
+    }
+
+    /// <summary>
+    /// Initialize placeholders and start loading values. Called from OnAppearing.
+    /// Runs all API calls in parallel for best performance.
+    /// </summary>
+    public async Task InitializeAndLoadAsync()
+    {
+        // Only initialize once
+        if (_allParameters.Count > 0)
+        {
+            Debug.WriteLine("?? Parameters already initialized, skipping");
+            return;
+        }
+        
+        Debug.WriteLine($"?? Initializing all 98 parameter placeholders from catalog...");
+        
+        // Create placeholders in background to not block UI
+        var placeholders = await Task.Run(() =>
+        {
+            var list = new List<DeviceParameterDisplayModel>(MaxParameterCount);
+            for (int id = 1; id <= MaxParameterCount; id++)
+            {
+                list.Add(DeviceParameterDisplayModel.CreatePlaceholder(id));
+            }
+            return list;
+        });
+        
+        _allParameters = placeholders;
+        
+        // Update UI state
+        ParameterCount = _allParameters.Count;
+        FilteredCount = _allParameters.Count;
+        SearchText = string.Empty;
+        ModifiedCount = 0;
+        InvalidCount = 0;
+        HasValidationErrors = false;
+        HasModifiedParameters = false;
+        
+        // Assign collection to trigger UI binding
+        Parameters = new ObservableCollection<DeviceParameterDisplayModel>(_allParameters);
+        
+        Debug.WriteLine($"? {ParameterCount} parameter placeholders ready for display");
+        
+        // Now load actual values from API (parallel calls)
+        await LoadAllParameterDataAsync();
+    }
+
+    /// <summary>
+    /// Loads parameter values, min-values, and max-values in parallel.
+    /// This ensures the page doesn't block waiting for sequential API calls.
+    /// </summary>
+    private async Task LoadAllParameterDataAsync()
+    {
+        if (string.IsNullOrEmpty(DeviceIp) || DeviceIp == "N/A" || CurrentDevice == null)
+        {
+            StatusMessage = "Keine gültige IP-Adresse vorhanden";
+            HasError = true;
+            Debug.WriteLine("? Cannot load parameters - no valid device");
+            return;
+        }
+
+        try
+        {
+            IsLoading = true;
+            HasError = false;
+            StatusMessage = "Lade Werte vom Gerät...";
+            
+            var stopwatch = Stopwatch.StartNew();
+            Debug.WriteLine($"?? Loading parameter data from {DeviceIp} (parallel API calls)");
+            
+            var hasAuth = !string.IsNullOrEmpty(CurrentDevice.Username) && !string.IsNullOrEmpty(CurrentDevice.Password);
+            Debug.WriteLine($"   Auth: {(hasAuth ? "Using credentials" : "No credentials")}");
+
+            // Start all 3 API calls in parallel - don't wait for each other!
+            Task<IntellidriveParametersResponse?> parametersTask;
+            Task<IntellidriveMinValuesResponse?> minValuesTask;
+            Task<IntellidriveMaxValuesResponse?> maxValuesTask;
+            
+            if (hasAuth)
+            {
+                parametersTask = _apiService.GetParametersAsync(CurrentDevice);
+                minValuesTask = _apiService.GetMinParameterValuesAsync(CurrentDevice);
+                maxValuesTask = _apiService.GetMaxParameterValuesAsync(CurrentDevice);
+            }
+            else
+            {
+                parametersTask = _apiService.GetParametersByIpAsync(DeviceIp);
+                minValuesTask = _apiService.GetMinParameterValuesByIpAsync(DeviceIp);
+                maxValuesTask = _apiService.GetMaxParameterValuesByIpAsync(DeviceIp);
+            }
+
+            // Wait for all to complete (parallel execution)
+            await Task.WhenAll(parametersTask, minValuesTask, maxValuesTask);
+
+            stopwatch.Stop();
+            Debug.WriteLine($"?? All API calls completed in {stopwatch.ElapsedMilliseconds}ms (parallel)");
+
+            // Process results
+            var parametersResponse = await parametersTask;
+            var minValuesResponse = await minValuesTask;
+            var maxValuesResponse = await maxValuesTask;
+
+            // Apply min/max values first (for variable parameters)
+            ApplyDynamicRanges(minValuesResponse, maxValuesResponse);
+            
+            // Then apply actual values
+            if (parametersResponse?.Success == true && parametersResponse.Values != null)
+            {
+                foreach (var apiParam in parametersResponse.Values)
+                {
+                    var existingParam = _allParameters.FirstOrDefault(p => p.Id == apiParam.Id);
+                    if (existingParam != null)
+                    {
+                        existingParam.SetValueFromApi(apiParam);
+                        
+                        existingParam.PropertyChanged -= OnParameterPropertyChanged;
+                        existingParam.PropertyChanged += OnParameterPropertyChanged;
+                    }
+                }
+
+                LastRefreshTime = DateTime.Now.ToString("HH:mm:ss");
+                StatusMessage = string.Empty;
+                
+                UpdateValidationState();
+                
+                Debug.WriteLine($"? Updated {parametersResponse.Values.Count} parameter values at {LastRefreshTime}");
+            }
+            else
+            {
+                StatusMessage = parametersResponse?.Message ?? "Fehler beim Laden der Parameter";
+                HasError = true;
+                Debug.WriteLine($"? Failed to load parameters: {parametersResponse?.Message}");
+            }
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            StatusMessage = "Authentifizierung fehlgeschlagen - bitte Zugangsdaten prüfen";
+            HasError = true;
+            Debug.WriteLine($"? 401 Unauthorized - credentials may be incorrect");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Fehler: {ex.Message}";
+            HasError = true;
+            Debug.WriteLine($"? Error loading parameters: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Applies device-specific min/max values to parameters with variable ranges.
+    /// These are typically door-width related parameters that vary by device.
+    /// </summary>
+    private void ApplyDynamicRanges(IntellidriveMinValuesResponse? minResponse, IntellidriveMaxValuesResponse? maxResponse)
+    {
+        Debug.WriteLine($"?? Applying dynamic ranges...");
+        
+        int minCount = 0;
+        int maxCount = 0;
+        
+        // Apply min values
+        if (minResponse?.Success == true && minResponse.Values != null)
+        {
+            foreach (var minVal in minResponse.Values)
+            {
+                var param = _allParameters.FirstOrDefault(p => p.Id == minVal.Id);
+                if (param != null)
+                {
+                    var value = ParseJsonElementToInt(minVal.V);
+                    if (value.HasValue)
+                    {
+                        param.DynamicMin = value.Value;
+                        minCount++;
+                    }
+                }
+            }
+            Debug.WriteLine($"   ? Applied {minCount} dynamic min values");
+        }
+        else
+        {
+            Debug.WriteLine($"   ?? No min-values response or not successful");
+        }
+        
+        // Apply max values
+        if (maxResponse?.Success == true && maxResponse.Values != null)
+        {
+            foreach (var maxVal in maxResponse.Values)
+            {
+                var param = _allParameters.FirstOrDefault(p => p.Id == maxVal.Id);
+                if (param != null)
+                {
+                    var value = ParseJsonElementToInt(maxVal.V);
+                    if (value.HasValue)
+                    {
+                        param.DynamicMax = value.Value;
+                        maxCount++;
+                    }
+                }
+            }
+            Debug.WriteLine($"   ? Applied {maxCount} dynamic max values");
+        }
+        else
+        {
+            Debug.WriteLine($"   ?? No max-values response or not successful");
+        }
+        
+        Debug.WriteLine($"?? Dynamic ranges applied: {minCount} min, {maxCount} max");
+    }
+
+    private static int? ParseJsonElementToInt(JsonElement element)
+    {
+        try
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.Number => element.GetInt32(),
+                JsonValueKind.String when int.TryParse(element.GetString(), out var v) => v,
+                _ => null
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+    
+    private void OnParameterPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DeviceParameterDisplayModel.Value) ||
+            e.PropertyName == nameof(DeviceParameterDisplayModel.HasValidationError))
+        {
+            UpdateValidationState();
+        }
     }
 
     [RelayCommand]
     private async Task RefreshAsync()
     {
         Debug.WriteLine("?? DeviceParametersPageViewModel.RefreshAsync triggered");
-        await LoadParametersAsync();
+        await LoadAllParameterDataAsync();
     }
 
     [RelayCommand]
@@ -326,14 +427,12 @@ public partial class DeviceParametersPageViewModel : ObservableObject
     {
         try
         {
-            // Validate all parameters first
             foreach (var param in _allParameters)
             {
                 param.Validate();
             }
             UpdateValidationState();
 
-            // Block save if there are validation errors
             if (HasValidationErrors)
             {
                 StatusMessage = $"{InvalidCount} Parameter mit ungültigen Werten - Speichern nicht möglich";
@@ -342,7 +441,6 @@ public partial class DeviceParametersPageViewModel : ObservableObject
                 return;
             }
 
-            // Check if there are any changes
             if (!HasModifiedParameters)
             {
                 StatusMessage = "Keine Änderungen zum Speichern";
@@ -357,16 +455,13 @@ public partial class DeviceParametersPageViewModel : ObservableObject
             StatusMessage = $"Speichere {ModifiedCount} geänderte Parameter...";
             Debug.WriteLine($"?? Saving {ModifiedCount} modified parameters");
 
-            // Get only modified parameters
             var modifiedParams = _allParameters
                 .Where(p => p.IsModified && p.IsEditable)
                 .ToList();
 
             // TODO: Implement actual API call to save parameters
-            // For now, simulate save
             await Task.Delay(1000);
 
-            // Mark all as saved (update original values)
             foreach (var param in modifiedParams)
             {
                 param.OriginalValue = param.Value;

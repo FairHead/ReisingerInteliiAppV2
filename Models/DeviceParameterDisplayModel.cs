@@ -55,14 +55,50 @@ public partial class DeviceParameterDisplayModel : ObservableObject
     private bool _hasValidationError;
 
     /// <summary>
+    /// Device-specific minimum value (overrides catalog if set)
+    /// </summary>
+    [ObservableProperty]
+    private int? _dynamicMin;
+
+    /// <summary>
+    /// Device-specific maximum value (overrides catalog if set)
+    /// </summary>
+    [ObservableProperty]
+    private int? _dynamicMax;
+
+    /// <summary>
     /// Parameter metadata from catalog
     /// </summary>
     public ParameterMeta Meta => _meta ??= ParameterCatalog.GetMeta(Id);
 
     /// <summary>
-    /// Range text for display (e.g., "0..200", "50..variabel")
+    /// Effective minimum value (dynamic if set, otherwise from catalog)
     /// </summary>
-    public string RangeText => Meta.RangeText;
+    public int? EffectiveMin => DynamicMin ?? Meta.Min;
+
+    /// <summary>
+    /// Effective maximum value (dynamic if set, otherwise from catalog)
+    /// </summary>
+    public int? EffectiveMax => DynamicMax ?? Meta.Max;
+
+    /// <summary>
+    /// Range text for display - uses dynamic values if available
+    /// </summary>
+    public string RangeText
+    {
+        get
+        {
+            // If we have dynamic values, use them
+            if (DynamicMin.HasValue || DynamicMax.HasValue)
+            {
+                var min = EffectiveMin?.ToString() ?? "?";
+                var max = EffectiveMax?.ToString() ?? "variabel";
+                return $"{min}..{max}";
+            }
+            // Otherwise fall back to catalog
+            return Meta.RangeText;
+        }
+    }
 
     /// <summary>
     /// Unit text for display (e.g., "s", "mm", "mm/s")
@@ -188,7 +224,28 @@ public partial class DeviceParameterDisplayModel : ObservableObject
     }
 
     /// <summary>
-    /// Validates the current value against the parameter metadata rules
+    /// Called when DynamicMin changes - refresh RangeText and EffectiveMin
+    /// </summary>
+    partial void OnDynamicMinChanged(int? value)
+    {
+        OnPropertyChanged(nameof(EffectiveMin));
+        OnPropertyChanged(nameof(RangeText));
+        System.Diagnostics.Debug.WriteLine($"?? Parameter {Id} ({Name}): DynamicMin set to {value}");
+    }
+
+    /// <summary>
+    /// Called when DynamicMax changes - refresh RangeText and EffectiveMax
+    /// </summary>
+    partial void OnDynamicMaxChanged(int? value)
+    {
+        OnPropertyChanged(nameof(EffectiveMax));
+        OnPropertyChanged(nameof(RangeText));
+        System.Diagnostics.Debug.WriteLine($"?? Parameter {Id} ({Name}): DynamicMax set to {value}");
+    }
+
+    /// <summary>
+    /// Validates the current value against the parameter metadata rules.
+    /// Uses EffectiveMin/EffectiveMax which include device-specific dynamic values.
     /// </summary>
     public void Validate()
     {
@@ -233,29 +290,23 @@ public partial class DeviceParameterDisplayModel : ObservableObject
             return;
         }
 
-        // Range validation
-        if (Meta.Min.HasValue && numValue < Meta.Min.Value)
+        // Range validation using effective (dynamic) values
+        var min = EffectiveMin;
+        var max = EffectiveMax;
+        
+        if (min.HasValue && numValue < min.Value)
         {
-            ValidationError = $"Min: {Meta.Min}";
+            ValidationError = $"Min: {min}";
             HasValidationError = true;
-            LogValidationError($"Below min: {numValue} < {Meta.Min}");
+            LogValidationError($"Below min: {numValue} < {min}");
             return;
         }
 
-        if (Meta.Max.HasValue && numValue > Meta.Max.Value)
+        if (max.HasValue && numValue > max.Value)
         {
-            ValidationError = $"Max: {Meta.Max}";
+            ValidationError = $"Max: {max}";
             HasValidationError = true;
-            LogValidationError($"Above max: {numValue} > {Meta.Max}");
-            return;
-        }
-
-        // Variable max: only check min, value must be integer (already validated above)
-        if (Meta.IsVariableMax && Meta.Min.HasValue && numValue < Meta.Min.Value)
-        {
-            ValidationError = $"Min: {Meta.Min}";
-            HasValidationError = true;
-            LogValidationError($"Below variable min: {numValue} < {Meta.Min}");
+            LogValidationError($"Above max: {numValue} > {max}");
             return;
         }
         
@@ -271,7 +322,7 @@ public partial class DeviceParameterDisplayModel : ObservableObject
         System.Diagnostics.Debug.WriteLine($"? VALIDATION ERROR - Parameter {Id} ({Name}):");
         System.Diagnostics.Debug.WriteLine($"   Current Value: '{Value}'");
         System.Diagnostics.Debug.WriteLine($"   Original Value: '{_originalValue}'");
-        System.Diagnostics.Debug.WriteLine($"   Range: {Meta.Min}..{Meta.Max}");
+        System.Diagnostics.Debug.WriteLine($"   Range: {EffectiveMin}..{EffectiveMax} (Dynamic: {DynamicMin}..{DynamicMax})");
         System.Diagnostics.Debug.WriteLine($"   Reason: {reason}");
         System.Diagnostics.Debug.WriteLine($"   Error Message: {ValidationError}");
     }
