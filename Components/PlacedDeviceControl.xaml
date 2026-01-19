@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--  ✅ CRITICAL: ContentView ist InputTransparent="True" -->
+<!--  Nur explizit markierte Kinder (Card, Buttons) empfangen Input -->
+<!--  Dadurch gehen Pan/Pinch-Gesten zum PanPinchContainer durch -->
 <ContentView
     x:Class="ReisingerIntelliApp_V4.Components.PlacedDeviceControl"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -9,6 +12,7 @@
     x:Name="placedDeviceControl"
     x:DataType="vm:PlacedDeviceControlViewModel"
     BackgroundColor="Transparent"
+    InputTransparent="True"
     Loaded="OnControlLoaded">
 
     <ContentView.Resources>
@@ -20,12 +24,10 @@
     </ContentView.Resources>
 
     <!--  Main Container - AbsoluteLayout for overlay positioning (T032 fix)  -->
-    <!--  ✅ HYBRID APPROACH: Cascading InputTransparent -->
-    <!--  MainContainer bleibt transparent, aber die Card und Buttons setzen es explizit auf False -->
+    <!--  ✅ InputTransparent="True" - nur Kinder mit explizitem False empfangen Input -->
     <AbsoluteLayout
         x:Name="MainContainer"
         BackgroundColor="Transparent"
-        CascadeInputTransparent="False"
         HeightRequest="600"
         HorizontalOptions="Center"
         InputTransparent="True"
@@ -54,6 +56,7 @@
                 Command="{Binding ScalePlusCommand}"
                 CornerRadius="25"
                 HeightRequest="50"
+                InputTransparent="False"
                 Loaded="OnScaleButtonLoaded"
                 Source="plus.svg"
                 WidthRequest="50">
@@ -68,7 +71,7 @@
             </ImageButton>
 
             <!--  Spacer (mittlere Spalte)  -->
-            <BoxView Grid.Column="1" BackgroundColor="Transparent" />
+            <BoxView Grid.Column="1" BackgroundColor="Transparent" InputTransparent="True" />
 
             <!--  Scale Minus Button  -->
             <ImageButton
@@ -81,6 +84,7 @@
                 Command="{Binding ScaleMinusCommand}"
                 CornerRadius="25"
                 HeightRequest="50"
+                InputTransparent="False"
                 Loaded="OnScaleButtonLoaded"
                 Source="minus.svg"
                 WidthRequest="50">
@@ -115,6 +119,7 @@
                 BackgroundColor="Transparent"
                 Command="{Binding MoveUpCommand}"
                 CommandParameter="Up"
+                InputTransparent="False"
                 Loaded="OnArrowLoaded"
                 Source="placementbuttonup.svg"
                 Style="{StaticResource NeonArrowStyle}">
@@ -137,6 +142,7 @@
                 BackgroundColor="Transparent"
                 Command="{Binding MoveDownCommand}"
                 CommandParameter="Down"
+                InputTransparent="False"
                 Loaded="OnArrowLoaded"
                 Source="placementbuttondown.svg"
                 Style="{StaticResource NeonArrowStyle}">
@@ -159,6 +165,7 @@
                 BackgroundColor="Transparent"
                 Command="{Binding MoveLeftCommand}"
                 CommandParameter="Left"
+                InputTransparent="False"
                 Loaded="OnArrowLoaded"
                 Source="placementbuttonleft.svg"
                 Style="{StaticResource NeonArrowStyle}">
@@ -181,6 +188,7 @@
                 BackgroundColor="Transparent"
                 Command="{Binding MoveRightCommand}"
                 CommandParameter="Right"
+                InputTransparent="False"
                 Loaded="OnArrowLoaded"
                 Source="placementbuttonright.svg"
                 Style="{StaticResource NeonArrowStyle}">
@@ -281,6 +289,7 @@
                             Command="{Binding DeleteDeviceCommand}"
                             CornerRadius="22"
                             HorizontalOptions="Center"
+                            InputTransparent="False"
                             MinimumHeightRequest="45"
                             MinimumWidthRequest="45"
                             Source="bin.svg"
@@ -311,6 +320,7 @@
                                 CornerRadius="50"
                                 HeightRequest="110"
                                 HorizontalOptions="Center"
+                                InputTransparent="False"
                                 IsEnabled="{Binding ControlViewModel.DoorActionInProgress, Converter={StaticResource InvertedBoolConverter}}"
                                 VerticalOptions="Center"
                                 WidthRequest="110">
@@ -397,6 +407,7 @@
                             CornerRadius="10"
                             FontFamily="SpaceMonoBold"
                             FontSize="12"
+                            InputTransparent="False"
                             Text="{Binding SelectedModeText}" />
                         <Button
                             Grid.Column="1"
@@ -409,6 +420,7 @@
                             CornerRadius="10"
                             FontFamily="SpaceMonoBold"
                             FontSize="12"
+                            InputTransparent="False"
                             Text="▼" />
                         <!--  Options/Settings Button - navigates to DeviceParametersPage  -->
                         <Button
@@ -422,6 +434,7 @@
                             CornerRadius="10"
                             FontFamily="SpaceMonoBold"
                             FontSize="20"
+                            InputTransparent="False"
                             TextColor="Black"
                             Text="⚙️" />
                     </Grid>
