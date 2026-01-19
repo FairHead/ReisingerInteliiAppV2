@@ -21,7 +21,7 @@
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto">
         <!--  Row 0: Header with Back Button and Title  -->
         <Border
             Grid.Row="0"
@@ -67,7 +67,7 @@
             </Grid>
         </Border>
 
-        <!--  Row 1: Device Info Card (Compact) - Fixed  -->
+        <!--  Row 1: Device Info Card (Compact)  -->
         <Border
             Grid.Row="1"
             Margin="15,5,15,5"
@@ -135,64 +135,97 @@
             </Grid>
         </Border>
 
-        <!--  Row 2: Search, Status Messages and Header  -->
-        <StackLayout Grid.Row="2" Padding="15,0" Spacing="8">
-            <!--  Search Bar  -->
-            <Border
-                Padding="4"
-                BackgroundColor="#2A2A2A"
-                Stroke="#404040"
-                StrokeThickness="1">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
-                </Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                    <!--  Search Icon  -->
-                    <Label
-                        Grid.Column="0"
-                        Margin="8,0,0,0"
-                        FontSize="16"
-                        Text="🔍"
-                        TextColor="#808080"
-                        VerticalOptions="Center" />
-                    
-                    <!--  Search Entry  -->
-                    <Entry
-                        Grid.Column="1"
-                        BackgroundColor="Transparent"
-                        FontFamily="SpaceMonoRegular"
-                        FontSize="14"
-                        Placeholder="Suche nach ID oder Name..."
-                        PlaceholderColor="#606060"
-                        Text="{Binding SearchText}"
-                        TextColor="White"
-                        VerticalOptions="Center" />
-                    
-                    <!--  Clear Button  -->
-                    <Button
-                        Grid.Column="2"
-                        Padding="8,4"
-                        BackgroundColor="Transparent"
-                        Command="{Binding ClearSearchCommand}"
-                        FontSize="14"
-                        HeightRequest="36"
-                        IsVisible="{Binding IsSearchActive}"
-                        Text="✕"
-                        TextColor="#808080"
-                        WidthRequest="36" />
-                </Grid>
-            </Border>
-            
-            <!--  Filter Info (when filter is active)  -->
+        <!--  Row 2: Category Tabs  -->
+        <ScrollView 
+            Grid.Row="2" 
+            Orientation="Horizontal" 
+            HorizontalScrollBarVisibility="Never"
+            Margin="15,5,15,5">
+            <HorizontalStackLayout Spacing="8">
+                <!--  All Categories Button  -->
+                <Button
+                    Padding="12,8"
+                    BackgroundColor="{Binding SelectedCategory, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#2A2A2A|#007AFF', FallbackValue=#007AFF}"
+                    Clicked="OnAllCategoriesClicked"
+                    CornerRadius="8"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="12"
+                    Text="📋 Alle"
+                    TextColor="White" />
+                
+                <!--  Zeiten  -->
+                <Button
+                    Padding="12,8"
+                    BackgroundColor="#2A2A2A"
+                    Clicked="OnCategoryClicked"
+                    CommandParameter="Zeiten"
+                    CornerRadius="8"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="12"
+                    Text="⏱️ Zeiten"
+                    TextColor="White" />
+                
+                <!--  Weiten  -->
+                <Button
+                    Padding="12,8"
+                    BackgroundColor="#2A2A2A"
+                    Clicked="OnCategoryClicked"
+                    CommandParameter="Weiten"
+                    CornerRadius="8"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="12"
+                    Text="📏 Weiten"
+                    TextColor="White" />
+                
+                <!--  Tempo  -->
+                <Button
+                    Padding="12,8"
+                    BackgroundColor="#2A2A2A"
+                    Clicked="OnCategoryClicked"
+                    CommandParameter="Tempo"
+                    CornerRadius="8"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="12"
+                    Text="🚀 Tempo"
+                    TextColor="White" />
+                
+                <!--  I/O  -->
+                <Button
+                    Padding="12,8"
+                    BackgroundColor="#2A2A2A"
+                    Clicked="OnCategoryClicked"
+                    CommandParameter="IO"
+                    CornerRadius="8"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="12"
+                    Text="🔌 I/O"
+                    TextColor="White" />
+                
+                <!--  Basis  -->
+                <Button
+                    Padding="12,8"
+                    BackgroundColor="#2A2A2A"
+                    Clicked="OnCategoryClicked"
+                    CommandParameter="Basis"
+                    CornerRadius="8"
+                    FontFamily="SpaceMonoBold"
+                    FontSize="12"
+                    Text="⚙️ Basis"
+                    TextColor="White" />
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <!--  Row 3: Status Messages and Count Info  -->
+        <StackLayout Grid.Row="3" Padding="15,0" Spacing="8">
+            <!--  Filter Info  -->
             <Label
                 FontSize="11"
                 HorizontalOptions="Center"
-                IsVisible="{Binding IsSearchActive}"
                 TextColor="#007AFF">
                 <Label.Text>
                     <MultiBinding StringFormat="Zeige {0} von {1} Parametern">
                         <Binding Path="FilteredCount" />
-                        <Binding Path="ParameterCount" />
+                        <Binding Path="VisibleParameterCount" />
                     </MultiBinding>
                 </Label.Text>
             </Label>
@@ -202,7 +235,6 @@
                 ColumnDefinitions="*,*"
                 ColumnSpacing="10"
                 IsVisible="{Binding ParameterCount, Converter={StaticResource IntToBoolConverter}}">
-                <!--  Modified Count  -->
                 <Border
                     Grid.Column="0"
                     Padding="8,4"
@@ -220,7 +252,6 @@
                         TextColor="#4CAF50" />
                 </Border>
                 
-                <!--  Invalid Count  -->
                 <Border
                     Grid.Column="1"
                     Padding="8,4"
@@ -239,7 +270,7 @@
                 </Border>
             </Grid>
 
-            <!--  Error Message (red)  -->
+            <!--  Error Message  -->
             <Border
                 Padding="10"
                 BackgroundColor="#3A1A1A"
@@ -256,7 +287,7 @@
                     TextColor="#FF3B30" />
             </Border>
 
-            <!--  Info Message (blue) - shown when loading  -->
+            <!--  Loading Message  -->
             <Border
                 Padding="10"
                 BackgroundColor="#1A3A5C"
@@ -279,85 +310,47 @@
                         VerticalOptions="Center" />
                 </StackLayout>
             </Border>
-
-            <!--  Parameters Header  -->
-            <Grid ColumnDefinitions="*,Auto">
-                <Label
-                    Grid.Column="0"
-                    FontAttributes="Bold"
-                    FontFamily="SpaceMonoBold"
-                    FontSize="16"
-                    Text="⚙️ Parameter"
-                    TextColor="White"
-                    VerticalOptions="Center" />
-                <StackLayout
-                    Grid.Column="1"
-                    Orientation="Horizontal"
-                    Spacing="8"
-                    VerticalOptions="Center">
-                    <ActivityIndicator
-                        HeightRequest="14"
-                        IsRunning="{Binding IsLoading}"
-                        IsVisible="{Binding IsLoading}"
-                        WidthRequest="14"
-                        Color="#007AFF" />
-                    <Label
-                        FontSize="12"
-                        IsVisible="{Binding ParameterCount, Converter={StaticResource IntToBoolConverter}}"
-                        Text="{Binding ParameterCount, StringFormat='{0} Parameter'}"
-                        TextColor="#808080" />
-                </StackLayout>
-            </Grid>
-            
-            <!--  Column Headers  -->
-            <Grid
-                Margin="0,4,0,0"
-                Padding="12,6"
-                BackgroundColor="#252525"
-                ColumnDefinitions="45,*,70,55,50"
-                ColumnSpacing="6">
-                <Label
-                    Grid.Column="0"
-                    FontFamily="SpaceMonoBold"
-                    FontSize="10"
-                    HorizontalOptions="Center"
-                    Text="ID"
-                    TextColor="#808080" />
-                <Label
-                    Grid.Column="1"
-                    FontFamily="SpaceMonoBold"
-                    FontSize="10"
-                    Text="NAME"
-                    TextColor="#808080" />
-                <Label
-                    Grid.Column="2"
-                    FontFamily="SpaceMonoBold"
-                    FontSize="10"
-                    HorizontalOptions="Center"
-                    Text="BEREICH"
-                    TextColor="#808080" />
-                <Label
-                    Grid.Column="3"
-                    FontFamily="SpaceMonoBold"
-                    FontSize="10"
-                    HorizontalOptions="Center"
-                    Text="STD"
-                    TextColor="#808080" />
-                <Label
-                    Grid.Column="4"
-                    FontFamily="SpaceMonoBold"
-                    FontSize="10"
-                    HorizontalOptions="Center"
-                    Text="WERT"
-                    TextColor="#808080" />
-            </Grid>
         </StackLayout>
 
-        <!--  Row 3: Parameters List - CollectionView with virtualization  -->
+        <!--  Row 4: Parameters List - Grouped by Category  -->
         <CollectionView
-            Grid.Row="3"
-            Margin="15,2,15,0"
-            ItemsSource="{Binding Parameters}">
+            Grid.Row="4"
+            Margin="15,8,15,0"
+            IsGrouped="True"
+            ItemsSource="{Binding ParameterGroups}">
+            
+            <!--  Group Header Template  -->
+            <CollectionView.GroupHeaderTemplate>
+                <DataTemplate x:DataType="models:ParameterGroupDisplayModel">
+                    <Border
+                        Margin="0,8,0,4"
+                        Padding="12,8"
+                        BackgroundColor="#252525"
+                        Stroke="#404040"
+                        StrokeThickness="1">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="8" />
+                        </Border.StrokeShape>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                Grid.Column="0"
+                                FontFamily="SpaceMonoBold"
+                                FontSize="14"
+                                Text="{Binding CategoryName}"
+                                TextColor="White"
+                                VerticalOptions="Center" />
+                            <Label
+                                Grid.Column="1"
+                                FontSize="12"
+                                Text="{Binding ParameterCount, StringFormat='{0} Parameter'}"
+                                TextColor="#808080"
+                                VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.GroupHeaderTemplate>
+            
+            <!--  Item Template  -->
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="models:DeviceParameterDisplayModel">
                     <Grid Padding="0,2">
@@ -370,7 +363,7 @@
                                 <RoundRectangle CornerRadius="8" />
                             </Border.StrokeShape>
                             
-                            <Grid ColumnDefinitions="45,*,70,55,65" ColumnSpacing="6" RowDefinitions="Auto,Auto">
+                            <Grid ColumnDefinitions="45,*,70,65" ColumnSpacing="8" RowDefinitions="Auto,Auto">
                                 <!--  Parameter ID Badge  -->
                                 <Border
                                     Grid.Row="0"
@@ -384,84 +377,85 @@
                                     </Border.StrokeShape>
                                     <Label
                                         FontFamily="SpaceMonoBold"
-                                        FontSize="10"
+                                        FontSize="11"
                                         HorizontalOptions="Center"
-                                        Text="{Binding Id, StringFormat='#{0:D2}'}"
+                                        Text="{Binding Id, StringFormat='#{0}'}"
                                         TextColor="#B0B0B0" />
                                 </Border>
                                 
-                                <!--  Parameter Name + Unit  -->
+                                <!--  Parameter Name + Unit + Range  -->
                                 <StackLayout
                                     Grid.Row="0"
                                     Grid.Column="1"
-                                    Spacing="0"
+                                    Spacing="1"
                                     VerticalOptions="Center">
                                     <Label
                                         FontFamily="SpaceMonoRegular"
-                                        FontSize="12"
+                                        FontSize="13"
                                         LineBreakMode="TailTruncation"
                                         Text="{Binding Name}"
-                                        TextColor="LightGray" />
-                                    <Label
-                                        FontSize="9"
-                                        IsVisible="{Binding UnitText, Converter={StaticResource StringToBoolConverter}}"
-                                        Text="{Binding UnitText, StringFormat='[{0}]'}"
-                                        TextColor="#606060" />
+                                        TextColor="White" />
+                                    <StackLayout Orientation="Horizontal" Spacing="8">
+                                        <Label
+                                            FontSize="10"
+                                            IsVisible="{Binding UnitText, Converter={StaticResource StringToBoolConverter}}"
+                                            Text="{Binding UnitText, StringFormat='[{0}]'}"
+                                            TextColor="#606060" />
+                                        <Label
+                                            FontSize="10"
+                                            Text="{Binding RangeText}"
+                                            TextColor="#505050" />
+                                    </StackLayout>
                                 </StackLayout>
                                 
-                                <!--  Range Text  -->
-                                <Label
+                                <!--  Default Value  -->
+                                <StackLayout
                                     Grid.Row="0"
                                     Grid.Column="2"
-                                    FontFamily="SpaceMonoRegular"
-                                    FontSize="10"
                                     HorizontalOptions="Center"
-                                    Text="{Binding RangeText}"
-                                    TextColor="#707070"
-                                    VerticalOptions="Center" />
+                                    Spacing="0"
+                                    VerticalOptions="Center">
+                                    <Label
+                                        FontSize="9"
+                                        HorizontalOptions="Center"
+                                        Text="Standard"
+                                        TextColor="#505050" />
+                                    <Label
+                                        FontFamily="SpaceMonoRegular"
+                                        FontSize="11"
+                                        HorizontalOptions="Center"
+                                        Text="{Binding DefaultText}"
+                                        TextColor="#707070" />
+                                </StackLayout>
                                 
-                                <!--  Default Text  -->
-                                <Label
-                                    Grid.Row="0"
-                                    Grid.Column="3"
-                                    FontFamily="SpaceMonoRegular"
-                                    FontSize="10"
-                                    HorizontalOptions="Center"
-                                    Text="{Binding DefaultText}"
-                                    TextColor="#606060"
-                                    VerticalOptions="Center" />
-                                
-                                <!--  Value Display - Tap to Edit (Label only, no TwoWay binding)  -->
+                                <!--  Value Display - Tap to Edit  -->
                                 <Border
                                     Grid.Row="0"
-                                    Grid.Column="4"
-                                    Padding="4,2"
-                                    BackgroundColor="{Binding IsValueLoading, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#252525|#1E1E1E'}"
-                                    Stroke="{Binding HasValidationError, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#FF3B30|#505050'}"
+                                    Grid.Column="3"
+                                    Padding="6,4"
+                                    BackgroundColor="{Binding IsValueLoading, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#252525|#1A3A1A'}"
+                                    Stroke="{Binding HasValidationError, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#FF3B30|#4CAF50'}"
                                     StrokeThickness="1"
                                     VerticalOptions="Center">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="4" />
+                                        <RoundRectangle CornerRadius="6" />
                                     </Border.StrokeShape>
                                     <Label
                                         BackgroundColor="Transparent"
                                         FontFamily="SpaceMonoBold"
-                                        FontSize="12"
-                                        HorizontalOptions="End"
-                                        HorizontalTextAlignment="End"
+                                        FontSize="14"
+                                        HorizontalOptions="Center"
+                                        HorizontalTextAlignment="Center"
                                         Text="{Binding Value}"
                                         TextColor="{Binding IsValueLoading, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#505050|#4CAF50'}"
-                                        VerticalOptions="Center"
-                                        WidthRequest="55">
+                                        VerticalOptions="Center">
                                         <Label.Triggers>
-                                            <!--  Show placeholder when loading  -->
                                             <DataTrigger
                                                 Binding="{Binding IsValueLoading}"
                                                 TargetType="Label"
                                                 Value="True">
                                                 <Setter Property="Text" Value="···" />
                                             </DataTrigger>
-                                            <!--  Show red if validation error  -->
                                             <DataTrigger
                                                 Binding="{Binding HasValidationError}"
                                                 TargetType="Label"
@@ -481,7 +475,7 @@
                                 <Label
                                     Grid.Row="1"
                                     Grid.Column="0"
-                                    Grid.ColumnSpan="5"
+                                    Grid.ColumnSpan="4"
                                     FontSize="9"
                                     HorizontalOptions="End"
                                     IsVisible="{Binding HasValidationError}"
@@ -496,6 +490,7 @@
             <!--  Empty View  -->
             <CollectionView.EmptyView>
                 <Border
+                    Margin="0,20"
                     Padding="20"
                     BackgroundColor="#2D2D2D"
                     Stroke="#404040"
@@ -507,25 +502,25 @@
                         <Label
                             FontSize="32"
                             HorizontalOptions="Center"
-                            Text="🔍" />
+                            Text="📋" />
                         <Label
                             FontSize="14"
                             HorizontalOptions="Center"
-                            Text="Keine Parameter gefunden"
+                            Text="Keine Parameter in dieser Kategorie"
                             TextColor="#B0B0B0" />
                         <Label
                             FontSize="12"
                             HorizontalOptions="Center"
-                            Text="Versuchen Sie einen anderen Suchbegriff"
+                            Text="Wählen Sie eine andere Kategorie"
                             TextColor="#666666" />
                     </StackLayout>
                 </Border>
             </CollectionView.EmptyView>
         </CollectionView>
 
-        <!--  Row 4: Fixed Action Button Area  -->
+        <!--  Row 5: Fixed Action Button Area  -->
         <Border
-            Grid.Row="4"
+            Grid.Row="5"
             Padding="15,10,15,10"
             BackgroundColor="#1E1E1E"
             StrokeThickness="0">
@@ -544,10 +539,10 @@
                 TextColor="White" />
         </Border>
 
-        <!--  Row 5: Footer Component  -->
+        <!--  Row 6: Footer Component  -->
         <components:AppFooter
             x:Name="Footer"
-            Grid.Row="5"
+            Grid.Row="6"
             CenterIcon="refresh.svg" />
     </Grid>
 

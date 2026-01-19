@@ -9,17 +9,39 @@ public interface IAuthenticationService
     Task<string> GetRequestNoAuthForWifiAsync(string ipAddress);
     Task<bool> ConnectToWifiNetworkAsync(string ssid, string password);
     Task<bool> IsNetworkReachableAsync(string ipAddress);
+    
+    /// <summary>
+    /// Creates a Basic Authentication header value (Base64-encoded).
+    /// Format: "Basic {base64(username:password)}"
+    /// </summary>
+    static System.Net.Http.Headers.AuthenticationHeaderValue CreateBasicAuthHeader(string username, string password)
+    {
+        var credentials = $"{username}:{password}";
+        var base64Credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials));
+        return new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", base64Credentials);
+    }
 }
 
 public class AuthenticationService : IAuthenticationService
 {
     private readonly HttpClient _httpClient;
-    private readonly int _defaultTimeoutSeconds = 10; // Default timeout (matching V3)
+    private readonly int _defaultTimeoutSeconds = 10;
 
     public AuthenticationService(HttpClient httpClient)
     {
         _httpClient = httpClient;
         _httpClient.Timeout = TimeSpan.FromSeconds(_defaultTimeoutSeconds);
+    }
+
+    /// <summary>
+    /// Creates a Basic Authentication header value (Base64-encoded).
+    /// Format: "Basic {base64(username:password)}"
+    /// </summary>
+    public static System.Net.Http.Headers.AuthenticationHeaderValue CreateBasicAuthHeader(string username, string password)
+    {
+        var credentials = $"{username}:{password}";
+        var base64Credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials));
+        return new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", base64Credentials);
     }
 
     public async Task<bool> TestUserAuthAsync(string ipAddress, string username, string password)
@@ -31,15 +53,14 @@ public class AuthenticationService : IAuthenticationService
             // Use the intellidrive/beep endpoint for authentication test
             var endpoint = $"http://{ipAddress}/intellidrive/beep";
             
-            // Build per-request message with auth header to avoid side effects on the shared client
-            var authValue = $"{username}:{password}"; // Device expects scheme 'User' with value 'username:password'
+            // Build per-request message with Basic Auth header (Base64-encoded)
             using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("User", authValue);
+            request.Headers.Authorization = CreateBasicAuthHeader(username, password);
             request.Headers.Accept.Clear();
             request.Headers.Accept.ParseAdd("application/json");
 
             System.Diagnostics.Debug.WriteLine($"🔄 Sending GET request to: {endpoint}");
-            System.Diagnostics.Debug.WriteLine($"🔄 Authorization: User {username}:******");
+            System.Diagnostics.Debug.WriteLine($"🔄 Authorization: Basic [base64-encoded credentials]");
 
             var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             
@@ -51,7 +72,6 @@ public class AuthenticationService : IAuthenticationService
                 System.Diagnostics.Debug.WriteLine($"📄 Response content: {responseContent}");
                 
                 // Check if the response contains the expected JSON structure
-                // Expected: {"DeviceId":"9039fb45-4f49-48c8-aac6-3c179876cb7d","Success":true,"Message":"Beeped","LatestFirmware":true,"FirmwareVersion":"","Content":{"DEVICE_ID":""}}
                 if (!string.IsNullOrEmpty(responseContent) && 
                     responseContent.Contains("\"Success\":true") && 
                     responseContent.Contains("\"DeviceId\"") &&

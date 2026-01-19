@@ -114,6 +114,54 @@ public partial class DeviceParametersPage : ContentPage
     }
 
     /// <summary>
+    /// Handle click on "Alle" category button - show all categories
+    /// </summary>
+    private void OnAllCategoriesClicked(object sender, EventArgs e)
+    {
+        if (_viewModel == null) return;
+        
+        System.Diagnostics.Debug.WriteLine("?? All categories selected");
+        _viewModel.SelectedCategory = null;
+        
+        // Update button visuals
+        UpdateCategoryButtonStyles(null);
+    }
+
+    /// <summary>
+    /// Handle click on a specific category button
+    /// </summary>
+    private void OnCategoryClicked(object sender, EventArgs e)
+    {
+        if (_viewModel == null) return;
+        if (sender is not Button button) return;
+        
+        var categoryName = button.CommandParameter?.ToString();
+        if (string.IsNullOrEmpty(categoryName)) return;
+        
+        // Parse category from string
+        if (Enum.TryParse<ParameterCategory>(categoryName, out var category))
+        {
+            System.Diagnostics.Debug.WriteLine($"?? Category selected: {category}");
+            _viewModel.SelectedCategory = category;
+            
+            // Update button visuals
+            UpdateCategoryButtonStyles(category);
+        }
+    }
+
+    /// <summary>
+    /// Updates the visual style of category buttons to highlight the selected one
+    /// </summary>
+    private void UpdateCategoryButtonStyles(ParameterCategory? selectedCategory)
+    {
+        // Find all category buttons in the ScrollView
+        // This is a simple approach - for complex scenarios, consider using triggers or behaviors
+        var scrollView = this.FindByName<ScrollView>("CategoryScrollView");
+        // Button styles are currently handled via binding in XAML
+        // Future enhancement: Add visual feedback for selected category
+    }
+
+    /// <summary>
     /// Handle tap on parameter value to edit it
     /// </summary>
     private async void OnParameterValueTapped(object sender, TappedEventArgs e)
@@ -132,7 +180,7 @@ public partial class DeviceParametersPage : ContentPage
 
         // Show prompt to edit value - now shows dynamic range if available
         var result = await DisplayPromptAsync(
-            $"Parameter #{param.Id:D2}",
+            $"Parameter #{param.Id}",
             $"{param.Name}\nBereich: {param.RangeText}",
             "OK",
             "Abbrechen",

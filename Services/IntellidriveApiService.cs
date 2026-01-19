@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using ReisingerIntelliApp_V4.Models;
 
@@ -25,13 +26,22 @@ public class IntellidriveApiService
     // Build absolute URL for a device IP and path
     private static string Url(string ip, string path) => $"http://{ip.TrimEnd('/')}/{path.TrimStart('/')}";
 
-    private static AuthenticationHeaderValue BuildUserAuth(string username, string password)
-        => new AuthenticationHeaderValue("User", $"{username}:{password}");
+
+    /// <summary>
+    /// Creates a Basic Authentication header value (Base64-encoded).
+    /// Format: "Basic {base64(username:password)}"
+    /// </summary>
+    private static AuthenticationHeaderValue BuildBasicAuth(string username, string password)
+    {
+        var credentials = $"{username}:{password}";
+        var base64Credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials));
+        return new AuthenticationHeaderValue("Basic", base64Credentials);
+    }
 
     private async Task<HttpResponseMessage> SendAuthedGetAsync(string ip, string path, string username, string password, CancellationToken ct = default)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, Url(ip, path));
-        req.Headers.Authorization = BuildUserAuth(username, password);
+        req.Headers.Authorization = BuildBasicAuth(username, password);
         req.Headers.Accept.ParseAdd("application/json");
         return await _httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
     }
@@ -39,7 +49,7 @@ public class IntellidriveApiService
     private async Task<HttpResponseMessage> SendAuthedPostAsync(string ip, string path, string username, string password, HttpContent? content = null, CancellationToken ct = default)
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, Url(ip, path));
-        req.Headers.Authorization = BuildUserAuth(username, password);
+        req.Headers.Authorization = BuildBasicAuth(username, password);
         req.Headers.Accept.ParseAdd("application/json");
         if (content != null) req.Content = content;
         return await _httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -345,12 +355,139 @@ public class IntellidriveApiService
         return JsonSerializer.Deserialize<IntellidriveParametersResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
     }
 
-    public async Task<string> SetParametersAsync(DeviceModel device, string parametersJson, CancellationToken ct = default)
+    /// <summary>
+    /// Sets parameter values on the Intellidrive device.
+    /// The request format must match what the firmware expects:
+    /// POST /intellidrive/parameters/set with JSON body containing Values array.
+    /// </summary>
+    /// <param name="device">Device with IP and credentials</param>
+    /// <param name="request">Request containing parameter values to set</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Response indicating success or failure</returns>
+    public async Task<IntellidriveSetParametersResponse?> SetParametersAsync(
+        DeviceModel device, 
+        IntellidriveSetParametersRequest request, 
+        CancellationToken ct = default)
     {
-        var content = new StringContent(parametersJson, System.Text.Encoding.UTF8, "application/json");
-        var res = await SendAuthedPostAsync(device.Ip, "/intellidrive/parameters/set", device.Username, device.Password, content, ct);
-        res.EnsureSuccessStatusCode();
-        return await res.Content.ReadAsStringAsync(ct);
+        try
+        {
+            var json = JsonSerializer.Serialize(request, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = null // Keep exact property names (Id, V, etc.)
+            });
+            
+            Debug.WriteLine($"🔧 Sending parameters to {device.Ip}:");
+            Debug.WriteLine($"   Request: {json}");
+            
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            var res = await SendAuthedPostAsync(device.Ip, "/intellidrive/parameters/set", device.Username, device.Password, content, ct);
+            
+            var responseJson = await res.Content.ReadAsStringAsync(ct);
+            Debug.WriteLine($"📥 Response ({res.StatusCode}): {responseJson}");
+            
+            if (!res.IsSuccessStatusCode)
+            {
+                Debug.WriteLine($"❌ HTTP error: {res.StatusCode}");
+                return new IntellidriveSetParametersResponse
+                {
+                    Success = false,
+                    Message = $"HTTP {(int)res.StatusCode}: {res.ReasonPhrase}"
+                };
+            }
+            
+            var response = JsonSerializer.Deserialize<IntellidriveSetParametersResponse>(responseJson, new JsonSerializerOptions 
+            { 
+                PropertyNameCaseInsensitive = true 
+            });
+            
+            return response ?? new IntellidriveSetParametersResponse
+            {
+                Success = false,
+                Message = "Leere Antwort vom Gerät"
+            };
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Debug.WriteLine($"❌ 401 Unauthorized when setting parameters");
+            return new IntellidriveSetParametersResponse
+            {
+                Success = false,
+                Message = "Authentifizierung fehlgeschlagen"
+            };
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error setting parameters: {ex.Message}");
+            return new IntellidriveSetParametersResponse
+            {
+                Success = false,
+                Message = $"Fehler: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Sets parameter values directly via IP without DeviceModel authentication.
+    /// Used for devices accessed via direct WiFi connection.
+    /// </summary>
+    public async Task<IntellidriveSetParametersResponse?> SetParametersByIpAsync(
+        string ipAddress, 
+        IntellidriveSetParametersRequest request, 
+        int timeoutSeconds = 15,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+            
+            var json = JsonSerializer.Serialize(request, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = null
+            });
+            
+            var endpoint = $"http://{ipAddress}/intellidrive/parameters/set";
+            Debug.WriteLine($"🔧 Sending parameters to {endpoint} (no auth):");
+            Debug.WriteLine($"   Request: {json}");
+            
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            var res = await _httpClient.PostAsync(endpoint, content, cts.Token);
+            
+            var responseJson = await res.Content.ReadAsStringAsync(cts.Token);
+            Debug.WriteLine($"📥 Response ({res.StatusCode}): {responseJson}");
+            
+            if (!res.IsSuccessStatusCode)
+            {
+                return new IntellidriveSetParametersResponse
+                {
+                    Success = false,
+                    Message = $"HTTP {(int)res.StatusCode}: {res.ReasonPhrase}"
+                };
+            }
+            
+            return JsonSerializer.Deserialize<IntellidriveSetParametersResponse>(responseJson, new JsonSerializerOptions 
+            { 
+                PropertyNameCaseInsensitive = true 
+            });
+        }
+        catch (TaskCanceledException)
+        {
+            Debug.WriteLine($"⏰ Timeout setting parameters to {ipAddress}");
+            return new IntellidriveSetParametersResponse
+            {
+                Success = false,
+                Message = "Zeitüberschreitung bei der Anfrage"
+            };
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Error setting parameters by IP: {ex.Message}");
+            return new IntellidriveSetParametersResponse
+            {
+                Success = false,
+                Message = $"Fehler: {ex.Message}"
+            };
+        }
     }
 
     /// <summary>

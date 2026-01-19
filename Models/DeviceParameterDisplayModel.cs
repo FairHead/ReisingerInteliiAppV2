@@ -442,6 +442,7 @@ public partial class DeviceParameterDisplayModel : ObservableObject
     /// <summary>
     /// Updates this model with the actual value from the API.
     /// Called when API response arrives to fill in the value.
+    /// Converts numeric values to formatted strings for date/time parameters.
     /// </summary>
     public void SetValueFromApi(IntellidriveParameterValue apiValue)
     {
@@ -465,6 +466,18 @@ public partial class DeviceParameterDisplayModel : ObservableObject
             valueStr = "0";
         }
 
+        // Convert numeric values to formatted display for date/time parameters (ID 41, 42, 88, 89)
+        if (Meta.FormatType != ParameterFormatType.None && !string.IsNullOrEmpty(valueStr))
+        {
+            // Only convert if it's a pure numeric value (not already formatted)
+            if (uint.TryParse(valueStr, out _))
+            {
+                var formattedValue = ConvertNumericToFormatted(valueStr, Meta.FormatType);
+                System.Diagnostics.Debug.WriteLine($"?? Parameter {Id} ({Name}): Converting '{valueStr}' ? '{formattedValue}'");
+                valueStr = formattedValue;
+            }
+        }
+
         System.Diagnostics.Debug.WriteLine($"?? Setting value for Parameter {Id} ({Name}): '{valueStr}'");
         
         // Set values directly to backing fields to avoid triggering validation during load
@@ -485,5 +498,34 @@ public partial class DeviceParameterDisplayModel : ObservableObject
         OnPropertyChanged(nameof(PickerValue));
         OnPropertyChanged(nameof(ValidationError));
         OnPropertyChanged(nameof(HasValidationError));
+    }
+
+    /// <summary>
+    /// Converts a numeric string to formatted display string.
+    /// Examples: 
+    ///   "140125" ? "14:01:25" (Time)
+    ///   "311224" ? "31:12:24" (Date)
+    ///   "83000"  ? "08.30.00" (TimeWithDot)
+    /// </summary>
+    private static string ConvertNumericToFormatted(string numericValue, ParameterFormatType formatType)
+    {
+        if (string.IsNullOrEmpty(numericValue))
+            return numericValue;
+
+        // Pad to 6 digits if needed (e.g., "83000" ? "083000")
+        var padded = numericValue.PadLeft(6, '0');
+        
+        if (padded.Length < 6)
+            return numericValue; // Can't format
+        
+        var separator = formatType == ParameterFormatType.TimeWithDot ? "." : ":";
+        
+        // Take last 6 digits and format as XX:XX:XX or XX.XX.XX
+        var startIndex = padded.Length - 6;
+        var part1 = padded.Substring(startIndex, 2);
+        var part2 = padded.Substring(startIndex + 2, 2);
+        var part3 = padded.Substring(startIndex + 4, 2);
+        
+        return $"{part1}{separator}{part2}{separator}{part3}";
     }
 }

@@ -51,3 +51,40 @@ public class IntellidriveMaxValuesResponse
     [JsonPropertyName("Message")] public string Message { get; set; } = string.Empty;
     [JsonPropertyName("Values")] public List<IntellidriveParameterValue>? Values { get; set; }
 }
+
+/// <summary>
+/// Request model for POST /intellidrive/parameters/set endpoint.
+/// Matches the expected JSON format from the IntelliDrive firmware:
+/// {
+///   "Success": true,
+///   "Message": "",
+///   "Values": [{"Id": 1, "V": 12345}, ...],
+///   "Units": []
+/// }
+/// </summary>
+public class IntellidriveSetParametersRequest
+{
+    [JsonPropertyName("Success")] public bool Success { get; set; } = true;
+    [JsonPropertyName("Message")] public string Message { get; set; } = string.Empty;
+    [JsonPropertyName("Values")] public List<IntellidriveParameterSetValue> Values { get; set; } = new();
+    [JsonPropertyName("Units")] public List<object> Units { get; set; } = new();
+}
+
+/// <summary>
+/// Parameter value item for set-parameters request.
+/// Uses "V" as value key to match firmware expectation.
+/// </summary>
+public class IntellidriveParameterSetValue
+{
+    [JsonPropertyName("Id")] public int Id { get; set; }
+    [JsonPropertyName("V")] public uint V { get; set; }
+}
+
+/// <summary>
+/// Response from POST /intellidrive/parameters/set endpoint.
+/// </summary>
+public class IntellidriveSetParametersResponse
+{
+    [JsonPropertyName("Success")] public bool Success { get; set; }
+    [JsonPropertyName("Message")] public string Message { get; set; } = string.Empty;
+}
