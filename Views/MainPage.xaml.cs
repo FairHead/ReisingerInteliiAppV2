@@ -15,6 +15,10 @@ public partial class MainPage : ContentPage, IPlanViewportService
     private MainPageViewModel? _viewModel;
     private double _planIntrinsicWidth;
     private double _planIntrinsicHeight;
+    
+    // ✅ NEW: Store the actual image aspect ratio (constant regardless of screen rotation)
+    private double _imageAspectRatio = 1.0;
+    private bool _imageAspectRatioInitialized = false;
 
     public MainPage(MainPageViewModel viewModel)
     {
@@ -34,6 +38,9 @@ public partial class MainPage : ContentPage, IPlanViewportService
         
         // ✅ FIX: Wire up CollectionView child events for command execution
         SetupDropdownCardEvents();
+        
+        // ✅ NEW: Subscribe to PlanImage source changes to get actual image dimensions
+        SetupPlanImageSizeTracking();
         
         // Listen for force device layout refresh messages
         #pragma warning disable CS0618 // MessagingCenter is obsolete; suppression until migrated
@@ -331,28 +338,66 @@ public partial class MainPage : ContentPage, IPlanViewportService
 
         private void UpdatePlanIntrinsicSize()
         {
-            // Use current view's arranged size as approximation of intrinsic drawn size
-            _planIntrinsicWidth = PlanImage?.Width ?? 0;
-            _planIntrinsicHeight = PlanImage?.Height ?? 0;
+            // Only update if we haven't captured the actual image dimensions yet
+            if (!_imageAspectRatioInitialized && PlanImage != null && PlanImage.Width > 0 && PlanImage.Height > 0)
+            {
+                _planIntrinsicWidth = PlanImage.Width;
+                _planIntrinsicHeight = PlanImage.Height;
+                Console.WriteLine($"📏 UpdatePlanIntrinsicSize (fallback): {_planIntrinsicWidth:F0} x {_planIntrinsicHeight:F0}");
+            }
+            // If already initialized, DON'T update - keep the original image dimensions!
+            else if (_imageAspectRatioInitialized)
+            {
+                Console.WriteLine($"📏 UpdatePlanIntrinsicSize: Keeping initialized values {_planIntrinsicWidth:F0} x {_planIntrinsicHeight:F0}");
+            }
         }
 
+        /// <summary>
+        /// ✅ FIXED: Gets the rectangle where the image is actually drawn within the view.
+        /// Uses _planIntrinsicWidth/_planIntrinsicHeight which are the ACTUAL image dimensions,
+        /// not the view dimensions. This ensures correct positioning during screen rotation.
+        /// </summary>
         private (double x, double y, double w, double h) GetImageDrawnRect()
         {
-            if (PlanImage == null || _planIntrinsicWidth <= 0 || _planIntrinsicHeight <= 0)
-                return (0, 0, PlanContainer.Width, PlanContainer.Height);
-
+            if (PlanImage == null)
+                return (0, 0, PlanContainer?.Width ?? 0, PlanContainer?.Height ?? 0);
+            
             var viewW = PlanImage.Width;
             var viewH = PlanImage.Height;
+            
             if (viewW <= 0 || viewH <= 0)
-                return (0, 0, PlanContainer.Width, PlanContainer.Height);
-
+                return (0, 0, PlanContainer?.Width ?? 0, PlanContainer?.Height ?? 0);
+            
+            // ✅ CRITICAL: Use the stored intrinsic dimensions
+            // These should be the ACTUAL image pixel dimensions, captured when the image loaded
+            // NOT the view dimensions which change with screen rotation
             var imgW = _planIntrinsicWidth;
             var imgH = _planIntrinsicHeight;
-            var scale = Math.Min(viewW / imgW, viewH / imgH);
-            var drawnW = imgW * scale;
-            var drawnH = imgH * scale;
+            
+            // If we don't have valid intrinsic dimensions yet, use view dimensions temporarily
+            if (imgW <= 0 || imgH <= 0)
+            {
+                Console.WriteLine($"⚠️ GetImageDrawnRect: No intrinsic dimensions yet, using view dimensions");
+                imgW = viewW;
+                imgH = viewH;
+            }
+            
+            // ✅ AspectFit: The image is scaled to fit within the view while maintaining aspect ratio
+            // Calculate how the image fits within the current view
+            var scaleToFit = Math.Min(viewW / imgW, viewH / imgH);
+            var drawnW = imgW * scaleToFit;
+            var drawnH = imgH * scaleToFit;
+            
+            // Image is centered within the view (AspectFit behavior)
             var offsetX = (viewW - drawnW) / 2;
             var offsetY = (viewH - drawnH) / 2;
+            
+            Console.WriteLine($"📐 GetImageDrawnRect:");
+            Console.WriteLine($"   📏 View: {viewW:F2} x {viewH:F2}");
+            Console.WriteLine($"   🖼️ Intrinsic Image: {imgW:F2} x {imgH:F2}");
+            Console.WriteLine($"   🔄 ScaleToFit: {scaleToFit:F4}");
+            Console.WriteLine($"   ✅ Drawn: offset({offsetX:F2}, {offsetY:F2}) size({drawnW:F2} x {drawnH:F2})");
+            
             return (offsetX, offsetY, drawnW, drawnH);
         }
 
@@ -691,24 +736,20 @@ public partial class MainPage : ContentPage, IPlanViewportService
             const double containerW = 600.0;       // MainContainer size from XAML
             const double containerH = 600.0;       // MainContainer size from XAML
 
-            // ✅ CRITICAL FIX: Use a FIXED reference width for scale calculation
-            // The device scale should NEVER change based on current viewport/UI state
-            // We use a fixed reference (e.g., 800px) so devices maintain consistent size
-            // This prevents the bug where moving devices left/right changes their size
-            const double fixedScaleReference = 800.0;
-            
-            // Calculate scale based on fixed reference and user preference
-            var targetWidth = pd.BaseWidthNorm * fixedScaleReference; // desired visible card width in pixels
+            // ✅ CRITICAL FIX: Scale device size PROPORTIONAL to drawn plan size
+            // This ensures devices shrink/grow with the plan during rotation
+            // Use drawnW as the reference (the actual drawn plan width on screen)
+            var targetWidth = pd.BaseWidthNorm * drawnW; // desired visible card width = percentage of drawn plan width
             var baseScale = cardIntrinsicW > 0 ? (targetWidth / cardIntrinsicW) : 1.0;
 
             // Apply user's scale multiplier (scales the whole container, and thus the card inside it)
             var userScaledSize = baseScale * (pd.Scale <= 0 ? 1.0 : pd.Scale);
 
-            Console.WriteLine($"📊 SCALE CALCULATION (using FIXED reference):");
-            Console.WriteLine($"   🔹 fixedScaleReference = {fixedScaleReference:F2} (constant, never changes)");
+            Console.WriteLine($"📊 SCALE CALCULATION (proportional to drawn plan):");
+            Console.WriteLine($"   🔹 drawnW = {drawnW:F2} (actual plan width on screen - changes with rotation!)");
             Console.WriteLine($"   🔹 cardIntrinsicW = {cardIntrinsicW:F2} (from XAML)");
             Console.WriteLine($"   🔹 containerW/H = {containerW:F2} (from XAML)");
-            Console.WriteLine($"   🔹 targetWidth = {pd.BaseWidthNorm:F4} * {fixedScaleReference:F2} = {targetWidth:F2}");
+            Console.WriteLine($"   🔹 targetWidth = {pd.BaseWidthNorm:F4} * {drawnW:F2} = {targetWidth:F2}");
             Console.WriteLine($"   🔹 baseScale = {targetWidth:F2} / {cardIntrinsicW:F1} = {baseScale:F4}");
             Console.WriteLine($"   🔹 userScaledSize = {baseScale:F4} * {pd.Scale:F4} = {userScaledSize:F4}");
 
@@ -735,12 +776,12 @@ public partial class MainPage : ContentPage, IPlanViewportService
             Console.WriteLine($"   🔹 yTop = {yCenter:F2} - {containerH:F1}/2 = {yTop:F2}");
             Console.WriteLine($"   📏 LayoutBounds: ({xLeft:F2}, {yTop:F2}, {containerW:F1}, {containerH:F1})");
             
-            Console.WriteLine($"🏢 SMART BUILDING BEHAVIOR:");
+            Console.WriteLine($"🏢 ROTATION-AWARE BEHAVIOR:");
             Console.WriteLine($"   ✅ Device positioned at fixed plan location (door position)");
+            Console.WriteLine($"   ✅ Device size scales WITH the plan (portrait/landscape adaptive)");
             Console.WriteLine($"   ✅ DevicesOverlay ist INNERHALB des PanPinchContainer");
             Console.WriteLine($"   ✅ Zoom/Pan Transformationen werden automatisch übernommen!");
             Console.WriteLine($"   ✅ MoveMode: Pfeilbuttons ändern RelativeX/Y für Neupositionierung");
-            Console.WriteLine($"   ✅ Scale uses FIXED reference - won't change with UI state!");
 
             // Use the full container size so all interactive buttons are inside the hit area
             AbsoluteLayout.SetLayoutBounds(view, new Rect(xLeft, yTop, containerW, containerH));
@@ -754,7 +795,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
             }
             catch { }
             
-            Console.WriteLine($"✅ PositionDeviceView COMPLETE - SMART BUILDING READY");
+            Console.WriteLine($"✅ PositionDeviceView COMPLETE - ROTATION AWARE");
             Console.WriteLine($"═══════════════════════════════════════════════════════════════════");
             Console.WriteLine($"");
         }
@@ -863,7 +904,7 @@ public partial class MainPage : ContentPage, IPlanViewportService
                         Console.WriteLine($"   🔀 Current TranslationX: {PlanImage.TranslationX:F4}");
                         Console.WriteLine($"   🔀 Current TranslationY: {PlanImage.TranslationY:F4}");
                         Console.WriteLine($"   ⚠️ THIS CHANGE AFFECTS ALL DEVICE POSITIONING!");
-                        Console.WriteLine("");
+                        Console.WriteLine("", "background-color:yellow");
 
                         // Debounce viewport state updates to prevent excessive calls
                         _viewportUpdateTimer?.Dispose();
@@ -1203,6 +1244,150 @@ public partial class MainPage : ContentPage, IPlanViewportService
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Error cleaning up messaging subscriptions: {ex.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// ✅ NEW: Track actual image dimensions when a new image is loaded
+    /// This ensures device positions are calculated relative to the IMAGE, not the view
+    /// </summary>
+    private void SetupPlanImageSizeTracking()
+    {
+        if (PlanImage == null) return;
+        
+        // When source changes, try to get actual image dimensions
+        PlanImage.PropertyChanged += async (s, e) =>
+        {
+            if (e.PropertyName == nameof(Image.Source) && PlanImage.Source != null)
+            {
+                // Reset flag to re-read dimensions for new image
+                _imageAspectRatioInitialized = false;
+                
+                Console.WriteLine($"🖼️ PlanImage.Source changed - attempting to read actual image dimensions...");
+                
+                // Small delay to allow image to load
+                await Task.Delay(100);
+                
+                // Try to get actual image dimensions from the source
+                await TryUpdateActualImageDimensions();
+            }
+        };
+        
+        // Also track when the image is rendered for the first time
+        PlanImage.SizeChanged += async (s, e) =>
+        {
+            if (!_imageAspectRatioInitialized && PlanImage.Source != null && PlanImage.Width > 0 && PlanImage.Height > 0)
+            {
+                await TryUpdateActualImageDimensions();
+            }
+        };
+    }
+    
+    /// <summary>
+    /// ✅ NEW: Attempts to get the actual intrinsic dimensions of the loaded image
+    /// </summary>
+    private async Task TryUpdateActualImageDimensions()
+    {
+        try
+        {
+            if (PlanImage?.Source == null) return;
+            
+            // For FileImageSource, we can read the file
+            if (PlanImage.Source is FileImageSource fileSource && !string.IsNullOrEmpty(fileSource.File))
+            {
+                var filePath = fileSource.File;
+                Console.WriteLine($"📂 Attempting to read dimensions from: {filePath}");
+                
+                // Try to read image info from file
+                if (File.Exists(filePath))
+                {
+                    using var stream = File.OpenRead(filePath);
+                    await ReadImageDimensionsFromStream(stream);
+                }
+            }
+            else if (PlanImage.Source is StreamImageSource streamSource)
+            {
+                Console.WriteLine($"📂 StreamImageSource detected - using view dimensions as fallback");
+                // For stream sources, fall back to view dimensions
+                FallbackToViewDimensions();
+            }
+            else
+            {
+                Console.WriteLine($"📂 Unknown source type: {PlanImage.Source.GetType().Name} - using view dimensions as fallback");
+                FallbackToViewDimensions();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Error reading image dimensions: {ex.Message}");
+            FallbackToViewDimensions();
+        }
+    }
+    
+    /// <summary>
+    /// ✅ NEW: Read image dimensions from a stream (PNG/JPEG header parsing)
+    /// </summary>
+    private async Task ReadImageDimensionsFromStream(Stream stream)
+    {
+        try
+        {
+            // Read first bytes to detect format and dimensions
+            var header = new byte[24];
+            await stream.ReadAsync(header, 0, 24);
+            
+            // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+            if (header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47)
+            {
+                // PNG: Width is at bytes 16-19, Height at 20-23 (big-endian)
+                var width = (header[16] << 24) | (header[17] << 16) | (header[18] << 8) | header[19];
+                var height = (header[20] << 24) | (header[21] << 16) | (header[22] << 8) | header[23];
+                
+                if (width > 0 && height > 0)
+                {
+                    _planIntrinsicWidth = width;
+                    _planIntrinsicHeight = height;
+                    _imageAspectRatio = (double)width / height;
+                    _imageAspectRatioInitialized = true;
+                    
+                    Console.WriteLine($"✅ PNG dimensions read: {width}x{height}, AspectRatio: {_imageAspectRatio:F4}");
+                    
+                    // Refresh layout with correct dimensions
+                    MainThread.BeginInvokeOnMainThread(InvalidateDevicesLayout);
+                    return;
+                }
+            }
+            
+            // JPEG signature: FF D8 FF
+            if (header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF)
+            {
+                Console.WriteLine($"📷 JPEG detected - using view dimensions (JPEG parsing complex)");
+                FallbackToViewDimensions();
+                return;
+            }
+            
+            Console.WriteLine($"❓ Unknown image format - using view dimensions");
+            FallbackToViewDimensions();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Error parsing image header: {ex.Message}");
+            FallbackToViewDimensions();
+        }
+    }
+    
+    /// <summary>
+    /// ✅ NEW: Fallback to using view dimensions but capture aspect ratio
+    /// </summary>
+    private void FallbackToViewDimensions()
+    {
+        if (PlanImage != null && PlanImage.Width > 0 && PlanImage.Height > 0)
+        {
+            _planIntrinsicWidth = PlanImage.Width;
+            _planIntrinsicHeight = PlanImage.Height;
+            _imageAspectRatio = PlanImage.Width / PlanImage.Height;
+            _imageAspectRatioInitialized = true;
+            
+            Console.WriteLine($"📏 Using view dimensions as fallback: {_planIntrinsicWidth:F0}x{_planIntrinsicHeight:F0}");
         }
     }
 }
