@@ -148,12 +148,12 @@
                         x:Name="PlanImage"
                         Aspect="AspectFit"
                         ZIndex="10" />
-                    <!-- ✅ CRITICAL: DevicesOverlay MUSS InputTransparent="True" sein! -->
-                    <!-- Sonst fängt es alle Pan/Pinch-Gesten ab und blockiert den PanPinchContainer -->
-                    <!-- Die einzelnen PlacedDeviceControl-Kinder setzen InputTransparent selektiv -->
+                    <!-- ✅ FIX: DevicesOverlay InputTransparent="False" wie im main Branch -->
+                    <!-- Dies erlaubt PlacedDeviceControls Input zu empfangen -->
+                    <!-- PanPinchContainer erkennt Gesten durch _inputBlockCount und _moveModeCount -->
                     <AbsoluteLayout
                         x:Name="DevicesOverlay"
-                        InputTransparent="True"
+                        InputTransparent="False"
                         ZIndex="11" />
                 </Grid>
             </controls:PanPinchContainer>
