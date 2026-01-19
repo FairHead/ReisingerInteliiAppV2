@@ -20,11 +20,12 @@
     </ContentView.Resources>
 
     <!--  Main Container - AbsoluteLayout for overlay positioning (T032 fix)  -->
-    <!--  ✅ CRITICAL: InputTransparent="True" damit Pan/Pinch-Gesten durchgehen! -->
-    <!--  Nur die interaktiven Kinder (Card, Buttons) fangen Touch-Events ab -->
+    <!--  ✅ HYBRID APPROACH: Cascading InputTransparent -->
+    <!--  MainContainer bleibt transparent, aber die Card und Buttons setzen es explizit auf False -->
     <AbsoluteLayout
         x:Name="MainContainer"
         BackgroundColor="Transparent"
+        CascadeInputTransparent="False"
         HeightRequest="600"
         HorizontalOptions="Center"
         InputTransparent="True"
@@ -261,6 +262,7 @@
                         Margin="10,10,10,0"
                         ColumnDefinitions="Auto,Auto,Auto"
                         HorizontalOptions="Center"
+                        InputTransparent="False"
                         RowDefinitions="Auto,Auto,Auto"
                         VerticalOptions="Center">
 
@@ -383,7 +385,8 @@
                         Grid.Row="2"
                         Margin="10,10,10,12"
                         ColumnDefinitions="*,Auto,Auto"
-                        HorizontalOptions="Center">
+                        HorizontalOptions="Center"
+                        InputTransparent="False">
                         <Button
                             Grid.Column="0"
                             Padding="12,8"
