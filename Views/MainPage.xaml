@@ -148,11 +148,12 @@
                         x:Name="PlanImage"
                         Aspect="AspectFit"
                         ZIndex="10" />
-                    <!-- DevicesOverlay ist jetzt ein Kind des PanPinchContainer -->
-                    <!-- und bewegt sich automatisch mit dem Bauplan -->
+                    <!-- ✅ CRITICAL: DevicesOverlay MUSS InputTransparent="True" sein! -->
+                    <!-- Sonst fängt es alle Pan/Pinch-Gesten ab und blockiert den PanPinchContainer -->
+                    <!-- Die einzelnen PlacedDeviceControl-Kinder setzen InputTransparent selektiv -->
                     <AbsoluteLayout
                         x:Name="DevicesOverlay"
-                        InputTransparent="False"
+                        InputTransparent="True"
                         ZIndex="11" />
                 </Grid>
             </controls:PanPinchContainer>

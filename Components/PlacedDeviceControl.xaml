@@ -20,11 +20,14 @@
     </ContentView.Resources>
 
     <!--  Main Container - AbsoluteLayout for overlay positioning (T032 fix)  -->
+    <!--  ✅ CRITICAL: InputTransparent="True" damit Pan/Pinch-Gesten durchgehen! -->
+    <!--  Nur die interaktiven Kinder (Card, Buttons) fangen Touch-Events ab -->
     <AbsoluteLayout
         x:Name="MainContainer"
         BackgroundColor="Transparent"
         HeightRequest="600"
         HorizontalOptions="Center"
+        InputTransparent="True"
         VerticalOptions="Center"
         WidthRequest="600">
 
@@ -35,6 +38,7 @@
             BackgroundColor="Transparent"
             ColumnDefinitions="Auto,*,Auto"
             HeightRequest="50"
+            InputTransparent="False"
             IsVisible="{Binding IsInMoveMode}"
             VerticalOptions="Start">
 
@@ -194,11 +198,13 @@
 
 
         <!--  Feature Card (Main Device Info) - Auto height by content  -->
+        <!--  ✅ InputTransparent="False" damit die Card klickbar ist -->
         <Border
             AbsoluteLayout.LayoutBounds="175,175,250,AutoSize"
             AbsoluteLayout.LayoutFlags="None"
             Background="{StaticResource PlacedDeviceAddButton}"
             HorizontalOptions="Center"
+            InputTransparent="False"
             Stroke="{StaticResource PlacedDeviceMoveButton}"
             StrokeThickness="3"
             VerticalOptions="Center"
