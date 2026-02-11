@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
+             x:Class="ReisingerIntelliApp_V4.Views.SettingsPage"
+             x:DataType="viewmodels:SettingsPageViewModel"
+             BackgroundColor="{AppThemeBinding Light={StaticResource LightPageBackground}, Dark={StaticResource DarkPageBackground}}">
+    
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Padding="20,15" StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light={StaticResource LightCardBackground}, Dark=#2D2D2D}">
+            <Grid ColumnDefinitions="Auto,*">
+                <Button Grid.Column="0" 
+                        Text="Back" 
+                        FontSize="16" 
+                        BackgroundColor="Transparent"
+                        TextColor="{AppThemeBinding Light={StaticResource LightTextColor}, Dark={StaticResource DarkTextColor}}"
+                        Clicked="OnBackButtonClicked"
+                        Padding="0" />
+                <Label Grid.Column="1" 
+                       Text="Settings" 
+                       FontFamily="SpaceMonoBold" 
+                       FontSize="20"
+                       TextColor="{AppThemeBinding Light={StaticResource LightTextColor}, Dark={StaticResource DarkTextColor}}"
+                       VerticalOptions="Center"
+                       Margin="10,0,0,0" />
+            </Grid>
+        </Border>
+        
+        <ScrollView Grid.Row="1" Padding="20">
+            <VerticalStackLayout Spacing="20">
+                <Label Text="Theme" 
+                       FontSize="18" 
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource LightTextColor}, Dark={StaticResource DarkTextColor}}" />
+                
+                <Border Padding="15" 
+                        BackgroundColor="{AppThemeBinding Light={StaticResource LightCardBackground}, Dark={StaticResource DarkCardBackground}}"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="10" />
+                    </Border.StrokeShape>
+                    
+                    <VerticalStackLayout Spacing="15">
+                        <Label Text="Select App Theme:" 
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light={StaticResource LightSecondaryText}, Dark={StaticResource DarkSecondaryText}}" />
+                        
+                        <HorizontalStackLayout Spacing="20">
+                            <RadioButton Content="Dark Mode" 
+                                       IsChecked="{Binding IsDarkMode}" 
+                                       TextColor="{AppThemeBinding Light={StaticResource LightTextColor}, Dark={StaticResource DarkTextColor}}"
+                                       GroupName="ThemeGroup" />
+                            <RadioButton Content="Light Mode" 
+                                       IsChecked="{Binding IsLightMode}" 
+                                       TextColor="{AppThemeBinding Light={StaticResource LightTextColor}, Dark={StaticResource DarkTextColor}}"
+                                       GroupName="ThemeGroup" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

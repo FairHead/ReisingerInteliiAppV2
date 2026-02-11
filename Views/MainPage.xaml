@@ -9,9 +9,9 @@
     xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
     x:Name="Root"
     x:DataType="viewmodels:MainPageViewModel"
-    BackgroundColor="#1E1E1E"
+    BackgroundColor="{AppThemeBinding Light={StaticResource LightPageBackground}, Dark={StaticResource DarkPageBackground}}"
     Shell.NavBarIsVisible="False">
-
+    
     <!--  Remove BindingContext - will be set in code-behind  -->
 
     <ContentPage.Content>
@@ -31,7 +31,7 @@
             <Border
                 Grid.Row="1"
                 Padding="10,0"
-                BackgroundColor="#1E1E1E"
+                BackgroundColor="{AppThemeBinding Light={StaticResource LightPageBackground}, Dark={StaticResource DarkPageBackground}}"
                 StrokeThickness="0"
                 ZIndex="100">
                 <Grid ColumnDefinitions="*,*,*,*">

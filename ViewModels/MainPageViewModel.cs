@@ -1005,7 +1005,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
     private async void OnRightSectionTapped()
     {
-        await ShowAlertAsync("Settings", "Preferences tapped", "OK");
+        await Shell.Current.GoToAsync("settings");
     }
 
     private async void OnScanButtonTapped()
