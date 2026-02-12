@@ -1,9 +1,11 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ReisingerIntelliApp_V4.Helpers;
 using ReisingerIntelliApp_V4.Models;
 using ReisingerIntelliApp_V4.Services;
 
@@ -13,37 +15,37 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
 {
     private readonly IDeviceService _deviceService;
     private readonly IntellidriveApiService _apiService;
+    private readonly IHttpClientFactory _httpClientFactory;
     private CancellationTokenSource? _cancellationTokenSource;
-    // Slightly higher timeout for on-device LAN scanning due to WiFi latency & Android scheduler
-    private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromMilliseconds(2500) };
-    private const int MaxConcurrency = 20; // Optimiert für bessere Performance
 
-    public LocalDevicesScanPageViewModel(IDeviceService deviceService, IntellidriveApiService apiService)
+    private const int PerRequestTimeoutMs = 150;
+    private const int UiFlushIntervalMs = 100;
+
+    public LocalDevicesScanPageViewModel(
+        IDeviceService deviceService,
+        IntellidriveApiService apiService,
+        IHttpClientFactory httpClientFactory)
     {
-        _deviceService = deviceService ?? throw new ArgumentNullException(nameof(deviceService));
-        _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
-        
+        ArgumentNullException.ThrowIfNull(deviceService);
+        ArgumentNullException.ThrowIfNull(apiService);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+
+        _deviceService = deviceService;
+        _apiService = apiService;
+        _httpClientFactory = httpClientFactory;
+
         LocalDevices = new ObservableCollection<LocalNetworkDeviceModel>();
-        
-        // Set default IP range for most common local networks
+
         StartIp = "192.168.0.1";
         EndIp = "192.168.0.254";
 
-        // Removed seeding of dummy_local_* devices (was previously used for UI demonstration)
-
-        // When a device is saved from SaveLocalDevicePage, mark it as saved here so user can continue adding others
-    MessagingCenter.Subscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded", (sender, savedDeviceId) =>
+        #pragma warning disable CS0618
+        MessagingCenter.Subscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded", (sender, savedDeviceId) =>
         {
-            try
-            {
-        var match = LocalDevices.FirstOrDefault(d => d.DeviceId == savedDeviceId);
-                if (match != null)
-                {
-                    match.IsAlreadySaved = true;
-                }
-            }
-            catch { }
+            var match = LocalDevices.FirstOrDefault(d => d.DeviceId == savedDeviceId);
+            if (match != null) match.IsAlreadySaved = true;
         });
+        #pragma warning restore CS0618
     }
 
     [ObservableProperty]
@@ -59,19 +61,19 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
     private bool isScanning;
 
     [ObservableProperty]
-    private string scanStatusMessage = "Bereit für lokalen Netzwerk-Scan";
+    private string scanStatusMessage = "Bereit zum Scannen";
 
     [ObservableProperty]
-    private int scannedCount = 0;
+    private int scannedCount;
 
     [ObservableProperty]
-    private int totalCount = 0;
+    private int totalCount;
 
     [ObservableProperty]
-    private double progressPercentage = 0;
+    private double progressPercentage;
 
     [ObservableProperty]
-    private int foundDevicesCount = 0;
+    private int foundDevicesCount;
 
     [ObservableProperty]
     private LocalNetworkDeviceModel? selectedDevice;
@@ -80,526 +82,325 @@ public partial class LocalDevicesScanPageViewModel : ObservableObject
     private string validationMessage = string.Empty;
 
     [ObservableProperty]
-    private bool hasValidationError = false;
+    private bool hasValidationError;
 
     [RelayCommand]
     private async Task StartLocalScanAsync()
     {
-        if (IsScanning) return;
+        if (IsScanning)
+            return;
+
+        _cancellationTokenSource?.Cancel();
+        _cancellationTokenSource?.Dispose();
+        _cancellationTokenSource = new CancellationTokenSource();
+
+        IsScanning = true;
+        ScannedCount = 0;
+        FoundDevicesCount = 0;
+        ProgressPercentage = 0;
+        LocalDevices.Clear();
+        ScanStatusMessage = "Starte Scan...";
+
+        if (!IsValidIpAddress(StartIp) || !IsValidIpAddress(EndIp))
+        {
+            ScanStatusMessage = "Ungültige IP-Adressen";
+            IsScanning = false;
+            return;
+        }
+
+        if (!IsValidIpRange(StartIp, EndIp))
+        {
+            ScanStatusMessage = "Ungültiger IP-Bereich";
+            IsScanning = false;
+            return;
+        }
+
+        var ipList = GenerateIpRange(StartIp, EndIp);
+        TotalCount = ipList.Count;
+
+        // Pre-load saved devices once for IsAlreadySaved lookup
+        HashSet<string> savedIds;
+        try
+        {
+            var saved = await _deviceService.GetSavedLocalDevicesAsync();
+            savedIds = new HashSet<string>(saved.Select(d => d.DeviceId), StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            savedIds = [];
+        }
+
+        var sw = Stopwatch.StartNew();
 
         try
         {
-            // Cancel any existing scan
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource = new CancellationTokenSource();
+            await Task.Run(() => RunScanAsync(ipList, savedIds, _cancellationTokenSource.Token));
 
-            IsScanning = true;
-            ScannedCount = 0;
-            FoundDevicesCount = 0;
-            ProgressPercentage = 0;
-            LocalDevices.Clear();
-            ScanStatusMessage = "🔍 Starte lokalen Netzwerk-Scan...";
-
-            Debug.WriteLine($"🏠 Starting local network scan from {StartIp} to {EndIp}");
-
-            // Validate IP addresses
-            if (!IsValidIpAddress(StartIp) || !IsValidIpAddress(EndIp))
-            {
-                ScanStatusMessage = "❌ Ungültige IP-Adressen eingegeben. Bitte prüfen Sie das Format (z.B. 192.168.1.1)";
-                ValidationMessage = "Ungültige IP-Adressen eingegeben";
-                HasValidationError = true;
-                return;
-            }
-
-            // Validate IP range
-            if (!IsValidIpRange(StartIp, EndIp))
-            {
-                ScanStatusMessage = "❌ Start-IP muss kleiner oder gleich End-IP sein";
-                ValidationMessage = "Start-IP muss kleiner oder gleich End-IP sein";
-                HasValidationError = true;
-                return;
-            }
-
-            // Clear validation errors
-            ValidationMessage = string.Empty;
-            HasValidationError = false;
-
-            // Generate IP range
-            var ipList = GenerateIpRange(StartIp, EndIp);
-            if (ipList.Count == 0)
-            {
-                ScanStatusMessage = "❌ Fehler beim Generieren des IP-Bereichs";
-                return;
-            }
-
-            if (ipList.Count > 1000)
-            {
-                ScanStatusMessage = "⚠️ IP-Bereich zu groß (max. 1000 IPs). Bitte verkleinern Sie den Bereich.";
-                return;
-            }
-
-            TotalCount = ipList.Count;
-            ScanStatusMessage = $"🔍 Scanne {TotalCount} IP-Adressen...";
-
-            Debug.WriteLine($"🚀 Starting scan of {TotalCount} IPs");
-
-            // Start parallel scan with live updates
-            await ScanIpRangeWithLiveUpdatesAsync(ipList, _cancellationTokenSource.Token);
-
-            if (!_cancellationTokenSource.Token.IsCancellationRequested)
-            {
-                ScanStatusMessage = LocalDevices.Count > 0 
-                    ? $"✅ Scan abgeschlossen: {LocalDevices.Count} Intellidrive-Geräte gefunden"
-                    : "⚠️ Keine Intellidrive-Geräte im angegebenen Bereich gefunden";
-            }
-
-            Debug.WriteLine($"🎯 Local scan completed: {LocalDevices.Count} devices found");
+            sw.Stop();
+            MainThread.BeginInvokeOnMainThread(() =>
+                ScanStatusMessage = LocalDevices.Count > 0
+                    ? $"✅ {LocalDevices.Count} Geräte gefunden ({sw.Elapsed.TotalSeconds:F1}s)"
+                    : $"Keine Geräte gefunden ({sw.Elapsed.TotalSeconds:F1}s)");
         }
         catch (OperationCanceledException)
         {
-            ScanStatusMessage = "⏹️ Scan abgebrochen";
-            Debug.WriteLine("🛑 Local scan was cancelled");
+            MainThread.BeginInvokeOnMainThread(() => ScanStatusMessage = "Scan abgebrochen");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ Error during local scan: {ex.Message}");
-            ScanStatusMessage = $"❌ Fehler beim Scannen: {ex.Message}";
+            MainThread.BeginInvokeOnMainThread(() => ScanStatusMessage = $"Fehler: {ex.Message}");
         }
         finally
         {
-            IsScanning = false;
-            _cancellationTokenSource?.Dispose();
-            _cancellationTokenSource = null;
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                IsScanning = false;
+                ScannedCount = TotalCount;
+                ProgressPercentage = 100;
+            });
         }
     }
 
-    private async Task ScanIpRangeWithLiveUpdatesAsync(List<string> ipAddresses, CancellationToken cancellationToken)
+    /// <summary>
+    /// Sequential HTTP scan – one IP at a time.
+    /// SocketsHttpHandler.ConnectTimeout=80ms ensures unreachable hosts fail fast.
+    /// PeriodicTimer drives UI updates every 100ms.
+    /// </summary>
+    private async Task RunScanAsync(List<string> ipAddresses, HashSet<string> savedIds, CancellationToken ct)
     {
-        var semaphore = new SemaphoreSlim(MaxConcurrency, MaxConcurrency);
-        var scannedCounter = 0;
+        var total = ipAddresses.Count;
+        var counter = new ScanCounter();
+        var deviceQueue = new ConcurrentQueue<LocalNetworkDeviceModel>();
 
-        var tasks = ipAddresses.Select(async ip =>
+        using var flushCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var flushTask = RunUiFlushLoopAsync(deviceQueue, total, counter, flushCts.Token);
+
+        using var client = _httpClientFactory.CreateClient("scanner");
+
+        foreach (var ip in ipAddresses)
         {
-            await semaphore.WaitAsync(cancellationToken);
-            try
+            if (ct.IsCancellationRequested)
+                break;
+
+            var device = await IdentifyDeviceAsync(client, ip, ct).ConfigureAwait(false);
+
+            if (device != null)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Update current scanning IP immediately
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    ScanStatusMessage = $"🔍 Scanne gerade: {ip}";
-                });
-
-                var device = await TestSingleIpForIntellidriveAsync(ip, cancellationToken);
-                if (device != null)
-                {
-                    // Ensure we mark already-saved devices by comparing with saved list
-                    try
-                    {
-                        var saved = await _deviceService.GetSavedLocalDevicesAsync();
-                        if (saved.Any(d => d.DeviceId == device.DeviceId))
-                        {
-                            device.IsAlreadySaved = true;
-                        }
-                    }
-                    catch { }
-                    // UI-Update auf Main Thread - Sofortiges Hinzufügen zur Liste
-                    await MainThread.InvokeOnMainThreadAsync(() =>
-                    {
-                        LocalDevices.Add(device);
-                        FoundDevicesCount = LocalDevices.Count;
-                        ScanStatusMessage = $"✅ Gefunden: {device.DisplayName} ({device.IpAddress}) - Scan läuft weiter...";
-                    });
-
-                    Debug.WriteLine($"✅ Found Intellidrive device: {device.DisplayName} at {device.IpAddress}");
-                }
-
-                // Progress Update
-                var completed = Interlocked.Increment(ref scannedCounter);
-                var progress = (double)completed / TotalCount * 100;
-                
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    ScannedCount = completed;
-                    ProgressPercentage = progress;
-                });
+                device.IsAlreadySaved = savedIds.Contains(device.DeviceId);
+                deviceQueue.Enqueue(device);
             }
-            catch (OperationCanceledException)
-            {
-                // Cancellation is expected, just return
-            }
-            finally
-            {
-                semaphore.Release();
-            }
-        });
 
-        await Task.WhenAll(tasks);
+            Interlocked.Increment(ref counter.Scanned);
+        }
+
+        await flushCts.CancelAsync();
+        try { await flushTask.ConfigureAwait(false); } catch (OperationCanceledException) { }
+        FlushToUi(deviceQueue, total, Volatile.Read(ref counter.Scanned));
     }
 
-    private async Task<LocalNetworkDeviceModel?> TestSingleIpForIntellidriveAsync(string ipAddress, CancellationToken cancellationToken)
+    /// <summary>
+    /// GET http://{ip}/intellidrive/version → JSON deserialisieren → Gerät wenn Content.DEVICE_SERIALNO vorhanden.
+    /// </summary>
+    private static async Task<LocalNetworkDeviceModel?> IdentifyDeviceAsync(
+        HttpClient client, string ip, CancellationToken ct)
     {
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(PerRequestTimeoutMs);
 
-            var stopwatch = Stopwatch.StartNew();
-            
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"http://{ipAddress}/intellidrive/version");
-            var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            
-            stopwatch.Stop();
-            
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                Debug.WriteLine($"🔍 Response from {ipAddress}: {content}");
-                
-                // Prüfe ob es eine gültige Intellidrive JSON-Response ist
-                if (IsValidIntellidriveResponse(content))
-                {
-                    return await CreateDeviceFromResponseAsync(ipAddress, content, stopwatch.ElapsedMilliseconds, cancellationToken);
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw; // Re-throw cancellation
-        }
-        catch (HttpRequestException httpEx)
-        {
-            Debug.WriteLine($"⚠️ IP {ipAddress} HTTP error: {httpEx.Message} ({httpEx.StatusCode})");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"⚠️ IP {ipAddress} test failed: {ex.GetType().Name}: {ex.Message}");
-        }
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"http://{ip}/intellidrive/version");
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
 
-        return null;
-    }
+            if (!response.IsSuccessStatusCode)
+                return null;
 
-    private static bool IsValidIntellidriveResponse(string jsonContent)
-    {
-        if (string.IsNullOrWhiteSpace(jsonContent))
-            return false;
+            await using var stream = await response.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
+            var r = await JsonSerializer.DeserializeAsync(stream, AppJsonSerializerContext.Default.IntellidriveVersionResponse, cts.Token).ConfigureAwait(false);
 
-        try
-        {
-            // Prüfe auf typische Intellidrive JSON-Inhalte
-            return jsonContent.Contains("\"Success\":true") || 
-                   jsonContent.Contains("\"success\":true") ||
-                   jsonContent.Contains("\"DeviceId\"") || 
-                   jsonContent.Contains("\"deviceId\"") ||
-                   jsonContent.Contains("\"version\"") ||
-                   jsonContent.Contains("\"Version\"") ||
-                   jsonContent.Contains("intellidrive") ||
-                   jsonContent.Contains("Intellidrive");
-        }
-        catch
-        {
-            return false;
-        }
-    }
+            var serial = r?.Content?.DeviceSerialNumber;
+            if (string.IsNullOrWhiteSpace(serial))
+                return null;
 
-    private async Task<LocalNetworkDeviceModel> CreateDeviceFromResponseAsync(string ipAddress, string jsonResponse, long responseTimeMs, CancellationToken cancellationToken)
-    {
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
+            var deviceId = string.IsNullOrWhiteSpace(r!.DeviceId) ? serial : r.DeviceId;
+            var version = !string.IsNullOrWhiteSpace(r.Message) ? r.Message
+                        : !string.IsNullOrWhiteSpace(r.FirmwareVersion) ? r.FirmwareVersion
+                        : "Unknown";
 
-            // Extract device information from /intellidrive/version response
-            string deviceId = ExtractValueFromJson(jsonResponse, "DeviceId") ?? 
-                            ExtractValueFromJson(jsonResponse, "deviceId") ?? 
-                            Guid.NewGuid().ToString();
-            
-            string firmwareVersion = ExtractValueFromJson(jsonResponse, "Version") ?? 
-                                   ExtractValueFromJson(jsonResponse, "version") ?? 
-                                   ExtractValueFromJson(jsonResponse, "firmware") ??
-                                   "Unknown";
-
-            // Try to get serial number from version response, fallback to DeviceId
-            // Note: /intellidrive/device_id endpoint does not exist on devices
-            string serialNumber = ExtractValueFromJson(jsonResponse, "DEVICE_SERIALNO") ?? 
-                                 ExtractValueFromJson(jsonResponse, "SerialNumber") ??
-                                 ExtractValueFromJson(jsonResponse, "serialNumber") ??
-                                 deviceId; // Use DeviceId as fallback since it's often the same as serial
-
-            var model = new LocalNetworkDeviceModel
+            return new LocalNetworkDeviceModel
             {
                 Id = deviceId,
                 DeviceId = deviceId,
-                Name = $"Intellidrive {serialNumber}",
-                IpAddress = ipAddress,
+                Name = $"Intellidrive {serial}",
+                IpAddress = ip,
                 LastSeen = DateTime.Now,
                 IsOnline = true,
                 DeviceType = "Intellidrive",
-                FirmwareVersion = firmwareVersion,
-                SerialNumber = serialNumber,
+                FirmwareVersion = version,
+                SerialNumber = serial,
+                LatestFirmware = r.LatestFirmware,
                 ResponseTime = DateTime.Now,
                 DiscoveredAt = DateTime.Now
             };
-            
-            try
-            {
-                var saved = await _deviceService.GetSavedLocalDevicesAsync();
-                if (saved.Any(d => d.DeviceId == model.DeviceId))
-                {
-                    model.IsAlreadySaved = true;
-                }
-            }
-            catch { }
-            
-            return model;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            throw; // Re-throw cancellation
+            return null;
         }
-        catch (Exception ex)
+        catch (HttpRequestException)
         {
-            Debug.WriteLine($"⚠️ Error creating device model for {ipAddress}: {ex.Message}");
-            
-            var fallbackId = Guid.NewGuid().ToString();
-            var fallback = new LocalNetworkDeviceModel
-            {
-                Id = fallbackId,
-                DeviceId = fallbackId,
-                Name = $"Intellidrive {ipAddress}",
-                IpAddress = ipAddress,
-                LastSeen = DateTime.Now,
-                IsOnline = true,
-                DeviceType = "Intellidrive",
-                FirmwareVersion = "Unknown",
-                SerialNumber = "Unknown",
-                ResponseTime = DateTime.Now,
-                DiscoveredAt = DateTime.Now
-            };
-            
-            try
-            {
-                var saved = await _deviceService.GetSavedLocalDevicesAsync();
-                if (saved.Any(d => d.DeviceId == fallback.DeviceId))
-                {
-                    fallback.IsAlreadySaved = true;
-                }
-            }
-            catch { }
-            
-            return fallback;
+            return null;
         }
-    }
-
-    private static string? ExtractValueFromJson(string json, string key)
-    {
-        try
-        {
-            var pattern = $"\"{key}\":\"([^\"]+)\"";
-            var match = System.Text.RegularExpressions.Regex.Match(json, pattern);
-            return match.Success ? match.Groups[1].Value : null;
-        }
-        catch
+        catch (JsonException)
         {
             return null;
         }
     }
 
-    private static List<string> GenerateIpRange(string startIp, string endIp)
+    // ──────────────────────────────────────────────
+    //  UI Flush Loop
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// PeriodicTimer (120ms) flushes found devices and updates progress on MainThread.
+    /// </summary>
+    private async Task RunUiFlushLoopAsync(
+        ConcurrentQueue<LocalNetworkDeviceModel> deviceQueue,
+        int total,
+        ScanCounter counter,
+        CancellationToken ct)
     {
-        var ips = new List<string>();
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(UiFlushIntervalMs));
         try
         {
-            var start = IPAddress.Parse(startIp).GetAddressBytes();
-            var end = IPAddress.Parse(endIp).GetAddressBytes();
-
-            uint startInt = BitConverter.ToUInt32(start.Reverse().ToArray(), 0);
-            uint endInt = BitConverter.ToUInt32(end.Reverse().ToArray(), 0);
-
-            for (uint i = startInt; i <= endInt; i++)
+            while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
             {
-                var bytes = BitConverter.GetBytes(i).Reverse().ToArray();
-                ips.Add(new IPAddress(bytes).ToString());
+                FlushToUi(deviceQueue, total, Volatile.Read(ref counter.Scanned));
             }
         }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ Error generating IP range: {ex.Message}");
-        }
+        catch (OperationCanceledException) { }
+    }
 
+    /// <summary>
+    /// Drains up to 10 devices from queue and updates progress on MainThread.
+    /// Only dispatches when something actually changed to reduce UI thread pressure.
+    /// </summary>
+    private void FlushToUi(ConcurrentQueue<LocalNetworkDeviceModel> queue, int total, int scanned)
+    {
+        var batch = new List<LocalNetworkDeviceModel>(10);
+        for (var i = 0; i < 10 && queue.TryDequeue(out var device); i++)
+            batch.Add(device);
+
+        // Skip dispatch if nothing changed since last flush
+        if (batch.Count == 0 && scanned == ScannedCount)
+            return;
+
+        var pct = total > 0 ? (double)scanned / total * 100.0 : 0;
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            foreach (var d in batch)
+                LocalDevices.Add(d);
+
+            FoundDevicesCount = LocalDevices.Count;
+            ScannedCount = scanned;
+            ProgressPercentage = pct;
+
+            if (batch.Count > 0)
+                ScanStatusMessage = $"✅ Gefunden: {batch[^1].Name} ({batch[^1].IpAddress})";
+            else
+                ScanStatusMessage = $"Scanne... ({scanned}/{total})";
+        });
+    }
+
+    // ──────────────────────────────────────────────
+    //  Helpers
+    // ──────────────────────────────────────────────
+
+    private static List<string> GenerateIpRange(string startIp, string endIp)
+    {
+        var start = BitConverter.ToUInt32(IPAddress.Parse(startIp).GetAddressBytes().Reverse().ToArray(), 0);
+        var end = BitConverter.ToUInt32(IPAddress.Parse(endIp).GetAddressBytes().Reverse().ToArray(), 0);
+
+        var ips = new List<string>((int)(end - start + 1));
+        for (var i = start; i <= end; i++)
+        {
+            var bytes = BitConverter.GetBytes(i).Reverse().ToArray();
+            ips.Add(new IPAddress(bytes).ToString());
+        }
         return ips;
     }
 
     [RelayCommand]
     private void StopScan()
     {
-        if (IsScanning && _cancellationTokenSource != null)
-        {
-            _cancellationTokenSource.Cancel();
-            ScanStatusMessage = "⏹️ Scan wird abgebrochen...";
-            Debug.WriteLine("🛑 Local scan cancellation requested by user");
-        }
+        _cancellationTokenSource?.Cancel();
     }
 
     [RelayCommand]
-    private async Task SaveSelectedDeviceAsync()
+    private async Task AddDeviceAsync(LocalNetworkDeviceModel device)
     {
-        if (SelectedDevice == null)
-        {
-            ScanStatusMessage = "⚠️ Kein Gerät zum Speichern ausgewählt";
-            return;
-        }
+        if (device == null) return;
 
-        try
-        {
-            // Navigiere zur Save Device Page mit dem ausgewählten Gerät
-            var parameters = new Dictionary<string, object>
-            {
-                ["Device"] = SelectedDevice
-            };
-            
-            await Shell.Current.GoToAsync("//SaveDevicePage", parameters);
-            Debug.WriteLine($"🔗 Navigating to save device: {SelectedDevice.DisplayName}");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ Error navigating to save device: {ex.Message}");
-            ScanStatusMessage = $"❌ Fehler beim Öffnen der Speichern-Seite: {ex.Message}";
-        }
+        var payload = new { ip = device.IpAddress, name = device.DisplayName, serial = device.SerialNumber, firmware = device.FirmwareVersion, deviceId = device.DeviceId };
+        var json = JsonSerializer.Serialize(payload);
+        await Shell.Current.GoToAsync($"savelocaldevice?deviceData={Uri.EscapeDataString(json)}");
     }
 
     [RelayCommand]
     private async Task SaveDeviceAsync(LocalNetworkDeviceModel device)
     {
-        try
+        var model = new DeviceModel
         {
-            Debug.WriteLine($"🔗 Navigating to save device: {device.DisplayName}");
+            DeviceId = device.DeviceId,
+            Name = device.DisplayName,
+            IpAddress = device.IpAddress,
+            SerialNumber = device.SerialNumber,
+            FirmwareVersion = device.FirmwareVersion,
+            Type = AppDeviceType.LocalDevice,
+            ConnectionType = ConnectionType.Local,
+            LastSeen = device.LastSeen,
+            IsOnline = device.IsOnline,
+            Ip = device.IpAddress
+        };
 
-            // Create device model for saving
-            var deviceModel = new DeviceModel
-            {
-                DeviceId = device.DeviceId,
-                Name = device.DisplayName,
-                IpAddress = device.IpAddress,
-                SerialNumber = device.SerialNumber,
-                FirmwareVersion = device.FirmwareVersion,
-                Type = AppDeviceType.LocalDevice,
-                ConnectionType = ConnectionType.Local,
-                LastSeen = device.LastSeen,
-                IsOnline = device.IsOnline,
-                Ip = device.IpAddress
-            };
+        await _deviceService.SaveDeviceAsync(model);
+        device.IsAlreadySaved = true;
+        ScanStatusMessage = $"✅ Gespeichert: {device.DisplayName}";
 
-            // Save device via service
-            await _deviceService.SaveDeviceAsync(deviceModel);
-            
-            // Mark as saved in UI
-            device.IsAlreadySaved = true;
-            
-            ScanStatusMessage = $"✅ Gerät '{device.DisplayName}' erfolgreich gespeichert";
-            
-            Debug.WriteLine($"✅ Device saved successfully: {device.DisplayName}");
-            
-            // Trigger a refresh of the MainPage Local Devices dropdown if it's open
-            MessagingCenter.Send(this, "LocalDeviceAdded");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ Error saving device: {ex.Message}");
-            ScanStatusMessage = $"❌ Fehler beim Speichern: {ex.Message}";
-        }
-    }
-
-    // Mirrors WifiScanViewModel.AddDevice: navigate to save page with prefilled local device data
-    [RelayCommand]
-    private async Task AddDeviceAsync(LocalNetworkDeviceModel device)
-    {
-        try
-        {
-            if (device == null)
-            {
-                ScanStatusMessage = "⚠️ Kein Gerät ausgewählt";
-                return;
-            }
-
-            // Serialize minimal local device data for navigation
-            var payload = new
-            {
-                ip = device.IpAddress,
-                name = device.DisplayName,
-                serial = device.SerialNumber,
-                firmware = device.FirmwareVersion,
-                deviceId = device.DeviceId
-            };
-
-            var json = JsonSerializer.Serialize(payload);
-            var encoded = Uri.EscapeDataString(json);
-
-            await Shell.Current.GoToAsync($"savelocaldevice?deviceData={encoded}");
-            Debug.WriteLine($"🔗 Navigating to SaveLocalDevicePage for {device.DisplayName} ({device.IpAddress})");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ Error navigating to SaveLocalDevicePage: {ex.Message}");
-            ScanStatusMessage = $"❌ Navigation fehlgeschlagen: {ex.Message}";
-        }
+        #pragma warning disable CS0618
+        MessagingCenter.Send(this, "LocalDeviceAdded");
+        #pragma warning restore CS0618
     }
 
     [RelayCommand]
-    private void SelectDevice(LocalNetworkDeviceModel device)
-    {
-        SelectedDevice = device;
-        Debug.WriteLine($"📱 Selected device: {device.DisplayName} at {device.IpAddress}");
-    }
+    private void SelectDevice(LocalNetworkDeviceModel device) => SelectedDevice = device;
 
     [RelayCommand]
     private void SetCommonIpRange(string range)
     {
-        switch (range.ToLower())
+        (StartIp, EndIp) = range.ToLower() switch
         {
-            case "192.168.1.x":
-                StartIp = "192.168.1.1";
-                EndIp = "192.168.1.254";
-                break;
-            case "192.168.0.x":
-                StartIp = "192.168.0.1";
-                EndIp = "192.168.0.254";
-                break;
-            case "10.0.0.x":
-                StartIp = "10.0.0.1";
-                EndIp = "10.0.0.254";
-                break;
-            case "172.16.0.x":
-                StartIp = "172.16.0.1";
-                EndIp = "172.16.0.254";
-                break;
-            default:
-                Debug.WriteLine($"⚠️ Unknown IP range preset: {range}");
-                break;
-        }
-        
-        ScanStatusMessage = $"📋 IP-Bereich gesetzt: {StartIp} - {EndIp}";
+            "192.168.1.x" => ("192.168.1.1", "192.168.1.254"),
+            "192.168.0.x" => ("192.168.0.1", "192.168.0.254"),
+            "10.0.0.x" => ("10.0.0.1", "10.0.0.254"),
+            "172.16.0.x" => ("172.16.0.1", "172.16.0.254"),
+            _ => (StartIp, EndIp)
+        };
+        ScanStatusMessage = $"{StartIp} - {EndIp}";
     }
 
-    private static bool IsValidIpAddress(string ipAddress)
-    {
-        return System.Net.IPAddress.TryParse(ipAddress, out _);
-    }
+    private static bool IsValidIpAddress(string ip) => IPAddress.TryParse(ip, out _);
 
     private static bool IsValidIpRange(string startIp, string endIp)
     {
-        try
-        {
-            var start = IPAddress.Parse(startIp).GetAddressBytes();
-            var end = IPAddress.Parse(endIp).GetAddressBytes();
+        var start = BitConverter.ToUInt32(IPAddress.Parse(startIp).GetAddressBytes().Reverse().ToArray(), 0);
+        var end = BitConverter.ToUInt32(IPAddress.Parse(endIp).GetAddressBytes().Reverse().ToArray(), 0);
+        return start <= end;
+    }
 
-            uint startInt = BitConverter.ToUInt32(start.Reverse().ToArray(), 0);
-            uint endInt = BitConverter.ToUInt32(end.Reverse().ToArray(), 0);
-
-            return startInt <= endInt;
-        }
-        catch
-        {
-            return false;
-        }
+    private sealed class ScanCounter
+    {
+        public int Scanned;
     }
 }

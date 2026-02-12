@@ -20,11 +20,22 @@ public static class ServiceCollectionExtensions
     services.AddHttpClient(); // default
     // Named client for IntelliDrive API (Polly handlers can be added once extension methods available in this TFMs)
     services.AddHttpClient("intellidrive");
-        
+    // Sequential LAN scan: plain HTTP only, no redirects, no SSL.
+    services.AddHttpClient("scanner", c => c.Timeout = Timeout.InfiniteTimeSpan)
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            ConnectTimeout = TimeSpan.FromMilliseconds(80),
+            MaxConnectionsPerServer = 1,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+            AutomaticDecompression = System.Net.DecompressionMethods.None,
+            AllowAutoRedirect = false
+        });
+
     // Register Services
     services.AddSingleton<IDeviceService, DeviceService>();
     services.AddSingleton<INavigationService, NavigationService>();
     services.AddSingleton<IAuthenticationService, AuthenticationService>();
+    services.AddSingleton<ISettingsService, SettingsService>();
     services.AddSingleton<IntellidriveApiService>();
     services.AddSingleton<IBuildingStorageService, BuildingStorageService>();
     services.AddSingleton<PdfConversionService>();
@@ -48,6 +59,7 @@ public static class ServiceCollectionExtensions
     services.AddTransient<StructuresViewModel>();
     services.AddTransient<StructureEditorViewModel>();
     services.AddTransient<DeviceParametersPageViewModel>();
+    services.AddTransient<SettingsPageViewModel>();
 
     // Register Pages
     services.AddTransient<MainPage>();
@@ -57,6 +69,7 @@ public static class ServiceCollectionExtensions
     services.AddTransient<SaveLocalDevicePage>();
     services.AddTransient<StructureEditorPage>();
     services.AddTransient<DeviceParametersPage>();
+    services.AddTransient<SettingsPage>();
 
     return services;
     }

@@ -90,50 +90,37 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
                 Debug.WriteLine("❌ [SaveLocalDevicePageViewModel] DeviceData is null or whitespace!");
                 return;
             }
-            
+
             var json = Uri.UnescapeDataString(value);
             Debug.WriteLine($"📥 [SaveLocalDevicePageViewModel] Unescaped JSON: {json}");
-            
-            var payload = JsonSerializer.Deserialize<Payload>(json);
-            Debug.WriteLine($"📦 [SaveLocalDevicePageViewModel] Deserialized payload: ip={payload?.ip}, name={payload?.name}, deviceId={payload?.deviceId}");
-            
-            if (payload != null)
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            DeviceId = root.TryGetProperty("deviceId", out var did) ? did.GetString() ?? string.Empty : string.Empty;
+            IpAddress = root.TryGetProperty("ip", out var ip) ? ip.GetString() ?? string.Empty : string.Empty;
+            var rawName = root.TryGetProperty("name", out var n) ? n.GetString() : null;
+            DeviceName = string.IsNullOrWhiteSpace(rawName) ? "Local Device" : rawName;
+            SerialNumber = root.TryGetProperty("serial", out var s) ? s.GetString() ?? string.Empty : string.Empty;
+            FirmwareVersion = root.TryGetProperty("firmware", out var f) ? f.GetString() ?? string.Empty : string.Empty;
+
+            Debug.WriteLine($"✅ [SaveLocalDevicePageViewModel] Properties set:");
+            Debug.WriteLine($"   DeviceId: '{DeviceId}'");
+            Debug.WriteLine($"   DeviceName: '{DeviceName}'");
+            Debug.WriteLine($"   IpAddress: '{IpAddress}'");
+
+            _ = PrefillExistingLocalAsync();
+            CanSaveDevice = !string.IsNullOrEmpty(IpAddress) && !string.IsNullOrWhiteSpace(DeviceName);
+            UpdateCanTestConnection();
+
+            if (!string.IsNullOrWhiteSpace(IpAddress))
             {
-                DeviceId = payload.deviceId ?? string.Empty;
-                DeviceName = string.IsNullOrWhiteSpace(payload.name) ? "Local Device" : payload.name;
-                IpAddress = payload.ip ?? string.Empty;
-                FirmwareVersion = payload.firmware ?? string.Empty;
-                SerialNumber = payload.serial ?? string.Empty;
-                
-                Debug.WriteLine($"✅ [SaveLocalDevicePageViewModel] Properties set:");
-                Debug.WriteLine($"   DeviceId: '{DeviceId}'");
-                Debug.WriteLine($"   DeviceName: '{DeviceName}'");
-                Debug.WriteLine($"   IpAddress: '{IpAddress}'");
-                Debug.WriteLine($"   FirmwareVersion: '{FirmwareVersion}'");
-                Debug.WriteLine($"   SerialNumber: '{SerialNumber}'");
-                
-                _ = PrefillExistingLocalAsync();
-                CanSaveDevice = !string.IsNullOrEmpty(IpAddress) && !string.IsNullOrWhiteSpace(DeviceName);
-                Debug.WriteLine($"   CanSaveDevice: {CanSaveDevice}");
-                
-                UpdateCanTestConnection();
-                
-                // Start online status monitoring when IP is known
-                if (!string.IsNullOrWhiteSpace(IpAddress))
-                {
-                    Debug.WriteLine($"🔄 [SaveLocalDevicePageViewModel] Starting online status monitoring for IP: {IpAddress}");
-                    StartOnlineStatusMonitoring();
-                }
-            }
-            else
-            {
-                Debug.WriteLine("❌ [SaveLocalDevicePageViewModel] Failed to deserialize payload!");
+                StartOnlineStatusMonitoring();
             }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [SaveLocalDevicePageViewModel] Error parsing deviceData: {ex.Message}");
-            Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
         }
     }
 
@@ -213,7 +200,11 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
             var existingList = await _deviceService.GetSavedLocalDevicesAsync();
             var existing = existingList.FirstOrDefault(d => d.DeviceId == model.DeviceId || d.IpAddress == model.IpAddress);
             await _deviceService.SaveDeviceAsync(model);
+            
+            // Send message to update PlacedDevices with the new device info
+            MessagingCenter.Send(this, "DeviceUpdated", model);
             MessagingCenter.Send(this, "LocalDeviceAdded", model.DeviceId);
+            
             await Shell.Current.GoToAsync("..");
         }
         catch (Exception ex)
@@ -261,8 +252,6 @@ public partial class SaveLocalDevicePageViewModel : ObservableObject, IDisposabl
     {
         await Shell.Current.GoToAsync("..");
     }
-
-    private record Payload(string ip, string name, string serial, string firmware, string deviceId);
 
     private void UpdateStatusMessage(string message, Color color, bool show)
     {

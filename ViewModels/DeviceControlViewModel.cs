@@ -74,6 +74,20 @@ public partial class DeviceControlViewModel : ObservableObject
                 return;
             }
 
+            if (string.IsNullOrWhiteSpace(Device.Username) || string.IsNullOrWhiteSpace(Device.Password))
+            {
+                Debug.WriteLine("❌ Device credentials missing!");
+                Error = "Zugangsdaten fehlen";
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    await Application.Current!.Windows[0].Page!.DisplayAlert(
+                        "Zugangsdaten fehlen",
+                        $"Für '{Device.Name}' sind kein Benutzername/Passwort hinterlegt.\n\nBitte unter Geräte-Einstellungen die Zugangsdaten eingeben.",
+                        "OK");
+                });
+                return;
+            }
+
             Debug.WriteLine($"🔄 Fetching current door state for device: {Device.Name} ({Device.Ip})");
             
             // Get current state from device

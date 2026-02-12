@@ -113,6 +113,9 @@ public partial class DeviceParametersPageViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasModifiedParameters;
 
+    [ObservableProperty]
+    private bool _doorIsOpenWarning;
+
     /// <summary>
     /// Available categories for the category picker.
     /// </summary>
@@ -312,6 +315,7 @@ public partial class DeviceParametersPageViewModel : ObservableObject
     /// <summary>
     /// Loads parameter values, min-values, and max-values sequentially with delays.
     /// A 3-second delay between each API call prevents overloading the target chip.
+    /// Checks door state first — parameters cannot be read while the door is open.
     /// </summary>
     private async Task LoadAllParameterDataAsync()
     {
@@ -327,12 +331,49 @@ public partial class DeviceParametersPageViewModel : ObservableObject
         {
             IsLoading = true;
             HasError = false;
-            
-            var stopwatch = Stopwatch.StartNew();
-            Debug.WriteLine($"🔄 Loading parameter data from {DeviceIp} (sequential API calls with 3s delay)");
-            
+
             var hasAuth = !string.IsNullOrEmpty(CurrentDevice.Username) && !string.IsNullOrEmpty(CurrentDevice.Password);
             Debug.WriteLine($"   Auth: {(hasAuth ? "Using credentials" : "No credentials")}");
+
+            // === Pre-check: Door must be closed to read parameters ===
+            if (hasAuth)
+            {
+                StatusMessage = "Prüfe Türzustand...";
+                Debug.WriteLine("   🚪 Checking door state before loading parameters...");
+                try
+                {
+                    var doorState = await _apiService.GetDoorStateAsync(CurrentDevice);
+                    Debug.WriteLine($"   🚪 Door state response: {doorState}");
+
+                    if (doorState?.Contains("open", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        Debug.WriteLine("   ⚠️ Door is OPEN — cannot read parameters");
+                        StatusMessage = "Tür ist offen — Parameter können nicht gelesen werden";
+                        HasError = true;
+                        IsLoading = false;
+                        DoorIsOpenWarning = true;
+
+                        await MainThread.InvokeOnMainThreadAsync(async () =>
+                        {
+                            await Application.Current!.Windows[0].Page!.DisplayAlert(
+                                "Tür ist geöffnet",
+                                "Parameter können nicht gelesen werden solange die Tür geöffnet ist.\n\nBitte schließe die Tür und versuche es erneut.",
+                                "OK");
+                        });
+                        return;
+                    }
+
+                    DoorIsOpenWarning = false;
+                    Debug.WriteLine("   ✅ Door is closed — proceeding to load parameters");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"   ⚠️ Could not check door state: {ex.Message} — proceeding anyway");
+                }
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+            Debug.WriteLine($"🔄 Loading parameter data from {DeviceIp} (sequential API calls with 3s delay)");
 
             const int DelayBetweenCallsMs = 3000;
 

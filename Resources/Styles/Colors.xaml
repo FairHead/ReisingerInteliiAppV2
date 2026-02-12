@@ -41,6 +41,23 @@
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}" />
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}" />
 
+    <!--  Theme-aware colors for Light/Dark mode  -->
+    <!--  Note: These are used with AppThemeBinding in XAML, not directly as Color resources  -->
+    
+    <!--  Light Theme Colors  -->
+    <Color x:Key="LightPageBackground">#FFFFFF</Color>
+    <Color x:Key="LightTextColor">#000000</Color>
+    <Color x:Key="LightSecondaryText">#666666</Color>
+    <Color x:Key="LightCardBackground">#F5F5F5</Color>
+    <Color x:Key="LightBorderColor">#E0E0E0</Color>
+    
+    <!--  Dark Theme Colors (current defaults)  -->
+    <Color x:Key="DarkPageBackground">#1E1E1E</Color>
+    <Color x:Key="DarkTextColor">#FFFFFF</Color>
+    <Color x:Key="DarkSecondaryText">#B0B0B0</Color>
+    <Color x:Key="DarkCardBackground">#2D2D2D</Color>
+    <Color x:Key="DarkBorderColor">#404040</Color>
+
     <!--  PlacedDeviceControl color resources  -->
     <!--  Small control buttons on the device card (plus/minus/arrows)  -->
     <Color x:Key="PlacedDeviceAddButton">#333333</Color>
@@ -49,7 +66,7 @@
     <!--  Delete (bin) button background  -->
     <Color x:Key="PlacedDeviceDeleteButton">#FF3B30</Color>
     <!--  Center open/close (config) button background  -->
-    <Color x:Key="PlacedDdotneeviceConfigButton">#FFD60A</Color>
+    <Color x:Key="PlacedDeviceConfigButton">#FFD60A</Color>
     <!--  Move button background  -->
     <Color x:Key="PlacedDeviceMoveButton">#0A84FF</Color>
     <!--  Text colors on device card  -->

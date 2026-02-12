@@ -53,24 +53,42 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
         OnPropertyChanged(nameof(IsInMoveMode));
     }
 
-    partial void OnPlacedDeviceChanged(PlacedDeviceModel? value)
+    partial void OnPlacedDeviceChanged(PlacedDeviceModel? oldValue, PlacedDeviceModel? newValue)
     {
-        if (value != null)
+        // Unsubscribe from old device
+        if (oldValue != null)
+            oldValue.PropertyChanged -= OnPlacedDevicePropertyChanged;
+
+        if (newValue != null)
         {
-            System.Diagnostics.Debug.WriteLine($"?? PlacedDevice changed: {value.Name}");
-            
+            System.Diagnostics.Debug.WriteLine($"?? PlacedDevice changed: {newValue.Name}");
+
+            // Subscribe to property changes (e.g., DeviceInfo update with new credentials)
+            newValue.PropertyChanged += OnPlacedDevicePropertyChanged;
+
             // Notify UI that Name and NetworkInfo changed
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(NetworkInfo));
-            
+
             // Reset move mode when device changes (also releases pan block)
             IsInMoveMode = false;
-            
+
             // Update ControlViewModel if it exists
-            if (ControlViewModel != null && value.DeviceInfo != null)
+            if (ControlViewModel != null && newValue.DeviceInfo != null)
             {
-                ControlViewModel.SetDevice(value.DeviceInfo);
+                ControlViewModel.SetDevice(newValue.DeviceInfo);
             }
+        }
+    }
+
+    private void OnPlacedDevicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PlacedDeviceModel.DeviceInfo) && PlacedDevice?.DeviceInfo != null)
+        {
+            System.Diagnostics.Debug.WriteLine($"?? DeviceInfo updated for {PlacedDevice.Name} — re-syncing ControlViewModel (credentials may have changed)");
+            ControlViewModel?.SetDevice(PlacedDevice.DeviceInfo);
+            OnPropertyChanged(nameof(Name));
+            OnPropertyChanged(nameof(NetworkInfo));
         }
     }
 

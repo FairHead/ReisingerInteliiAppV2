@@ -12,9 +12,17 @@ public partial class PlacedDeviceControl : ContentView
     public PlacedDeviceControl()
     {
         InitializeComponent();
-        
-        // Initialize ViewModel from DI
-        _viewModel = ServiceHelper.GetService<PlacedDeviceControlViewModel>();
+
+        // Initialize ViewModel from DI — wrapped in try-catch for Release/trimming safety
+        try
+        {
+            _viewModel = ServiceHelper.GetService<PlacedDeviceControlViewModel>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ PlacedDeviceControl: Failed to resolve PlacedDeviceControlViewModel: {ex}");
+            _viewModel = new PlacedDeviceControlViewModel();
+        }
         BindingContext = _viewModel;
         
         // Wire up events from ViewModel to expose to parent

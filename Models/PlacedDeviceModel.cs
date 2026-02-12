@@ -223,7 +223,7 @@ public partial class PlacedDeviceModel : ObservableObject
     }
 
     /// <summary>
-    /// Updates the placed device with current device information
+    /// Updates the placed device with current device information (including credentials).
     /// </summary>
     public void UpdateFromDevice(DeviceModel device)
     {
@@ -234,5 +234,6 @@ public partial class PlacedDeviceModel : ObservableObject
         IsOnline = device.IsOnline;
         IsDoorOpen = !device.IsDoorClosed;
         OnPropertyChanged(nameof(NetworkInfo));
+        OnPropertyChanged(nameof(DeviceInfo));
     }
 }

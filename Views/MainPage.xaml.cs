@@ -1027,6 +1027,11 @@ public partial class MainPage : ContentPage, IPlanViewportService
         }
     }
 
+    private async void OnRightSectionTapped()
+    {
+        await Shell.Current.GoToAsync("settings");
+    }
+
     private void OnBackgroundTapped(object? sender, TappedEventArgs e)
     {
         _viewModel?.CloseDropdown();
