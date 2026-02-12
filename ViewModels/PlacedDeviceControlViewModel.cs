@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ReisingerIntelliApp_V4.Models;
+using ReisingerIntelliApp_V4.Services;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 
@@ -14,6 +15,15 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
     private const double ScaleMin = 0.01;
     private const double ScaleMax = 2.50;
     private const double ScaleStep = 0.05;
+    private static readonly TimeSpan OnlinePollInterval = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Raised when any instance enters move mode. All other instances must exit.
+    /// </summary>
+    private static event EventHandler<PlacedDeviceControlViewModel>? MoveModeActivated;
+
+    private readonly IntellidriveApiService _apiService;
+    private CancellationTokenSource? _pollCts;
 
     [ObservableProperty]
     private PlacedDeviceModel? placedDevice;
@@ -30,6 +40,7 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
     // ? Properties for UI bindings - forward from PlacedDevice
     public string Name => PlacedDevice?.Name ?? string.Empty;
     public string NetworkInfo => PlacedDevice?.NetworkInfo ?? string.Empty;
+    public bool IsOnline => PlacedDevice?.IsOnline ?? false;
 
     // Events for parent (MainPage) to handle - maintains separation of concerns
     public event EventHandler<PlacedDeviceModel>? AddDeviceRequested;
@@ -39,6 +50,30 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
     public event EventHandler<PlacedDeviceModel>? MoveDeviceRequested;
     public event EventHandler<PlacedDeviceModel>? ModeChangedRequested;
     public event EventHandler<bool>? PanInputBlockRequested;
+
+    public PlacedDeviceControlViewModel(IntellidriveApiService apiService)
+    {
+        _apiService = apiService;
+        MoveModeActivated += OnOtherDeviceEnteredMoveMode;
+    }
+
+    /// <summary>
+    /// Unsubscribes from static events and stops the online polling timer.
+    /// </summary>
+    public void Unsubscribe()
+    {
+        MoveModeActivated -= OnOtherDeviceEnteredMoveMode;
+        StopOnlinePolling();
+    }
+
+    private void OnOtherDeviceEnteredMoveMode(object? sender, PlacedDeviceControlViewModel activatedVm)
+    {
+        if (activatedVm != this && IsInMoveMode)
+        {
+            System.Diagnostics.Debug.WriteLine($"?? Auto-closing MoveMode for {Name} (another device activated)");
+            IsInMoveMode = false;
+        }
+    }
 
     partial void OnIsInMoveModeChanged(bool value)
     {
@@ -69,6 +104,7 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
             // Notify UI that Name and NetworkInfo changed
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(NetworkInfo));
+            OnPropertyChanged(nameof(IsOnline));
 
             // Reset move mode when device changes (also releases pan block)
             IsInMoveMode = false;
@@ -78,6 +114,13 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
             {
                 ControlViewModel.SetDevice(newValue.DeviceInfo);
             }
+
+            // Restart online polling for the new device
+            StartOnlinePolling();
+        }
+        else
+        {
+            StopOnlinePolling();
         }
     }
 
@@ -90,7 +133,58 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(NetworkInfo));
         }
+        else if (e.PropertyName == nameof(PlacedDeviceModel.IsOnline))
+        {
+            OnPropertyChanged(nameof(IsOnline));
+        }
     }
+
+    #region Online Polling
+
+    private void StartOnlinePolling()
+    {
+        StopOnlinePolling();
+
+        var ip = PlacedDevice?.DeviceInfo?.Ip
+              ?? PlacedDevice?.DeviceInfo?.IpAddress
+              ?? PlacedDevice?.IpAddress;
+
+        if (string.IsNullOrWhiteSpace(ip))
+            return;
+
+        _pollCts = new CancellationTokenSource();
+        var ct = _pollCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(OnlinePollInterval);
+            try
+            {
+                while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+                {
+                    var reachable = await _apiService.GetVersionAsync(ip, timeoutSeconds: 2).ConfigureAwait(false) is not null;
+
+                    if (PlacedDevice is { } pd && pd.IsOnline != reachable)
+                    {
+                        pd.IsOnline = reachable;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // expected on stop
+            }
+        }, ct);
+    }
+
+    private void StopOnlinePolling()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+    }
+
+    #endregion
 
     #region Movement Commands
 
@@ -211,11 +305,17 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
     [RelayCommand]
     private void ToggleMoveMode()
     {
-        IsInMoveMode = !IsInMoveMode;
+        var entering = !IsInMoveMode;
+
+        if (entering)
+        {
+            // Deactivate all other instances first
+            MoveModeActivated?.Invoke(this, this);
+        }
+
+        IsInMoveMode = entering;
         System.Diagnostics.Debug.WriteLine($"?? ToggleMoveMode - Device: {PlacedDevice?.Name}, MoveMode: {IsInMoveMode}");
-        
-        // Note: Pan block is already handled in OnIsInMoveModeChanged
-        
+
         if (PlacedDevice != null)
         {
             MoveDeviceRequested?.Invoke(this, PlacedDevice);
@@ -244,9 +344,9 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
     private async Task OpenDeviceParametersAsync()
     {
         if (PlacedDevice == null) return;
-        
+
         System.Diagnostics.Debug.WriteLine($"?? OpenDeviceParameters - Device: {PlacedDevice.Name}");
-        
+
         try
         {
             // Serialize device data for navigation including auth credentials
@@ -259,16 +359,48 @@ public partial class PlacedDeviceControlViewModel : ObservableObject
                 username = PlacedDevice.DeviceInfo?.Username ?? string.Empty,
                 password = PlacedDevice.DeviceInfo?.Password ?? string.Empty
             };
-            
+
             var json = JsonSerializer.Serialize(deviceData);
             var encoded = Uri.EscapeDataString(json);
-            
+
             await Shell.Current.GoToAsync($"deviceparameters?deviceData={encoded}");
             System.Diagnostics.Debug.WriteLine($"? Navigated to DeviceParametersPage for {PlacedDevice.Name}");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"? Error navigating to DeviceParametersPage: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Opens the device settings page to edit name, credentials, IP etc.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenDeviceSettingsAsync()
+    {
+        if (PlacedDevice == null) return;
+
+        System.Diagnostics.Debug.WriteLine($"OpenDeviceSettings - Device: {PlacedDevice.Name}");
+
+        try
+        {
+            var payload = new
+            {
+                ip = PlacedDevice.DeviceInfo?.Ip ?? PlacedDevice.DeviceInfo?.IpAddress ?? string.Empty,
+                name = PlacedDevice.Name ?? string.Empty,
+                serial = string.Empty,
+                firmware = string.Empty,
+                deviceId = PlacedDevice.DeviceId ?? string.Empty
+            };
+
+            var json = JsonSerializer.Serialize(payload);
+            var encoded = Uri.EscapeDataString(json);
+
+            await Shell.Current.GoToAsync($"savelocaldevice?deviceData={encoded}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error navigating to SaveLocalDevicePage: {ex.Message}");
         }
     }
 

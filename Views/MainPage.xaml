@@ -5,13 +5,23 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:components="clr-namespace:ReisingerIntelliApp_V4.Components"
     xmlns:controls="clr-namespace:ReisingerIntelliApp_V4.Controls"
+    xmlns:converters="clr-namespace:ReisingerIntelliApp_V4.Converters"
     xmlns:models="clr-namespace:ReisingerIntelliApp_V4.Models"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:viewmodels="clr-namespace:ReisingerIntelliApp_V4.ViewModels"
     x:Name="Root"
     x:DataType="viewmodels:MainPageViewModel"
     BackgroundColor="{AppThemeBinding Light={StaticResource LightPageBackground}, Dark={StaticResource DarkPageBackground}}"
     Shell.NavBarIsVisible="False">
-    
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <toolkit:InvertedBoolConverter x:Key="InvertBooleanConverter" />
+            <converters:DoorStateToColorConverter x:Key="DoorStateToColorConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
     <!--  Remove BindingContext - will be set in code-behind  -->
 
     <ContentPage.Content>
@@ -355,7 +365,220 @@
                     </Grid>
                 </Border>
             </Grid>
-        
+
+
+            <!--  ═══════════  PLACED DEVICES PANEL (collapsible, above footer)  ═══════════  -->
+            <Grid
+                Grid.Row="2"
+                IsVisible="{Binding HasPlacedDevices}"
+                VerticalOptions="End"
+                ZIndex="150">
+
+                <!--  Toggle tab  -->
+                <Border
+                    Margin="0,0,0,0"
+                    Padding="14,6"
+                    BackgroundColor="{StaticResource PlacedDeviceCardBackground}"
+                    HorizontalOptions="Center"
+                    IsVisible="{Binding IsDevicePanelOpen, Converter={StaticResource InvertBooleanConverter}}"
+                    Stroke="{StaticResource PlacedDeviceCardBorder}"
+                    StrokeShape="RoundRectangle 12,12,0,0"
+                    StrokeThickness="1"
+                    VerticalOptions="End"
+                    ZIndex="151">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnDevicePanelToggle" />
+                    </Border.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="6">
+                        <Label
+                            FontFamily="SpaceMonoBold"
+                            FontSize="12"
+                            Text="▲ Geräte"
+                            TextColor="{StaticResource PlacedDeviceText}" />
+                    </HorizontalStackLayout>
+                </Border>
+
+                <!--  Expanded panel  -->
+                <Border
+                    Margin="8,0,8,0"
+                    Padding="0"
+                    BackgroundColor="{StaticResource PlacedDeviceCardBackground}"
+                    IsVisible="{Binding IsDevicePanelOpen}"
+                    MaximumHeightRequest="280"
+                    Stroke="{StaticResource PlacedDeviceCardBorder}"
+                    StrokeShape="RoundRectangle 16,16,0,0"
+                    StrokeThickness="1"
+                    VerticalOptions="End"
+                    ZIndex="152">
+                    <Border.Shadow>
+                        <Shadow
+                            Brush="{StaticResource PlacedDeviceCardShadow}"
+                            Opacity="0.5"
+                            Radius="16"
+                            Offset="0,-4" />
+                    </Border.Shadow>
+
+                    <Grid RowDefinitions="Auto,*">
+                        <!--  Panel header  -->
+                        <Grid
+                            Grid.Row="0"
+                            Padding="16,10,16,6"
+                            ColumnDefinitions="*,Auto">
+                            <Label
+                                Grid.Column="0"
+                                FontFamily="SpaceMonoBold"
+                                FontSize="14"
+                                Text="Platzierte Geräte"
+                                TextColor="{StaticResource PlacedDeviceText}"
+                                VerticalOptions="Center" />
+                            <Border
+                                Grid.Column="1"
+                                Padding="8,4"
+                                BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="0">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnDevicePanelToggle" />
+                                </Border.GestureRecognizers>
+                                <Label
+                                    FontFamily="SpaceMonoBold"
+                                    FontSize="12"
+                                    Text="▼ Schließen"
+                                    TextColor="{StaticResource PlacedDeviceTextSecondary}" />
+                            </Border>
+                        </Grid>
+
+                        <!--  Device list  -->
+                        <CollectionView
+                            x:Name="DevicePanelList"
+                            Grid.Row="1"
+                            Margin="8,0,8,8"
+                            ItemsSource="{Binding StructuresVM.SelectedLevel.PlacedDevices}">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout ItemSpacing="6" Orientation="Vertical" />
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:PlacedDeviceModel">
+                                    <Border
+                                        Padding="12,8"
+                                        BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                                        Stroke="{StaticResource PlacedDeviceCardBorder}"
+                                        StrokeShape="RoundRectangle 12"
+                                        StrokeThickness="1">
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                                            <!--  Device info  -->
+                                            <VerticalStackLayout
+                                                Grid.Column="0"
+                                                Spacing="1"
+                                                VerticalOptions="Center">
+                                                <Label
+                                                    FontFamily="SpaceMonoBold"
+                                                    FontSize="13"
+                                                    LineBreakMode="TailTruncation"
+                                                    MaxLines="1"
+                                                    Text="{Binding Name}"
+                                                    TextColor="{StaticResource PlacedDeviceText}" />
+                                                <HorizontalStackLayout Spacing="5">
+                                                    <Ellipse
+                                                        Fill="{Binding IsOnline, Converter={StaticResource BoolToColorConverter}}"
+                                                        HeightRequest="8"
+                                                        VerticalOptions="Center"
+                                                        WidthRequest="8" />
+                                                    <Label
+                                                        FontFamily="SpaceMonoRegular"
+                                                        FontSize="10"
+                                                        LineBreakMode="TailTruncation"
+                                                        MaxLines="1"
+                                                        Opacity="0.7"
+                                                        Text="{Binding NetworkInfo}"
+                                                        TextColor="{StaticResource PlacedDeviceTextSecondary}" />
+                                                </HorizontalStackLayout>
+                                            </VerticalStackLayout>
+
+                                            <!--  Door toggle  -->
+                                            <ImageButton
+                                                Grid.Column="1"
+                                                Padding="4"
+                                                BackgroundColor="{Binding IsDoorOpen, Converter={StaticResource DoorStateToColorConverter}}"
+                                                BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                                                BorderWidth="2"
+                                                Clicked="OnPanelDoorToggle"
+                                                CommandParameter="{Binding .}"
+                                                CornerRadius="16"
+                                                HeightRequest="32"
+                                                VerticalOptions="Center"
+                                                WidthRequest="32">
+                                                <ImageButton.Source>
+                                                    <FontImageSource
+                                                        FontFamily="SpaceMonoBold"
+                                                        Glyph="⇔"
+                                                        Size="14"
+                                                        Color="White" />
+                                                </ImageButton.Source>
+                                            </ImageButton>
+
+                                            <!--  Settings (name, credentials)  -->
+                                            <ImageButton
+                                                Grid.Column="2"
+                                                Padding="5"
+                                                BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                                                BorderColor="{StaticResource PlacedDeviceDropdownBorder}"
+                                                BorderWidth="1"
+                                                Clicked="OnPanelDeviceSettings"
+                                                CommandParameter="{Binding .}"
+                                                CornerRadius="16"
+                                                HeightRequest="32"
+                                                Source="settings.svg"
+                                                VerticalOptions="Center"
+                                                WidthRequest="32">
+                                                <ImageButton.Behaviors>
+                                                    <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                                                </ImageButton.Behaviors>
+                                            </ImageButton>
+
+                                            <!--  Parameters (API parameters)  -->
+                                            <ImageButton
+                                                Grid.Column="3"
+                                                Padding="5"
+                                                BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                                                BorderColor="{StaticResource PlacedDeviceDropdownBorder}"
+                                                BorderWidth="1"
+                                                Clicked="OnPanelSettings"
+                                                CommandParameter="{Binding .}"
+                                                CornerRadius="16"
+                                                HeightRequest="32"
+                                                Source="configuredevicebutton.svg"
+                                                VerticalOptions="Center"
+                                                WidthRequest="32">
+                                                <ImageButton.Behaviors>
+                                                    <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                                                </ImageButton.Behaviors>
+                                            </ImageButton>
+
+                                            <!--  Delete  -->
+                                            <ImageButton
+                                                Grid.Column="4"
+                                                Padding="5"
+                                                BackgroundColor="{StaticResource PlacedDeviceDeleteButton}"
+                                                Clicked="OnPanelDelete"
+                                                CommandParameter="{Binding .}"
+                                                CornerRadius="16"
+                                                HeightRequest="32"
+                                                Source="bin.svg"
+                                                VerticalOptions="Center"
+                                                WidthRequest="32">
+                                                <ImageButton.Behaviors>
+                                                    <toolkit:IconTintColorBehavior TintColor="White" />
+                                                </ImageButton.Behaviors>
+                                            </ImageButton>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Grid>
+                </Border>
+            </Grid>
 
 
             <!--  Footer Component  -->

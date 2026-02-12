@@ -15,26 +15,12 @@
     <converters:InverseBoolConverter x:Key="InvertedBoolConverter" />
 
     <Style x:Key="NeonArrowStyle" TargetType="ImageButton">
-        <!--  Debug-friendly visuals to ensure arrows are visible even if image fails  -->
-        <Setter Property="BackgroundColor" Value="#40FFFF00" />
-        <Setter Property="BorderWidth" Value="2" />
-        <Setter Property="HeightRequest" Value="100" />
-        <Setter Property="WidthRequest" Value="100" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="HeightRequest" Value="60" />
+        <Setter Property="WidthRequest" Value="60" />
         <Setter Property="InputTransparent" Value="False" />
-
-        <!-- <Setter Property="Behaviors">
-        <Setter.Value>
-            <toolkit:AnimationBehavior EventName="Loaded">
-                <toolkit:AnimationBehavior.AnimationType>
-                    <animations:LoopingScaleAnimation
-                        Length="500"
-                        Easing="{x:Static Easing.SinInOut}"
-                        From="1.0"
-                        To="1.08" />
-                </toolkit:AnimationBehavior.AnimationType>
-            </toolkit:AnimationBehavior>
-        </Setter.Value>-->
-        <!-- </Setter> -->
+        <Setter Property="Opacity" Value="1.0" />
     </Style>
 
 

@@ -19,10 +19,11 @@
             <converters:BoolToOpenCloseConverter x:Key="BoolToOpenCloseConverter" />
             <converters:DoorStateToColorConverter x:Key="DoorStateToColorConverter" />
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
         </ResourceDictionary>
     </ContentView.Resources>
 
-    <!--  Main Container - AbsoluteLayout for overlay positioning (T032 fix)  -->
+    <!--  Main Container  -->
     <AbsoluteLayout
         x:Name="MainContainer"
         BackgroundColor="Transparent"
@@ -31,71 +32,61 @@
         VerticalOptions="Center"
         WidthRequest="600">
 
+        <!--  ═══════════════════════  SCALE BUTTONS (top, only in move-mode)  ═══════════════════════  -->
         <Grid
             x:Name="ScaleBtnGrid"
-            AbsoluteLayout.LayoutBounds="0.5,0.200,250,0"
+            AbsoluteLayout.LayoutBounds="0.5,0.18,220,0"
             AbsoluteLayout.LayoutFlags="PositionProportional"
             BackgroundColor="Transparent"
             ColumnDefinitions="Auto,*,Auto"
-            HeightRequest="50"
+            HeightRequest="44"
             IsVisible="{Binding IsInMoveMode}"
             VerticalOptions="Start">
 
-            <!--  Scale Plus Button  -->
             <ImageButton
                 x:Name="ScalePlusDeviceButton"
                 Grid.Column="0"
-                Padding="10"
-                BackgroundColor="Grey"
+                Padding="8"
+                BackgroundColor="{StaticResource PlacedDeviceActionBg}"
                 BorderColor="{StaticResource PlacedDeviceMoveButton}"
-                BorderWidth="4"
+                BorderWidth="2"
                 Command="{Binding ScalePlusCommand}"
-                CornerRadius="25"
-                HeightRequest="50"
+                CornerRadius="22"
+                HeightRequest="44"
                 Loaded="OnScaleButtonLoaded"
                 Source="plus.svg"
-                WidthRequest="50">
+                WidthRequest="44">
                 <ImageButton.Behaviors>
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Pressed" 
-                        Command="{Binding InteractivePressedCommand}" />
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Released" 
-                        Command="{Binding InteractiveReleasedCommand}" />
+                    <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                    <toolkit:EventToCommandBehavior EventName="Pressed" Command="{Binding InteractivePressedCommand}" />
+                    <toolkit:EventToCommandBehavior EventName="Released" Command="{Binding InteractiveReleasedCommand}" />
                 </ImageButton.Behaviors>
             </ImageButton>
 
-            <!--  Spacer (mittlere Spalte)  -->
             <BoxView Grid.Column="1" BackgroundColor="Transparent" />
 
-            <!--  Scale Minus Button  -->
             <ImageButton
                 x:Name="ScaleMinusDeviceButton"
                 Grid.Column="2"
-                Padding="10"
-                BackgroundColor="Grey"
+                Padding="8"
+                BackgroundColor="{StaticResource PlacedDeviceActionBg}"
                 BorderColor="{StaticResource PlacedDeviceMoveButton}"
-                BorderWidth="4"
+                BorderWidth="2"
                 Command="{Binding ScaleMinusCommand}"
-                CornerRadius="25"
-                HeightRequest="50"
+                CornerRadius="22"
+                HeightRequest="44"
                 Loaded="OnScaleButtonLoaded"
                 Source="minus.svg"
-                WidthRequest="50">
+                WidthRequest="44">
                 <ImageButton.Behaviors>
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Pressed" 
-                        Command="{Binding InteractivePressedCommand}" />
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Released" 
-                        Command="{Binding InteractiveReleasedCommand}" />
+                    <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                    <toolkit:EventToCommandBehavior EventName="Pressed" Command="{Binding InteractivePressedCommand}" />
+                    <toolkit:EventToCommandBehavior EventName="Released" Command="{Binding InteractiveReleasedCommand}" />
                 </ImageButton.Behaviors>
             </ImageButton>
         </Grid>
 
-
-
-        <!--  Move Buttons Container (T032: Overlay with HaloSpacing, always above Card)  -->
+        <!--  ═══════════════════════  MOVE ARROWS (only in move-mode)  ═══════════════════════  -->
         <AbsoluteLayout
             x:Name="ArrowButtonsContainer"
             AbsoluteLayout.LayoutBounds="0.5,0.5,480,480"
@@ -103,324 +94,306 @@
             IsVisible="{Binding IsInMoveMode}"
             ZIndex="99">
 
-            <!--  Up Arrow  -->
+            <!--  Up  -->
             <ImageButton
                 x:Name="NeonArrowUp"
-                Padding="0"
-                AbsoluteLayout.LayoutBounds="0.5,0.06,75,65"
+                Padding="10"
+                AbsoluteLayout.LayoutBounds="0.5,0.04,52,52"
                 AbsoluteLayout.LayoutFlags="PositionProportional"
-                BackgroundColor="Transparent"
+                BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                BorderWidth="2"
                 Command="{Binding MoveUpCommand}"
                 CommandParameter="Up"
+                CornerRadius="26"
+                HeightRequest="60"
                 Loaded="OnArrowLoaded"
-                Source="placementbuttonup.svg"
-                Style="{StaticResource NeonArrowStyle}">
+                Source="arrow_up.svg"
+                WidthRequest="60">
                 <ImageButton.Behaviors>
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Pressed" 
-                        Command="{Binding InteractivePressedCommand}" />
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Released" 
-                        Command="{Binding InteractiveReleasedCommand}" />
+                    <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                    <toolkit:EventToCommandBehavior EventName="Pressed" Command="{Binding InteractivePressedCommand}" />
+                    <toolkit:EventToCommandBehavior EventName="Released" Command="{Binding InteractiveReleasedCommand}" />
                 </ImageButton.Behaviors>
             </ImageButton>
 
-            <!--  Down Arrow  -->
+            <!--  Down  -->
             <ImageButton
                 x:Name="NeonArrowDown"
-                Padding="0"
-                AbsoluteLayout.LayoutBounds="0.5,0.94,44,24"
+                Padding="10"
+                AbsoluteLayout.LayoutBounds="0.5,0.96,52,52"
                 AbsoluteLayout.LayoutFlags="PositionProportional"
-                BackgroundColor="Transparent"
+                BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                BorderWidth="2"
                 Command="{Binding MoveDownCommand}"
                 CommandParameter="Down"
+                CornerRadius="26"
+                HeightRequest="60"
                 Loaded="OnArrowLoaded"
-                Source="placementbuttondown.svg"
-                Style="{StaticResource NeonArrowStyle}">
+                Source="arrow_down.svg"
+                WidthRequest="60">
                 <ImageButton.Behaviors>
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Pressed" 
-                        Command="{Binding InteractivePressedCommand}" />
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Released" 
-                        Command="{Binding InteractiveReleasedCommand}" />
+                    <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                    <toolkit:EventToCommandBehavior EventName="Pressed" Command="{Binding InteractivePressedCommand}" />
+                    <toolkit:EventToCommandBehavior EventName="Released" Command="{Binding InteractiveReleasedCommand}" />
                 </ImageButton.Behaviors>
             </ImageButton>
 
-            <!--  Left Arrow  -->
+            <!--  Left  -->
             <ImageButton
                 x:Name="NeonArrowLeft"
-                Padding="0"
-                AbsoluteLayout.LayoutBounds="0.06,0.5,24,44"
+                Padding="10"
+                AbsoluteLayout.LayoutBounds="0.04,0.5,52,52"
                 AbsoluteLayout.LayoutFlags="PositionProportional"
-                BackgroundColor="Transparent"
+                BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                BorderWidth="2"
                 Command="{Binding MoveLeftCommand}"
                 CommandParameter="Left"
+                CornerRadius="26"
+                HeightRequest="60"
                 Loaded="OnArrowLoaded"
-                Source="placementbuttonleft.svg"
-                Style="{StaticResource NeonArrowStyle}">
+                Source="arrow_left.svg"
+                WidthRequest="60">
                 <ImageButton.Behaviors>
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Pressed" 
-                        Command="{Binding InteractivePressedCommand}" />
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Released" 
-                        Command="{Binding InteractiveReleasedCommand}" />
+                    <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                    <toolkit:EventToCommandBehavior EventName="Pressed" Command="{Binding InteractivePressedCommand}" />
+                    <toolkit:EventToCommandBehavior EventName="Released" Command="{Binding InteractiveReleasedCommand}" />
                 </ImageButton.Behaviors>
             </ImageButton>
 
-            <!--  Right Arrow  -->
+            <!--  Right  -->
             <ImageButton
                 x:Name="NeonArrowRight"
-                Padding="0"
-                AbsoluteLayout.LayoutBounds="0.94,0.5,24,44"
+                Padding="10"
+                AbsoluteLayout.LayoutBounds="0.96,0.5,52,52"
                 AbsoluteLayout.LayoutFlags="PositionProportional"
-                BackgroundColor="Transparent"
+                BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                BorderWidth="2"
                 Command="{Binding MoveRightCommand}"
                 CommandParameter="Right"
+                CornerRadius="26"
+                HeightRequest="60"
                 Loaded="OnArrowLoaded"
-                Source="placementbuttonright.svg"
-                Style="{StaticResource NeonArrowStyle}">
+                Source="arrow_right.svg"
+                WidthRequest="60">
                 <ImageButton.Behaviors>
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Pressed" 
-                        Command="{Binding InteractivePressedCommand}" />
-                    <toolkit:EventToCommandBehavior 
-                        EventName="Released" 
-                        Command="{Binding InteractiveReleasedCommand}" />
+                    <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                    <toolkit:EventToCommandBehavior EventName="Pressed" Command="{Binding InteractivePressedCommand}" />
+                    <toolkit:EventToCommandBehavior EventName="Released" Command="{Binding InteractiveReleasedCommand}" />
                 </ImageButton.Behaviors>
             </ImageButton>
         </AbsoluteLayout>
 
-
-
-
-        <!--  Feature Card (Main Device Info) - Auto height by content  -->
+        <!--  ═══════════════════════  DEVICE CARD  ═══════════════════════  -->
         <Border
             AbsoluteLayout.LayoutBounds="175,175,250,AutoSize"
             AbsoluteLayout.LayoutFlags="None"
-            Background="{StaticResource PlacedDeviceAddButton}"
+            BackgroundColor="{StaticResource PlacedDeviceCardBackground}"
             HorizontalOptions="Center"
-            Stroke="{StaticResource PlacedDeviceMoveButton}"
-            StrokeThickness="3"
+            Stroke="{StaticResource PlacedDeviceCardBorder}"
+            StrokeThickness="1.5"
             VerticalOptions="Center"
             ZIndex="0">
             <Border.StrokeShape>
-                <RoundRectangle CornerRadius="16" />
+                <RoundRectangle CornerRadius="20" />
             </Border.StrokeShape>
             <Border.Shadow>
                 <Shadow
-                    Brush="#00BFFF"
-                    Opacity="0.85"
-                    Radius="22"
-                    Offset="0,0" />
+                    Brush="{StaticResource PlacedDeviceCardShadow}"
+                    Opacity="0.6"
+                    Radius="28"
+                    Offset="0,4" />
             </Border.Shadow>
-            <Grid>
-                <Grid InputTransparent="False" RowDefinitions="Auto,Auto,Auto">
 
-                    <!--  Device Info Container (Top)  -->
-                    <StackLayout
-                        Grid.Row="0"
-                        Margin="10,9,10,0"
+            <Grid InputTransparent="False" RowDefinitions="Auto,Auto,Auto">
+
+                <!--  ──── Row 0: Device Name + IP + Online Indicator ────  -->
+                <VerticalStackLayout
+                    Grid.Row="0"
+                    Padding="16,14,16,0"
+                    Spacing="2">
+                    <Label
+                        FontAttributes="Bold"
+                        FontFamily="SpaceMonoBold"
+                        FontSize="16"
                         HorizontalOptions="Center"
-                        Spacing="4"
-                        VerticalOptions="Start">
-
-                        <!--  Device Name  -->
-                        <Label
-                            FontFamily="SpaceMonoBold"
-                            FontSize="25"
-                            HorizontalOptions="Center"
-                            LineBreakMode="MiddleTruncation"
-                            MaxLines="1"
-                            Text="{Binding Name}"
-                            TextColor="{StaticResource PlacedDeviceText}"
-                            TextDecorations="Underline" />
-
-                        <!--  Network info: show SSID for WiFi devices, otherwise IP address  -->
+                        LineBreakMode="MiddleTruncation"
+                        MaxLines="1"
+                        Text="{Binding Name}"
+                        TextColor="{StaticResource PlacedDeviceText}" />
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="6">
+                        <Ellipse
+                            Fill="{Binding IsOnline, Converter={StaticResource BoolToColorConverter}}"
+                            HeightRequest="8"
+                            VerticalOptions="Center"
+                            WidthRequest="8" />
                         <Label
                             FontFamily="SpaceMonoRegular"
                             FontSize="10"
-                            HorizontalOptions="Center"
                             LineBreakMode="TailTruncation"
                             MaxLines="1"
+                            Opacity="0.7"
                             Text="{Binding NetworkInfo}"
-                            TextColor="{StaticResource PlacedDeviceTextSecondary}"
-                            TextDecorations="Underline" />
-                    </StackLayout>
+                            TextColor="{StaticResource PlacedDeviceTextSecondary}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
 
-                    <!--  Spacer removed so label can sit directly under buttons  -->
+                <!--  ──── Row 1: Door Button (hero element) ────  -->
+                <Border
+                    Grid.Row="1"
+                    Margin="0,12,0,0"
+                    BackgroundColor="Transparent"
+                    HeightRequest="115"
+                    HorizontalOptions="Center"
+                    Stroke="Transparent"
+                    StrokeThickness="1"
+                    WidthRequest="115">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="55" />
+                    </Border.StrokeShape>
 
-                    <!--  Button Row at Bottom  -->
-                    <Grid
-                        Grid.Row="1"
-                        Margin="10,10,10,0"
-                        ColumnDefinitions="Auto,Auto,Auto"
-                        HorizontalOptions="Center"
-                        RowDefinitions="Auto,Auto,Auto"
-                        VerticalOptions="Center">
-
-
-
-                        <!--  Delete Device Button (Left)  -->
-                        <ImageButton
-                            Grid.Row="2"
-                            Grid.RowSpan="1"
-                            Grid.Column="2"
-                            Margin="5,50,0,0"
-                            Aspect="Center"
-                            BackgroundColor="{StaticResource PlacedDeviceDeleteButton}"
-                            BorderColor="#FFD60A"
-                            BorderWidth="2"
-                            Command="{Binding DeleteDeviceCommand}"
-                            CornerRadius="22"
+                    <!--  Outer glow ring  -->
+                    <Grid>
+                        <Ellipse
+                            Fill="Transparent"
+                            HeightRequest="115"
                             HorizontalOptions="Center"
-                            MinimumHeightRequest="45"
-                            MinimumWidthRequest="45"
-                            Source="bin.svg"
-                            VerticalOptions="Center" />
-
-                        <!--  Large Open/Close Button (Center)  -->
-                        <Border
-                            Grid.Row="1"
-                            Grid.RowSpan="2"
-                            Grid.Column="1"
-                            Margin="1"
-                            BackgroundColor="Transparent"
-                            Stroke="{StaticResource Primary}"
-                            StrokeThickness="6">
-
-
-
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="55" />
-                            </Border.StrokeShape>
-
-                            <ImageButton
-                                Padding="10"
-                                BackgroundColor="{Binding PlacedDevice.IsDoorOpen, Converter={StaticResource DoorStateToColorConverter}}"
-                                BorderColor="{StaticResource PlacedDeviceMoveButton}"
-                                BorderWidth="5"
-                                Command="{Binding ControlViewModel.ToggleDoorCommand}"
-                                CornerRadius="50"
-                                HeightRequest="110"
-                                HorizontalOptions="Center"
-                                IsEnabled="{Binding ControlViewModel.DoorActionInProgress, Converter={StaticResource InvertedBoolConverter}}"
-                                VerticalOptions="Center"
-                                WidthRequest="110">
-                                <ImageButton.Behaviors>
-                                    <toolkit:EventToCommandBehavior 
-                                        EventName="Pressed" 
-                                        Command="{Binding InteractivePressedCommand}" />
-                                    <toolkit:EventToCommandBehavior 
-                                        EventName="Released" 
-                                        Command="{Binding InteractiveReleasedCommand}" />
-                                </ImageButton.Behaviors>
-                                <ImageButton.Source>
-                                    <FontImageSource
-                                        FontFamily="SpaceMonoBold"
-                                        Glyph="{Binding ControlViewModel.IsDoorOpen, Converter={StaticResource BoolToOpenCloseConverter}}"
-                                        Size="14"
-                                        Color="Black" />
-                                </ImageButton.Source>
-                            </ImageButton>
-                        </Border>
-
-
-                        <!--  Move Device Button (Right)  -->
+                            Stroke="{StaticResource PlacedDeviceMoveButton}"
+                            StrokeThickness="2.5"
+                            VerticalOptions="Center"
+                            WidthRequest="115"
+                            Opacity="0.5" />
                         <ImageButton
-                            x:Name="DevicePlacementModeBtn"
-                            Grid.Row="3"
-                            Grid.RowSpan="1"
-                            Grid.Column="0"
-                            Margin="0,50,5,0"
-                            Aspect="Center"
-                            Command="{Binding ToggleMoveModeCommand}"
-                            CornerRadius="22"
+                            Padding="8"
+                            BackgroundColor="{Binding PlacedDevice.IsDoorOpen, Converter={StaticResource DoorStateToColorConverter}}"
+                            BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                            BorderWidth="3"
+                            Command="{Binding ControlViewModel.ToggleDoorCommand}"
+                            CornerRadius="38"
+                            HeightRequest="100"
                             HorizontalOptions="Center"
-                            InputTransparent="False"
-                            IsEnabled="True"
-                            Loaded="OnArrowLoaded"
-                            MinimumHeightRequest="45"
-                            MinimumWidthRequest="45"
-                            Source="move.svg"
-                            VerticalOptions="Center">
+                            IsEnabled="{Binding ControlViewModel.DoorActionInProgress, Converter={StaticResource InvertedBoolConverter}}"
+                            VerticalOptions="Center"
+                            WidthRequest="100">
                             <ImageButton.Behaviors>
-                                <toolkit:EventToCommandBehavior 
-                                    EventName="Pressed" 
-                                    Command="{Binding InteractivePressedCommand}" />
-                                <toolkit:EventToCommandBehavior 
-                                    EventName="Released" 
-                                    Command="{Binding InteractiveReleasedCommand}" />
+                                <toolkit:EventToCommandBehavior EventName="Pressed" Command="{Binding InteractivePressedCommand}" />
+                                <toolkit:EventToCommandBehavior EventName="Released" Command="{Binding InteractiveReleasedCommand}" />
                             </ImageButton.Behaviors>
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup Name="PlacementModeStates">
-                                    <VisualState Name="Active">
-                                        <VisualState.Setters>
-                                            <Setter Property="BackgroundColor" Value="{StaticResource PlacedDeviceConfigButton}" />
-                                            <Setter Property="BorderColor" Value="{StaticResource PlacedDeviceActiveBorder}" />
-                                            <Setter Property="BorderWidth" Value="4" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState Name="Inactive">
-                                        <VisualState.Setters>
-                                            <Setter Property="BackgroundColor" Value="{StaticResource PlacedDeviceMoveButton}" />
-                                            <Setter Property="BorderColor" Value="{StaticResource PlacedDeviceConfigButton}" />
-                                            <Setter Property="BorderWidth" Value="2" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
+                            <ImageButton.Source>
+                                <FontImageSource
+                                    FontFamily="SpaceMonoBold"
+                                    Glyph="{Binding ControlViewModel.IsDoorOpen, Converter={StaticResource BoolToOpenCloseConverter}}"
+                                    Size="13"
+                                    Color="White" />
+                            </ImageButton.Source>
                         </ImageButton>
                     </Grid>
+                </Border>
 
-                    <!--  Dropdown split-button: primary action + selector + options  -->
-                    <Grid
-                        Grid.Row="2"
-                        Margin="10,10,10,12"
-                        ColumnDefinitions="*,Auto,Auto"
-                        HorizontalOptions="Center">
-                        <Button
-                            Grid.Column="0"
-                            Padding="12,8"
-                            BackgroundColor="{StaticResource PlacedDeviceConfigButton}"
-                            BorderColor="{StaticResource PlacedDeviceMoveButton}"
-                            BorderWidth="2"
-                            Command="{Binding ExecuteSelectedModeCommand}"
-                            CornerRadius="10"
-                            FontFamily="SpaceMonoBold"
-                            FontSize="12"
-                            Text="{Binding SelectedModeText}" />
-                        <Button
-                            Grid.Column="1"
-                            Margin="8,0,0,0"
-                            Padding="10,8"
-                            BackgroundColor="{StaticResource PlacedDeviceConfigButton}"
-                            BorderColor="{StaticResource PlacedDeviceMoveButton}"
-                            BorderWidth="2"
-                            Command="{Binding OpenModeSelectorCommand}"
-                            CornerRadius="10"
-                            FontFamily="SpaceMonoBold"
-                            FontSize="12"
-                            Text="▼" />
-                        <!--  Options/Settings Button - navigates to DeviceParametersPage  -->
-                        <Button
-                            Grid.Column="2"
-                            Margin="8,0,0,0"
-                            Padding="10,8"
-                            BackgroundColor="{StaticResource PlacedDeviceConfigButton}"
-                            BorderColor="{StaticResource PlacedDeviceMoveButton}"
-                            BorderWidth="2"
-                            Command="{Binding OpenDeviceParametersCommand}"
-                            CornerRadius="10"
-                            FontFamily="SpaceMonoBold"
-                            FontSize="20"
-                            TextColor="Black"
-                            Text="⚙️" />
-                    </Grid>
+                <!--  ──── Row 2: Action buttons row (move · settings · parameters · delete) ────  -->
+                <Grid
+                    Grid.Row="2"
+                    Margin="12,10,12,12"
+                    ColumnDefinitions="Auto,*,Auto,Auto,*,Auto"
+                    ColumnSpacing="8"
+                    HorizontalOptions="Fill">
+
+                    <!--  Move Button  -->
+                    <ImageButton
+                        x:Name="DevicePlacementModeBtn"
+                        Grid.Column="0"
+                        Padding="6"
+                        BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                        BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                        BorderWidth="1.5"
+                        Command="{Binding ToggleMoveModeCommand}"
+                        CornerRadius="18"
+                        HeightRequest="36"
+                        InputTransparent="False"
+                        IsEnabled="True"
+                        Loaded="OnArrowLoaded"
+                        Source="move.svg"
+                        WidthRequest="36">
+                        <ImageButton.Behaviors>
+                            <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                            <toolkit:EventToCommandBehavior EventName="Pressed" Command="{Binding InteractivePressedCommand}" />
+                            <toolkit:EventToCommandBehavior EventName="Released" Command="{Binding InteractiveReleasedCommand}" />
+                        </ImageButton.Behaviors>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup Name="PlacementModeStates">
+                                <VisualState Name="Active">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="{StaticResource PlacedDeviceMoveButton}" />
+                                        <Setter Property="BorderColor" Value="{StaticResource PlacedDeviceActiveBorder}" />
+                                        <Setter Property="BorderWidth" Value="2.5" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState Name="Inactive">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="{StaticResource PlacedDeviceActionBg}" />
+                                        <Setter Property="BorderColor" Value="{StaticResource PlacedDeviceMoveButton}" />
+                                        <Setter Property="BorderWidth" Value="1.5" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </ImageButton>
+
+                    <!--  Settings Button (name, credentials)  -->
+                    <ImageButton
+                        Grid.Column="2"
+                        Padding="6"
+                        BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                        BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                        BorderWidth="1.5"
+                        Command="{Binding OpenDeviceSettingsCommand}"
+                        CornerRadius="18"
+                        HeightRequest="36"
+                        Source="settings.svg"
+                        WidthRequest="36">
+                        <ImageButton.Behaviors>
+                            <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                        </ImageButton.Behaviors>
+                    </ImageButton>
+
+                    <!--  Parameters Button (device API parameters)  -->
+                    <ImageButton
+                        Grid.Column="3"
+                        Padding="6"
+                        BackgroundColor="{StaticResource PlacedDeviceActionBg}"
+                        BorderColor="{StaticResource PlacedDeviceMoveButton}"
+                        BorderWidth="1.5"
+                        Command="{Binding OpenDeviceParametersCommand}"
+                        CornerRadius="18"
+                        HeightRequest="36"
+                        Source="configuredevicebutton.svg"
+                        WidthRequest="36">
+                        <ImageButton.Behaviors>
+                            <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                        </ImageButton.Behaviors>
+                    </ImageButton>
+
+                    <!--  Delete Button  -->
+                    <ImageButton
+                        Grid.Column="5"
+                        Padding="6"
+                        BackgroundColor="{StaticResource PlacedDeviceDeleteButton}"
+                        BorderColor="Transparent"
+                        BorderWidth="0"
+                        Command="{Binding DeleteDeviceCommand}"
+                        CornerRadius="18"
+                        HeightRequest="36"
+                        Source="bin.svg"
+                        WidthRequest="36">
+                        <ImageButton.Behaviors>
+                            <toolkit:IconTintColorBehavior TintColor="{StaticResource PlacedDeviceMoveButton}" />
+                        </ImageButton.Behaviors>
+                    </ImageButton>
                 </Grid>
             </Grid>
-
         </Border>
     </AbsoluteLayout>
 </ContentView>

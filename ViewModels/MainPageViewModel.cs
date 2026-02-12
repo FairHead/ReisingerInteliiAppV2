@@ -46,6 +46,7 @@ public class MainPageViewModel : BaseViewModel, IDisposable
     private bool _isStructuresDropdownOpen;
     private bool _isLevelsDropdownOpen;
     private bool _isDevicesDropdownOpen;
+    private bool _isDevicePanelOpen;
     public StructuresViewModel StructuresVM { get; }
 
     public MainPageViewModel(IDeviceService deviceService, IAuthenticationService authService, WiFiManagerService wifiService, IntellidriveApiService apiService, IBuildingStorageService buildingStorage, StructuresViewModel structuresVM, PdfStorageService pdfStorage, IPlanViewportService? viewport = null)
@@ -263,6 +264,26 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         get => _isDevicesDropdownOpen;
         set => SetProperty(ref _isDevicesDropdownOpen, value);
     }
+
+    /// <summary>
+    /// Controls the collapsible placed-devices panel above the footer.
+    /// </summary>
+    public bool IsDevicePanelOpen
+    {
+        get => _isDevicePanelOpen;
+        set => SetProperty(ref _isDevicePanelOpen, value);
+    }
+
+    /// <summary>
+    /// True when the selected floor has at least one placed device.
+    /// </summary>
+    public bool HasPlacedDevices
+        => StructuresVM?.SelectedLevel?.PlacedDevices?.Count > 0;
+
+    /// <summary>
+    /// Notifies the UI that HasPlacedDevices may have changed.
+    /// </summary>
+    public void RefreshHasPlacedDevices() => OnPropertyChanged(nameof(HasPlacedDevices));
 
     /// <summary>
     /// Command for navigating to StructureEditor (reused from center button)

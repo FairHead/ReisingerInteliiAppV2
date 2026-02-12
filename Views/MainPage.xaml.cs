@@ -464,6 +464,9 @@ public partial class MainPage : ContentPage, IPlanViewportService
                 Console.WriteLine($"[PlacedDevices_CollectionChanged] Exception: {ex.Message}\n{ex.StackTrace}");
             }
 
+            // Refresh panel visibility
+            _viewModel?.RefreshHasPlacedDevices();
+
             if (e.NewItems != null)
             {
                 foreach (var obj in e.NewItems.OfType<PlacedDeviceModel>())
@@ -1395,4 +1398,126 @@ public partial class MainPage : ContentPage, IPlanViewportService
             Console.WriteLine($"📏 Using view dimensions as fallback: {_planIntrinsicWidth:F0}x{_planIntrinsicHeight:F0}");
         }
     }
+
+    #region Device Panel Events
+
+    private void OnDevicePanelToggle(object? sender, TappedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.IsDevicePanelOpen = !_viewModel.IsDevicePanelOpen;
+    }
+
+    private async void OnPanelDoorToggle(object? sender, EventArgs e)
+    {
+        if (sender is not ImageButton btn || btn.CommandParameter is not PlacedDeviceModel pd) return;
+        if (pd.DeviceInfo == null) return;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(pd.DeviceInfo.Username) || string.IsNullOrWhiteSpace(pd.DeviceInfo.Password))
+            {
+                await DisplayAlert("Zugangsdaten fehlen",
+                    $"Für '{pd.Name}' sind kein Benutzername/Passwort hinterlegt.", "OK");
+                return;
+            }
+
+            var api = ServiceHelper.GetService<IntellidriveApiService>();
+            var stateResp = await api.GetDoorStateAsync(pd.DeviceInfo);
+            bool isOpen = stateResp?.Contains("open", StringComparison.OrdinalIgnoreCase) == true;
+
+            if (isOpen)
+                await api.CloseDoorAsync(pd.DeviceInfo);
+            else
+                await api.OpenDoorAsync(pd.DeviceInfo);
+
+            pd.IsDoorOpen = !isOpen;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Panel door toggle error: {ex.Message}");
+            await DisplayAlert("Fehler", ex.Message, "OK");
+        }
+    }
+
+    private async void OnPanelModeSelect(object? sender, EventArgs e)
+    {
+        if (sender is not Button btn || btn.CommandParameter is not PlacedDeviceModel pd) return;
+
+        var options = new[] { "Dauerauf", "Lock/Unlock", "Einbahn", "Auto Halb", "Auto Ganz", "Winter" };
+        var selection = await DisplayActionSheet($"Modus für {pd.Name}", "Abbrechen", null, options);
+
+        if (string.IsNullOrEmpty(selection) || selection == "Abbrechen") return;
+
+        switch (selection)
+        {
+            case "Dauerauf": pd.DauerAuf = !pd.DauerAuf; break;
+            case "Lock/Unlock": pd.IsLocked = !pd.IsLocked; break;
+            case "Einbahn": pd.IsOneWay = !pd.IsOneWay; break;
+            case "Auto Halb": pd.AutoMode = PlacedDeviceModel.AutoModeLevel.Half; break;
+            case "Auto Ganz": pd.AutoMode = PlacedDeviceModel.AutoModeLevel.Full; break;
+            case "Winter": pd.IsWinterMode = !pd.IsWinterMode; break;
+        }
+    }
+
+    private async void OnPanelSettings(object? sender, EventArgs e)
+    {
+        if (sender is not ImageButton btn || btn.CommandParameter is not PlacedDeviceModel pd) return;
+
+        try
+        {
+            var deviceData = new
+            {
+                deviceId = pd.DeviceId,
+                name = pd.Name,
+                ip = pd.DeviceInfo?.Ip ?? pd.DeviceInfo?.IpAddress ?? string.Empty,
+                ssid = pd.DeviceInfo?.Ssid ?? string.Empty,
+                username = pd.DeviceInfo?.Username ?? string.Empty,
+                password = pd.DeviceInfo?.Password ?? string.Empty
+            };
+            var json = System.Text.Json.JsonSerializer.Serialize(deviceData);
+            var encoded = Uri.EscapeDataString(json);
+            await Shell.Current.GoToAsync($"deviceparameters?deviceData={encoded}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Panel settings error: {ex.Message}");
+        }
+    }
+
+    private async void OnPanelDeviceSettings(object? sender, EventArgs e)
+    {
+        if (sender is not ImageButton btn || btn.CommandParameter is not PlacedDeviceModel pd) return;
+
+        try
+        {
+            var payload = new
+            {
+                ip = pd.DeviceInfo?.Ip ?? pd.DeviceInfo?.IpAddress ?? string.Empty,
+                name = pd.Name ?? string.Empty,
+                serial = string.Empty,
+                firmware = string.Empty,
+                deviceId = pd.DeviceId ?? string.Empty
+            };
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            var encoded = Uri.EscapeDataString(json);
+            await Shell.Current.GoToAsync($"savelocaldevice?deviceData={encoded}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Panel device settings error: {ex.Message}");
+        }
+    }
+
+    private async void OnPanelDelete(object? sender, EventArgs e)
+    {
+        if (sender is not ImageButton btn || btn.CommandParameter is not PlacedDeviceModel pd) return;
+
+        bool confirm = await DisplayAlert("Gerät entfernen",
+            $"'{pd.Name}' vom Bauplan entfernen?", "Entfernen", "Abbrechen");
+        if (!confirm) return;
+
+        _viewModel?.StructuresVM?.SelectedLevel?.PlacedDevices?.Remove(pd);
+    }
+
+    #endregion
 }

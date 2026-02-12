@@ -1,5 +1,6 @@
 using ReisingerIntelliApp_V4.Models;
 using System;
+using ReisingerIntelliApp_V4.Services;
 using ReisingerIntelliApp_V4.ViewModels;
 using ReisingerIntelliApp_V4.Helpers;
 
@@ -21,7 +22,7 @@ public partial class PlacedDeviceControl : ContentView
         catch (Exception ex)
         {
             Console.WriteLine($"❌ PlacedDeviceControl: Failed to resolve PlacedDeviceControlViewModel: {ex}");
-            _viewModel = new PlacedDeviceControlViewModel();
+            _viewModel = new PlacedDeviceControlViewModel(ServiceHelper.GetService<IntellidriveApiService>()!);
         }
         BindingContext = _viewModel;
         
@@ -164,6 +165,9 @@ public partial class PlacedDeviceControl : ContentView
         Console.WriteLine("[PlacedDeviceControl] Loaded - wiring visibility observers");
         try
         {
+            // Unsubscribe from static event when control is removed
+            this.Unloaded += OnControlUnloaded;
+
             var container = this.FindByName<AbsoluteLayout>("ArrowButtonsContainer");
             if (container != null)
             {
@@ -186,6 +190,12 @@ public partial class PlacedDeviceControl : ContentView
         {
             Console.WriteLine($"[PlacedDeviceControl] OnControlLoaded error: {ex.Message}");
         }
+    }
+
+    private void OnControlUnloaded(object? sender, EventArgs e)
+    {
+        _viewModel?.Unsubscribe();
+        this.Unloaded -= OnControlUnloaded;
     }
 
     private void OnArrowLoaded(object sender, EventArgs e)

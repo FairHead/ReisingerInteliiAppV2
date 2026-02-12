@@ -58,19 +58,31 @@
     <Color x:Key="DarkCardBackground">#2D2D2D</Color>
     <Color x:Key="DarkBorderColor">#404040</Color>
 
-    <!--  PlacedDeviceControl color resources  -->
-    <!--  Small control buttons on the device card (plus/minus/arrows)  -->
+    <!--  PlacedDeviceControl color resources (dark-glass design)  -->
+    <!--  Card background: frosted dark glass  -->
+    <Color x:Key="PlacedDeviceCardBackground">#F5181E2A</Color>
+    <!--  Card border: subtle blue glow  -->
+    <Color x:Key="PlacedDeviceCardBorder">#60387ADB</Color>
+    <!--  Card shadow glow  -->
+    <Color x:Key="PlacedDeviceCardShadow">#404F8FEF</Color>
+    <!--  Small control buttons (plus/minus/arrows)  -->
     <Color x:Key="PlacedDeviceAddButton">#333333</Color>
 
     <Color x:Key="DropdownListBackgroundTransparent">#80333333</Color>
-    <!--  Delete (bin) button background  -->
-    <Color x:Key="PlacedDeviceDeleteButton">#FF3B30</Color>
-    <!--  Center open/close (config) button background  -->
+    <!--  Delete button: muted red  -->
+    <Color x:Key="PlacedDeviceDeleteButton">#CC3B3040</Color>
+    <Color x:Key="PlacedDeviceDeleteButtonIcon">#FF6B6B</Color>
+    <!--  Open/close button ring  -->
     <Color x:Key="PlacedDeviceConfigButton">#FFD60A</Color>
-    <!--  Move button background  -->
-    <Color x:Key="PlacedDeviceMoveButton">#0A84FF</Color>
+    <!--  Move/accent: blue  -->
+    <Color x:Key="PlacedDeviceMoveButton">#387ADB</Color>
+    <!--  Action button row background  -->
+    <Color x:Key="PlacedDeviceActionBg">#E61E2536</Color>
     <!--  Text colors on device card  -->
-    <Color x:Key="PlacedDeviceText">#FFFFFF</Color>
-    <Color x:Key="PlacedDeviceActiveBorder">Green</Color>
-    <Color x:Key="PlacedDeviceTextSecondary">#B0B0B0</Color>
+    <Color x:Key="PlacedDeviceText">#F0F4FF</Color>
+    <Color x:Key="PlacedDeviceActiveBorder">#34D399</Color>
+    <Color x:Key="PlacedDeviceTextSecondary">#8899B0</Color>
+    <!--  Mode dropdown  -->
+    <Color x:Key="PlacedDeviceDropdownBg">#E6232B3E</Color>
+    <Color x:Key="PlacedDeviceDropdownBorder">#4060A5FA</Color>
 </ResourceDictionary>
