@@ -50,20 +50,33 @@ public partial class App : Application
 	{
 		try
 		{
+			var msg = ex?.ToString() ?? "Unknown exception";
 			var sb = new StringBuilder();
 			sb.AppendLine($"[{DateTime.UtcNow:o}] {source}");
-			if (ex != null)
-			{
-				sb.AppendLine(ex.ToString());
-			}
-			else
-			{
-				sb.AppendLine("Unknown exception");
-			}
+			sb.AppendLine(msg);
 
 			var path = Path.Combine(FileSystem.AppDataDirectory, "crash.log");
 			File.AppendAllText(path, sb.ToString());
-			Debug.WriteLine($"[Crash] {source}: {(ex?.Message ?? "Unknown")} → {path}");
+			Console.WriteLine($"💥 CRASH [{source}]: {msg}");
+
+			// Show crash on screen so user can report it
+			MainThread.BeginInvokeOnMainThread(async () =>
+			{
+				try
+				{
+					var page = Current?.Windows.FirstOrDefault()?.Page;
+					if (page != null)
+					{
+						var short_msg = ex?.Message ?? "Unknown";
+						var type = ex?.GetType().Name ?? "?";
+						await page.DisplayAlert(
+							$"Crash: {type}",
+							$"{source}\n\n{short_msg}\n\nStackTrace:\n{ex?.StackTrace?[..Math.Min(ex.StackTrace.Length, 500)]}",
+							"OK");
+					}
+				}
+				catch { }
+			});
 		}
 		catch
 		{

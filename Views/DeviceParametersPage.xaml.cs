@@ -73,7 +73,20 @@ public partial class DeviceParametersPage : ContentPage
             // Only set device info - don't initialize parameters yet!
             // Let the page render first, then load in OnAppearing
             _viewModel.SetDevice(device);
-            Console.WriteLine($"? Device set: {device.Name} ({device.Ip}) with auth: {!string.IsNullOrEmpty(device.Username)}");
+            Console.WriteLine($"?? Device set: {device.Name} ({device.Ip}) with auth: {!string.IsNullOrEmpty(device.Username)}");
+
+            // Warn user if credentials are missing
+            if (string.IsNullOrWhiteSpace(device.Username) || string.IsNullOrWhiteSpace(device.Password))
+            {
+                Console.WriteLine("?? Device credentials missing — API calls will fail");
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    await DisplayAlert(
+                        "Zugangsdaten fehlen",
+                        $"Für '{device.Name}' sind kein Benutzername/Passwort hinterlegt.\n\nParameter können nicht geladen werden. Bitte unter Geräte-Einstellungen die Zugangsdaten eingeben.",
+                        "OK");
+                });
+            }
         }
         catch (Exception ex)
         {

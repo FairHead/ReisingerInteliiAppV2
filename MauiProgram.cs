@@ -31,6 +31,9 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
+        // Suppress per-request HttpClient logging for the scanner client
+        builder.Logging.AddFilter("System.Net.Http.HttpClient.scanner", LogLevel.Warning);
+
         return builder.Build();
     }
 }

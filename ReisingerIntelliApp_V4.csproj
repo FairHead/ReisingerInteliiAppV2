@@ -52,6 +52,14 @@
 
 		<!-- Enable compiled XAML bindings including those with explicit Source -->
 		<MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
+
+		<!-- Disable IL trimming and AOT for Release builds.
+				 Trimming (even partial) breaks [ObservableProperty]-generated properties
+				 when System.Text.Json uses reflection, and causes native crashes when
+				 placing devices on the floor plan. The source-generated AppJsonSerializerContext
+				 still protects the critical API models for performance. -->
+		<PublishTrimmed Condition="'$(Configuration)' == 'Release'">false</PublishTrimmed>
+		<RunAOTCompilation Condition="'$(Configuration)' == 'Release'">false</RunAOTCompilation>
 	</PropertyGroup>
 
 	<ItemGroup>

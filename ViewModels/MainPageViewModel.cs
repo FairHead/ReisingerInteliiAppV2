@@ -126,6 +126,19 @@ public class MainPageViewModel : BaseViewModel, IDisposable
                 await LoadLocalDevicesAsync();
             }
         });
+        
+        // Listen for device updates (name changes, etc.) to sync with PlacedDevices
+        MessagingCenter.Subscribe<SaveLocalDevicePageViewModel, DeviceModel>(this, "DeviceUpdated", async (sender, updatedDevice) =>
+        {
+            await UpdatePlacedDevicesWithDeviceInfo(updatedDevice);
+        });
+        
+        // Also listen for WiFi device updates
+        MessagingCenter.Subscribe<SaveDevicePageViewModel, DeviceModel>(this, "DeviceUpdated", async (sender, updatedDevice) =>
+        {
+            await UpdatePlacedDevicesWithDeviceInfo(updatedDevice);
+        });
+
 
         // Listen for building saved to refresh and open Levels without forcing a level selection
         MessagingCenter.Subscribe<StructureEditorViewModel, string>(this, "BuildingSaved", async (sender, buildingName) =>
@@ -1392,6 +1405,78 @@ public class MainPageViewModel : BaseViewModel, IDisposable
 
     #region Device placement and scaling
 
+    /// <summary>
+    /// Updates all PlacedDevices across all buildings and floors when a device's info changes (e.g., name)
+    /// </summary>
+    private async Task UpdatePlacedDevicesWithDeviceInfo(DeviceModel updatedDevice)
+    {
+        try
+        {
+            Debug.WriteLine($"[UpdatePlacedDevicesWithDeviceInfo] Updating PlacedDevices for device: {updatedDevice.DeviceId} - {updatedDevice.Name}");
+            
+            // Load all buildings
+            var buildings = await _buildingStorage.LoadAsync();
+            bool anyChanges = false;
+            
+            foreach (var building in buildings)
+            {
+                foreach (var floor in building.Floors)
+                {
+                    if (floor.PlacedDevices == null) continue;
+                    
+                    foreach (var placedDevice in floor.PlacedDevices)
+                    {
+                        // Match by DeviceId
+                        if (placedDevice.DeviceInfo?.DeviceId == updatedDevice.DeviceId ||
+                            placedDevice.DeviceId == updatedDevice.DeviceId)
+                        {
+                            Debug.WriteLine($"[UpdatePlacedDevicesWithDeviceInfo] Found matching PlacedDevice on floor '{floor.FloorName}' - updating...");
+                            
+                            // Update the placed device with new info
+                            placedDevice.UpdateFromDevice(updatedDevice);
+                            anyChanges = true;
+                            
+                            Debug.WriteLine($"[UpdatePlacedDevicesWithDeviceInfo] Updated PlacedDevice name to: {placedDevice.Name}");
+                        }
+                    }
+                }
+            }
+            
+            if (anyChanges)
+            {
+                // Save changes back to storage
+                await _buildingStorage.SaveAsync(buildings);
+                Debug.WriteLine("[UpdatePlacedDevicesWithDeviceInfo] Changes saved to storage");
+                
+                // Refresh UI if currently viewing the affected floor
+                if (StructuresVM?.SelectedLevel?.PlacedDevices != null)
+                {
+                    foreach (var pd in StructuresVM.SelectedLevel.PlacedDevices)
+                    {
+                        if (pd.DeviceInfo?.DeviceId == updatedDevice.DeviceId ||
+                            pd.DeviceId == updatedDevice.DeviceId)
+                        {
+                            pd.UpdateFromDevice(updatedDevice);
+                        }
+                    }
+                    
+                    // Force UI refresh
+                    #pragma warning disable CS0618
+                    MessagingCenter.Send(this, "ForceDeviceLayoutRefresh");
+                    #pragma warning restore CS0618
+                }
+            }
+            else
+            {
+                Debug.WriteLine("[UpdatePlacedDevicesWithDeviceInfo] No matching PlacedDevices found");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[UpdatePlacedDevicesWithDeviceInfo] Error: {ex.Message}");
+        }
+    }
+
     private async Task AddDeviceToCurrentFloorAsync(DropdownItemModel? item)
     {
         try
@@ -1793,6 +1878,8 @@ public class MainPageViewModel : BaseViewModel, IDisposable
         #pragma warning disable CS0618
         MessagingCenter.Unsubscribe<LocalDevicesScanPageViewModel>(this, "LocalDeviceAdded");
         MessagingCenter.Unsubscribe<SaveLocalDevicePageViewModel, string>(this, "LocalDeviceAdded");
+        MessagingCenter.Unsubscribe<SaveLocalDevicePageViewModel, DeviceModel>(this, "DeviceUpdated");
+        MessagingCenter.Unsubscribe<SaveDevicePageViewModel, DeviceModel>(this, "DeviceUpdated");
         #pragma warning restore CS0618
         
         // Unsubscribe from StructuresVM PropertyChanged events

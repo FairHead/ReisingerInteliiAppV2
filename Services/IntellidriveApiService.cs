@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using ReisingerIntelliApp_V4.Helpers;
 using ReisingerIntelliApp_V4.Models;
 
 namespace ReisingerIntelliApp_V4.Services;
@@ -40,6 +41,12 @@ public class IntellidriveApiService
 
     private async Task<HttpResponseMessage> SendAuthedGetAsync(string ip, string path, string username, string password, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            Debug.WriteLine($"⚠️ API GET {path}: credentials missing (user='{username}', hasPassword={!string.IsNullOrEmpty(password)})");
+            throw new InvalidOperationException($"Zugangsdaten fehlen für API-Aufruf: {path}. Bitte Benutzername und Passwort in den Geräte-Einstellungen eingeben.");
+        }
+
         using var req = new HttpRequestMessage(HttpMethod.Get, Url(ip, path));
         req.Headers.Authorization = BuildBasicAuth(username, password);
         req.Headers.Accept.ParseAdd("application/json");
@@ -48,6 +55,12 @@ public class IntellidriveApiService
 
     private async Task<HttpResponseMessage> SendAuthedPostAsync(string ip, string path, string username, string password, HttpContent? content = null, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            Debug.WriteLine($"⚠️ API POST {path}: credentials missing (user='{username}', hasPassword={!string.IsNullOrEmpty(password)})");
+            throw new InvalidOperationException($"Zugangsdaten fehlen für API-Aufruf: {path}. Bitte Benutzername und Passwort in den Geräte-Einstellungen eingeben.");
+        }
+
         using var req = new HttpRequestMessage(HttpMethod.Post, Url(ip, path));
         req.Headers.Authorization = BuildBasicAuth(username, password);
         req.Headers.Accept.ParseAdd("application/json");
@@ -352,7 +365,7 @@ public class IntellidriveApiService
         var res = await SendAuthedGetAsync(device.Ip, "/intellidrive/parameters", device.Username, device.Password, ct);
         if (!res.IsSuccessStatusCode) return null;
         var json = await res.Content.ReadAsStringAsync(ct);
-        return JsonSerializer.Deserialize<IntellidriveParametersResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        return JsonSerializer.Deserialize(json, AppJsonSerializerContext.Default.IntellidriveParametersResponse);
     }
 
     /// <summary>
@@ -371,10 +384,7 @@ public class IntellidriveApiService
     {
         try
         {
-            var json = JsonSerializer.Serialize(request, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = null // Keep exact property names (Id, V, etc.)
-            });
+            var json = JsonSerializer.Serialize(request, AppJsonSerializerContext.Default.IntellidriveSetParametersRequest);
             
             Debug.WriteLine($"🔧 Sending parameters to {device.Ip}:");
             Debug.WriteLine($"   Request: {json}");
@@ -395,10 +405,7 @@ public class IntellidriveApiService
                 };
             }
             
-            var response = JsonSerializer.Deserialize<IntellidriveSetParametersResponse>(responseJson, new JsonSerializerOptions 
-            { 
-                PropertyNameCaseInsensitive = true 
-            });
+            var response = JsonSerializer.Deserialize(responseJson, AppJsonSerializerContext.Default.IntellidriveSetParametersResponse);
             
             return response ?? new IntellidriveSetParametersResponse
             {
@@ -508,11 +515,7 @@ public class IntellidriveApiService
             var json = await res.Content.ReadAsStringAsync(ct);
             Debug.WriteLine($"📥 Min-values response: {json.Substring(0, Math.Min(200, json.Length))}...");
             
-            var response = JsonSerializer.Deserialize<IntellidriveMinValuesResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (response?.Success == true)
-            {
-                Debug.WriteLine($"✅ Successfully fetched {response.Values?.Count ?? 0} min-values");
-            }
+            var response = JsonSerializer.Deserialize(json, AppJsonSerializerContext.Default.IntellidriveMinValuesResponse);
             return response;
         }
         catch (Exception ex)
@@ -540,11 +543,7 @@ public class IntellidriveApiService
             var json = await res.Content.ReadAsStringAsync(ct);
             Debug.WriteLine($"📥 Max-values response: {json.Substring(0, Math.Min(200, json.Length))}...");
             
-            var response = JsonSerializer.Deserialize<IntellidriveMaxValuesResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (response?.Success == true)
-            {
-                Debug.WriteLine($"✅ Successfully fetched {response.Values?.Count ?? 0} max-values");
-            }
+            var response = JsonSerializer.Deserialize(json, AppJsonSerializerContext.Default.IntellidriveMaxValuesResponse);
             return response;
         }
         catch (Exception ex)
@@ -572,7 +571,7 @@ public class IntellidriveApiService
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync(cts.Token);
-                return JsonSerializer.Deserialize<IntellidriveMinValuesResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return JsonSerializer.Deserialize(json, AppJsonSerializerContext.Default.IntellidriveMinValuesResponse);
             }
         }
         catch (Exception ex)
@@ -600,7 +599,7 @@ public class IntellidriveApiService
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync(cts.Token);
-                return JsonSerializer.Deserialize<IntellidriveMaxValuesResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return JsonSerializer.Deserialize(json, AppJsonSerializerContext.Default.IntellidriveMaxValuesResponse);
             }
         }
         catch (Exception ex)

@@ -16,10 +16,9 @@ public class BuildingStorageService : IBuildingStorageService
         try
         {
             var json = await SecureStorage.GetAsync(StorageKey);
-            
-            // Debug: Log what we're loading
+
             System.Diagnostics.Debug.WriteLine($"🏢 BuildingStorageService.LoadAsync - Raw JSON length: {json?.Length ?? 0}");
-            
+
             if (string.IsNullOrWhiteSpace(json))
             {
                 System.Diagnostics.Debug.WriteLine($"🏢 BuildingStorageService.LoadAsync - No data found, returning empty list");
@@ -27,8 +26,7 @@ public class BuildingStorageService : IBuildingStorageService
             }
 
             var list = JsonSerializer.Deserialize<List<Building>>(json, JsonOpts) ?? new List<Building>();
-            
-            // Debug: Log what we loaded
+
             System.Diagnostics.Debug.WriteLine($"🏢 BuildingStorageService.LoadAsync - Loaded {list.Count} buildings");
             foreach (var building in list)
             {
@@ -36,10 +34,10 @@ public class BuildingStorageService : IBuildingStorageService
                 System.Diagnostics.Debug.WriteLine($"   📍 Building: {building.BuildingName} with {building.Floors.Count} floors");
                 foreach (var floor in building.Floors)
                 {
-                    System.Diagnostics.Debug.WriteLine($"      🏠 Floor: {floor.FloorName} with {floor.PlacedDevices.Count} devices");
+                    System.Diagnostics.Debug.WriteLine($"      🏠 Floor: {floor.FloorName} with {floor.PlacedDevices.Count} devices, PdfPath: {floor.PdfPath ?? "null"}");
                 }
             }
-            
+
             return list;
         }
         catch (Exception ex)

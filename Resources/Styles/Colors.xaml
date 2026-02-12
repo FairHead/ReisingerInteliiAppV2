@@ -66,7 +66,7 @@
     <!--  Delete (bin) button background  -->
     <Color x:Key="PlacedDeviceDeleteButton">#FF3B30</Color>
     <!--  Center open/close (config) button background  -->
-    <Color x:Key="PlacedDdotneeviceConfigButton">#FFD60A</Color>
+    <Color x:Key="PlacedDeviceConfigButton">#FFD60A</Color>
     <!--  Move button background  -->
     <Color x:Key="PlacedDeviceMoveButton">#0A84FF</Color>
     <!--  Text colors on device card  -->

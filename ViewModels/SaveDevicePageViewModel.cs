@@ -400,6 +400,11 @@ public partial class SaveDevicePageViewModel : ObservableObject, IDisposable
             await _deviceService.SaveDeviceAsync(device);
             System.Diagnostics.Debug.WriteLine("✅ SaveDeviceAsync upsert completed");
 
+            // Send message to update PlacedDevices with the new device info
+            #pragma warning disable CS0618
+            MessagingCenter.Send(this, "DeviceUpdated", device);
+            #pragma warning restore CS0618
+
             UpdateStatusMessage(existing != null ? "✅ Gerät aktualisiert" : "✅ Gerät gespeichert", Colors.Green, true);
             
             // Navigate back to WifiScanPage after successful save
